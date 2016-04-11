@@ -1,22 +1,25 @@
 clear all; close all;
 
-addpath(genpath('/Users/idse/repos/Warmflash/')); 
+addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
 
-%dataDir = '/Volumes/IdseData/160318_micropattern_lefty/lefty';
-dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
+dataDir = '/Volumes/IdseData/160318_micropattern_lefty/lefty';
+%dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
 
-%btfname = fullfile(dataDir, '160319_lefty.btf');
-btfname = fullfile(dataDir, '160318_control.btf');
+btfname = fullfile(dataDir, '160319_lefty.btf');
+%btfname = fullfile(dataDir, '160318_control.btf');
 
-%vsifile = fullfile(dataDir,'Image665.vsi');
+vsifile = fullfile(dataDir,'Image665.vsi');
 
 metaDataFile = fullfile(dataDir,'metaData.mat');
 
 % size limit of data chunks read in
 maxMemoryGB = 4;
 
-%% metadata
+% TODO: STORE EDGES IN COLONY OBJECT WHEN MAKING UNSEGMENTED PROFILE
+
+% metadata
+%----------------
 
 % read metadata
 if exist(metaDataFile,'file')
@@ -24,7 +27,7 @@ if exist(metaDataFile,'file')
     load(metaDataFile);
 elseif exist('vsifile','var') && exist(vsifile,'file')
     disp('extracting metadata from vsi file');
-    meta = readMeta_OlympusVSI(vsifile);
+    meta = readMeta_Bioformats(vsifile);
     
 % or pretty much enter it by hand
 else
@@ -44,7 +47,7 @@ end
 
 meta.colRadiiMicron = [200 500 800 1000]/2;
 meta.colMargin = 10; % margin outside colony to process
-meta.antibodyNames = {'DAPI','Cdx2','Sox2','Bra'};
+meta.channelLabel = {'DAPI','Cdx2','Sox2','Bra'};
 
 meta.colRadiiPixel = meta.colRadiiMicron/meta.xres;
 DAPIChannel = find(strcmp(meta.channelNames,'DAPI'));
@@ -201,7 +204,10 @@ for n = 1:numel(yedge)-1
             N = size(radialMaskStack{colType},3);
             radavg = zeros([N meta.nChannels]);
             radstd = zeros([N meta.nChannels]);
-
+            
+            % store bin edges, to be reused by segmented profiles later
+            colonies(coli).radialBinEdges = edges{colType};
+            
             for ri = 1:N
                 % for some reason linear indexing is faster than binary
                 colbinmask = find(radialMaskStack{colType}(:,:,ri) & colmask);
@@ -264,16 +270,33 @@ CM(:,2) = CM(:,2)*scale;
 CM(:,1) = CM(:,1)*scale;
 hold off
 d = 80;
-text(1,1,meta.antibodyNames{channelPermutation(1)+1},'Color','r','VerticalAlignment','top','BackgroundColor','white')
-text(1,d,meta.antibodyNames{channelPermutation(2)+1},'Color','g','VerticalAlignment','top','BackgroundColor','white')
-text(1,2*d,meta.antibodyNames{channelPermutation(3)+1},'Color','b','VerticalAlignment','top','BackgroundColor','white')
-saveas(gcf,fullfile(dataDir,'coloniesOverview.png'));
+text(1,1,meta.channelLabel{channelPermutation(1)+1},'Color','r','VerticalAlignment','top','BackgroundColor','white')
+text(1,d,meta.channelLabel{channelPermutation(2)+1},'Color','g','VerticalAlignment','top','BackgroundColor','white')
+text(1,2*d,meta.channelLabel{channelPermutation(3)+1},'Color','b','VerticalAlignment','top','BackgroundColor','white')
+saveas(gcf,fullfile(dataDir,'coloniesOverviewRGB.png'));
+
+%% also save preview composite
+
+preview = uint16(preview);
+fname = fullfile(dataDir,'coloniesOverview.tif');
+imwrite(preview(:,:,1),fname);
+for i = 2:4
+    imwrite(preview(:,:,i),fname,'WriteMode','Append');
+end
 
 %% read segmentation
 % 
 % make data in classifier 'copied to protect file'
 
-load(fullfile(dataDir,'colonies'));
+if ~exist('colonies','var')
+    load(fullfile(dataDir,'colonies'));
+end
+
+%% take just the large colonies
+
+colRadii = cat(1,colonies.radiusMicron);
+colonies1000idx = colRadii == 500;
+colonies1000 = colonies(colonies1000idx);
 
 %%
 coli = 4;
@@ -291,14 +314,14 @@ figure, imshow(label2rgb(bwlabel(seg2),'jet','k','shuffle'));
 %% extract data using Ilastik segmentation
 
 tic
-for coli = 1:numel(colonies)
+for coli = [colonies1000.ID]
     
     % extract segmented data
     colonies(coli).extractData(dataDir);
     
     % radial binning of segmented data
     colType = find(meta.colRadiiMicron == colonies(coli).radiusMicron);
-    colonies(coli).makeRadialAvgSeg(edges{colType})
+    colonies(coli).makeRadialAvgSeg()
 end
 toc
 
@@ -311,8 +334,8 @@ colonies1000idx = colRadii == 500;
 colonies1000 = colonies(colonies1000idx);
 
 i = find(meta.colRadiiMicron == 500);
-r = imfilter(edges{i},[1 1]/2)*meta.xres;
-r(1) = edges{i}(1)*meta.xres;
+r = imfilter(colonies1000(1).radialBinEdges,[1 1]/2)*meta.xres;
+r(1) = colonies1000(1).radialBinEdges(1)*meta.xres;
 r = r(1:end-1);
 
 colCat = cat(3,colonies1000(:).radialAvgSeg);
@@ -320,8 +343,8 @@ avg = mean(colCat,3);
 avgNormalizedSeg = bsxfun(@rdivide, avg, avg(:,1));
 
 plot(r, avgNormalizedSeg(:,2:4))
-legend(meta.antibodyNames(2:4));
-axis([min(r) max(r) 0 2]);
+legend(meta.channelLabel(2:4));
+axis([min(r) max(r) 0 4]);
 
 %% not segmented
 
@@ -331,17 +354,18 @@ avg = mean(colCat,3);
 avgNormalized = bsxfun(@rdivide, avg, avg(:,1));
 
 plot(r, avgNormalized(:,2:4))
-legend(meta.antibodyNames(2:4));
+legend(meta.channelLabel(2:4));
 axis([min(r) max(r) 0 2]);
 
 %% compare
 
+figure,
 plot(r, avgNormalizedSeg(:,2:4))
-axis([min(r) max(r) 0 2]);
+axis([min(r) max(r) 0 6]);
 hold on
 plot(r, avgNormalized(:,2:4),'--')
 hold off
-legend(meta.antibodyNames(2:4));
+legend(meta.channelLabel(2:4));
 title('segmented vs not segmented (dashed)')
 
 %% look at single segmented colony
@@ -351,7 +375,7 @@ avgSeg = colonies(coli).radialAvgSeg;
 avgSegNormalized = bsxfun(@rdivide, avgSeg, avgSeg(:,1));
 figure(3)
 plot(r, avgSegNormalized(:,2:4))
-legend(meta.antibodyNames(2:4))
+legend(meta.channelLabel(2:4))
 axis([min(r) max(r) 0 3]);
 
 %% compare non-segmented
@@ -360,5 +384,5 @@ avg = colonies(coli).radialAvg;
 avgNormalized = bsxfun(@rdivide, avg, avg(:,1));
 figure(2)
 plot(r, avgNormalized(:,2:4))
-legend(meta.antibodyNames(2:4))
+legend(meta.channelLabel(2:4))
 axis([min(r) max(r) 0 3]);

@@ -90,12 +90,12 @@ classdef colony < handle
             %
             % seg:      binary image of nuclei
             %
-            % segmentation is expected to have same name as colony tif
+            % segmentation is expected to have same name as colony DAPI tif
             % image but with .tif -> '_Simple Segmentation.h5'
             %
             % by convention use green for foreground in Ilastik
 
-            fname = fullfile(dataDir,'colonies',[this.bareFilename '_Simple Segmentation.h5']);
+            fname = fullfile(dataDir,'colonies',[this.bareFilename '_c1_Simple Segmentation.h5']);
             seg = (squeeze(h5read(fname, '/exported_data')) == 2)';
         end
         
@@ -139,6 +139,7 @@ classdef colony < handle
             % x, y, area, -1, then (nuclear, cytoplasmic) mean for each channel
             
             seg = this.loadSegmentation(dataDir);
+            %seg = imerode(seg, strel('disk',2));
 
             % most time consuming:
             options = struct('minAreaStd', 1, 'minSolidity',0);
@@ -161,7 +162,7 @@ classdef colony < handle
             end
         end
         
-        function makeRadialAvgSeg(this, edges)
+        function makeRadialAvgSeg(this)
             % create radial profile of segmented single cell data 
             % 
             % makeRadialAvgSeg(edges)
@@ -175,11 +176,10 @@ classdef colony < handle
             XY(:,1) = XY(:,1) - mean(XY(:,1));
             XY(:,2) = XY(:,2) - mean(XY(:,2));
             r = sqrt(sum(XY(:,1:2).^2,2));
-            [n,bini] = histc(r, edges);
+            [n,bini] = histc(r, this.radialBinEdges);
 
             nBins = numel(n)-1; % last bin we ignore (see doc histc)
             this.radialAvgSeg = zeros([nBins this.nChannels]);
-            this.radialBinEdges = edges;
             
             for ci = 1:this.nChannels    
                 for i = 1:nBins
