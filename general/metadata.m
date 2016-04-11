@@ -69,7 +69,10 @@ classdef metadata
             
             this.excitationWavelength = {};
             for ci = 1:this.nChannels 
-                this.excitationWavelength {ci} = round(10^3*double(omeMeta.getChannelExcitationWavelength(0,ci-1).value(ome.units.UNITS.MICROM)));
+                lambda = omeMeta.getChannelExcitationWavelength(0,ci-1);
+                if ~isempty(lambda)
+                    this.excitationWavelength{ci} = round(10^3*double(lambda.value(ome.units.UNITS.MICROM)));
+                end
             end
 
             this.nZslices = r.getSizeZ();
@@ -93,6 +96,31 @@ classdef metadata
             [datadir,barefname] = fileparts(this.filename);
             metafname = fullfile(datadir,[barefname '_metadata']);
             save(metafname, 'meta');
+        end
+        
+        function displayPositions(this)
+            % display positions 
+            %
+            % displayPositions();
+            
+            XYZ = this.XYZ;
+
+            %scatter(XYZ(:,1), XYZ(:,2))
+
+            for i = 1:size(XYZ,1)
+                text(XYZ(i,1), XYZ(i,2),num2str(i))
+                w = 1024*this.xres;
+                h = 1024*this.yres;
+                rectangle('Position',[XYZ(i,1)-w/2,XYZ(i,2)-h/2,w,h])
+            end
+            axis([min(XYZ(:,1))-w max(XYZ(:,1))+w min(XYZ(:,2))-h max(XYZ(:,2))+h])
+            axis equal
+            axis off
+
+            % XYZmean = mean(XYZ);
+            % hold on
+            % scatter(XYZmean(:,1), XYZmean(:,2),'r')
+            % hold off
         end
     end
 end

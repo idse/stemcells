@@ -1,4 +1,4 @@
-function [data nChannels] = readStack(fullfname) 
+function [data, nChannels] = readStack(fullfname) 
     % read the data from a single multichannel stack
 
     % a way to do it without bioformats:

@@ -18,6 +18,7 @@ maxMemoryGB = 4;
 
 % TODO: STORE EDGES IN COLONY OBJECT WHEN MAKING UNSEGMENTED PROFILE
 
+%%
 % metadata
 %----------------
 
@@ -27,11 +28,11 @@ if exist(metaDataFile,'file')
     load(metaDataFile);
 elseif exist('vsifile','var') && exist(vsifile,'file')
     disp('extracting metadata from vsi file');
-    meta = readMeta_Bioformats(vsifile);
+    meta = metadataMicropattern(vsifile);
     
 % or pretty much enter it by hand
 else
-    meta = struct();
+    meta = metadata();
     h = Tiff(btfname);
     meta.ySize = h.getTag('ImageLength');
     meta.xSize = h.getTag('ImageWidth');
@@ -42,14 +43,16 @@ else
     meta.yres = meta.xres;
 end
 
+%%
 % manually entered metadata
 %------------------------------
 
-meta.colRadiiMicron = [200 500 800 1000]/2;
-meta.colMargin = 10; % margin outside colony to process
 meta.channelLabel = {'DAPI','Cdx2','Sox2','Bra'};
 
+meta.colRadiiMicron = [200 500 800 1000]/2;
+meta.colMargin = 10; % margin outside colony to process
 meta.colRadiiPixel = meta.colRadiiMicron/meta.xres;
+
 DAPIChannel = find(strcmp(meta.channelNames,'DAPI'));
 
 save(fullfile(dataDir,'metaData'),'meta');
@@ -175,7 +178,7 @@ for n = 1:numel(yedge)-1
             
             % store the ID so the colony object knows its position in the
             % array (used to then load the image etc)
-            colonies(coli).ID = coli;
+            colonies(coli).setID(coli);
             
             fprintf('.');
             if mod(coli,60)==0
@@ -194,7 +197,7 @@ for n = 1:numel(yedge)-1
             colmaskClean = cleanmask(b(3):b(4),b(1):b(2));
 
             % write colony image
-            colonies(coli).saveImage(colimg, dataDir);
+            colonies(coli).saveImage(colimg, fullfile(dataDir,'colonies'));
 
             % write DAPI separately for Ilastik
             colonies(coli).saveImage(colimg, dataDir, DAPIChannel);
@@ -317,7 +320,7 @@ tic
 for coli = [colonies1000.ID]
     
     % extract segmented data
-    colonies(coli).extractData(dataDir);
+    colonies(coli).extractData(fullfile(dataDir,'colonies'));
     
     % radial binning of segmented data
     colType = find(meta.colRadiiMicron == colonies(coli).radiusMicron);
