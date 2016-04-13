@@ -2,25 +2,31 @@ clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/')); 
 
-dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
-dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
+%dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
+%dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
 
-nucChannel = 1;
-S4Channel = 0;
+dataDir = '/Volumes/IdseData/160323_8well_sox17/4days/sox17live_20160327_125754 PM';
 
-[meta, rawmeta] = readMeta_Andor(dataDir);
+meta = MetadataAndor(dataDir);
+
+nucChannel = 0;
+S4Channel = 1;
 
 %%
 % visualize positions
 
-displayPositions_Andor(meta);
+meta.displayPositions();
 
 %%
 
 % ASSUME: files are split by position & wavelength
 
 channels = [nucChannel S4Channel];
-saveidx = [true false];
+
+% save idx for channels containing nuclear marker
+% saveidx = [true false]; 
+saveidx = [true true]; 
+
 inputdir = dataDir;
 outputdir = fullfile(dataDir, 'MIP');
 

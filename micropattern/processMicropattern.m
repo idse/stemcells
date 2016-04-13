@@ -16,8 +16,6 @@ metaDataFile = fullfile(dataDir,'metaData.mat');
 % size limit of data chunks read in
 maxMemoryGB = 4;
 
-% TODO: STORE EDGES IN COLONY OBJECT WHEN MAKING UNSEGMENTED PROFILE
-
 %%
 % metadata
 %----------------
@@ -28,11 +26,11 @@ if exist(metaDataFile,'file')
     load(metaDataFile);
 elseif exist('vsifile','var') && exist(vsifile,'file')
     disp('extracting metadata from vsi file');
-    meta = metadataMicropattern(vsifile);
+    meta = MetadataMicropattern(vsifile);
     
 % or pretty much enter it by hand
 else
-    meta = metadata();
+    meta = Metadata();
     h = Tiff(btfname);
     meta.ySize = h.getTag('ImageLength');
     meta.xSize = h.getTag('ImageWidth');
@@ -43,14 +41,13 @@ else
     meta.yres = meta.xres;
 end
 
-%%
 % manually entered metadata
 %------------------------------
 
 meta.channelLabel = {'DAPI','Cdx2','Sox2','Bra'};
 
 meta.colRadiiMicron = [200 500 800 1000]/2;
-meta.colMargin = 10; % margin outside colony to process
+meta.colMargin = 10; % margin outside colony to process, in pixels
 meta.colRadiiPixel = meta.colRadiiMicron/meta.xres;
 
 DAPIChannel = find(strcmp(meta.channelNames,'DAPI'));
@@ -168,8 +165,9 @@ for n = 1:numel(yedge)-1
         tic
         
         % channels to save to individual images
-        if ~exist(fullfile(dataDir,'colonies'),'dir')
-            mkdir(fullfile(dataDir,'colonies'));
+        colDir = fullfile(dataDir,'colonies');
+        if ~exist(colDir,'dir')
+            mkdir(colDir);
         end
 
         nColonies = numel(colonies);
@@ -188,7 +186,8 @@ for n = 1:numel(yedge)-1
             colDiamMicron = 2*colonies(coli).radiusMicron; 
             
             b = colonies(coli).boundingBox;
-            colmask = mask(b(3):b(4),b(1):b(2));
+            colnucmask = mask(b(3):b(4),b(1):b(2));
+            colcytmask = imdilate(colnucmask,strel('disk',round(5/meta.xres)))-colnucmask;
             
             b(1:2) = b(1:2) - double(xmin - 1);
             b(3:4) = b(3:4) - double(ymin - 1);
@@ -197,42 +196,53 @@ for n = 1:numel(yedge)-1
             colmaskClean = cleanmask(b(3):b(4),b(1):b(2));
 
             % write colony image
-            colonies(coli).saveImage(colimg, fullfile(dataDir,'colonies'));
+            colonies(coli).saveImage(colimg, colDir);
 
             % write DAPI separately for Ilastik
-            colonies(coli).saveImage(colimg, dataDir, DAPIChannel);
+            colonies(coli).saveImage(colimg, colDir, DAPIChannel);
 
             % do radial binning
             colType = find(meta.colRadiiMicron == colonies(coli).radiusMicron);
             N = size(radialMaskStack{colType},3);
-            radavg = zeros([N meta.nChannels]);
-            radstd = zeros([N meta.nChannels]);
+            nucradavg = zeros([N meta.nChannels]);
+            nucradstd = zeros([N meta.nChannels]);
+            cytradavg = zeros([N meta.nChannels]);
+            cytradstd = zeros([N meta.nChannels]);
             
             % store bin edges, to be reused by segmented profiles later
-            colonies(coli).radialBinEdges = edges{colType};
+            colonies(coli).radialProfile.BinEdges = edges{colType};
             
             for ri = 1:N
                 % for some reason linear indexing is faster than binary
-                colbinmask = find(radialMaskStack{colType}(:,:,ri) & colmask);
+                colnucbinmask = find(radialMaskStack{colType}(:,:,ri) & colnucmask);
+                colcytbinmask = find(radialMaskStack{colType}(:,:,ri) & colcytmask);
+                
                 for ci = 1:meta.nChannels
                     imc = colimg(:,:,ci);
                     % most primitive background subtraction: minimal value
                     % within the colony
                     % min(imc(colmaskClean)) doubles the computatation time
                     imc = imc - min(imc(:));
-                    imcbin = imc(colbinmask);
-                    radavg(ri,ci) = mean(imcbin);
-                    radstd(ri,ci) = std(double(imcbin));
+                    
+                    imcbin = imc(colnucbinmask);
+                    nucradavg(ri,ci) = mean(imcbin);
+                    nucradstd(ri,ci) = std(double(imcbin));
+                    
+                    imcbin = imc(colcytbinmask);
+                    cytradavg(ri,ci) = mean(imcbin);
+                    cytradstd(ri,ci) = std(double(imcbin));
                 end
             end
-            colonies(coli).radialAvg = radavg;
-            colonies(coli).radialStd = radstd;
+            colonies(coli).radialProfile.NucAvg = nucradavg;
+            colonies(coli).radialProfile.NucStd = nucradstd;
+            colonies(coli).radialProfile.CytAvg = cytradavg;
+            colonies(coli).radialProfile.CytStd = cytradstd;
         end
         fprintf('\n');
         toc
     end
 end
-
+%%
 save(fullfile(dataDir,'colonies'), 'colonies');
 
 %% visualize
@@ -304,8 +314,8 @@ colonies1000 = colonies(colonies1000idx);
 %%
 coli = 4;
 
-DAPI = colonies(coli).loadImage(dataDir, DAPIChannel);
-seg = colonies(coli).loadSegmentation(dataDir);
+DAPI = colonies(coli).loadImage(colDir, DAPIChannel);
+seg = colonies(coli).loadSegmentation(colDir, DAPIChannel);
 
 figure, imshow(label2rgb(bwlabel(seg),'jet','k','shuffle'));
 
@@ -320,7 +330,7 @@ tic
 for coli = [colonies1000.ID]
     
     % extract segmented data
-    colonies(coli).extractData(fullfile(dataDir,'colonies'));
+    colonies(coli).extractData(colDir, DAPIChannel);
     
     % radial binning of segmented data
     colType = find(meta.colRadiiMicron == colonies(coli).radiusMicron);
@@ -328,6 +338,7 @@ for coli = [colonies1000.ID]
 end
 toc
 
+%%
 save(fullfile(dataDir,'colonies'), 'colonies');
 
 %% display segmented radial profile
@@ -337,11 +348,12 @@ colonies1000idx = colRadii == 500;
 colonies1000 = colonies(colonies1000idx);
 
 i = find(meta.colRadiiMicron == 500);
-r = imfilter(colonies1000(1).radialBinEdges,[1 1]/2)*meta.xres;
-r(1) = colonies1000(1).radialBinEdges(1)*meta.xres;
+r = imfilter(colonies1000(1).radialProfile.BinEdges,[1 1]/2)*meta.xres;
+r(1) = colonies1000(1).radialProfile.BinEdges(1)*meta.xres;
 r = r(1:end-1);
 
-colCat = cat(3,colonies1000(:).radialAvgSeg);
+colCat = cat(3,colonies1000(:).radialProfile);
+colCat = cat(3,colCat.NucAvgSeg);
 avg = mean(colCat,3);
 avgNormalizedSeg = bsxfun(@rdivide, avg, avg(:,1));
 
@@ -352,21 +364,30 @@ axis([min(r) max(r) 0 4]);
 %% not segmented
 
 figure,
-colCat = cat(3,colonies1000(:).radialAvg);
-avg = mean(colCat,3);
-avgNormalized = bsxfun(@rdivide, avg, avg(:,1));
+colCat = cat(3,colonies1000(:).radialProfile);
 
-plot(r, avgNormalized(:,2:4))
+nucAvgAll = mean(cat(3,colCat.NucAvg),3);
+cytAvgAll = mean(cat(3,colCat.CytAvg),3);
+
+nucAvgAllNormalized = bsxfun(@rdivide, nucAvgAll, nucAvgAll(:,DAPIChannel));
+
+% how normalize cytoplasmic levels?
+cytAvgAllNormalized = bsxfun(@rdivide, cytAvgAll, nucAvgAll(:,DAPIChannel));
+
+plot(r, nucAvgAllNormalized(:,2:4))
 legend(meta.channelLabel(2:4));
 axis([min(r) max(r) 0 2]);
+hold on
+plot(r, cytAvgAllNormalized(:,2:4),'--')
+hold off
 
 %% compare
 
 figure,
 plot(r, avgNormalizedSeg(:,2:4))
-axis([min(r) max(r) 0 6]);
+axis([min(r) max(r) 0 2]);
 hold on
-plot(r, avgNormalized(:,2:4),'--')
+plot(r, nucAvgAllNormalized(:,2:4),'--')
 hold off
 legend(meta.channelLabel(2:4));
 title('segmented vs not segmented (dashed)')
@@ -374,7 +395,7 @@ title('segmented vs not segmented (dashed)')
 %% look at single segmented colony
 
 coli = 262;
-avgSeg = colonies(coli).radialAvgSeg;
+avgSeg = colonies(coli).radialProfile.NucAvgSeg;
 avgSegNormalized = bsxfun(@rdivide, avgSeg, avgSeg(:,1));
 figure(3)
 plot(r, avgSegNormalized(:,2:4))
@@ -383,9 +404,9 @@ axis([min(r) max(r) 0 3]);
 
 %% compare non-segmented
 
-avg = colonies(coli).radialAvg;
-avgNormalized = bsxfun(@rdivide, avg, avg(:,1));
+avg = colonies(coli).radialProfile.NucAvg;
+nucAvgAllNormalized = bsxfun(@rdivide, avg, avg(:,1));
 figure(2)
-plot(r, avgNormalized(:,2:4))
+plot(r, nucAvgAllNormalized(:,2:4))
 legend(meta.channelLabel(2:4))
 axis([min(r) max(r) 0 3]);

@@ -1,6 +1,6 @@
 function batchMIP_Andor(inputdir, outputdir, channels, saveidx)
 
-    meta = readMeta_Andor(inputdir);
+    meta = metadataAndor(inputdir);
     
     for ci = 1:numel(channels)
         for pi = 1:meta.nPositions

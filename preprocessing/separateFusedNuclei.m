@@ -3,6 +3,9 @@ function [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options)
     %
     % [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options) 
     %
+    % uses erosion of fused nuclei as seeds for seeded watershed within the
+    % original mask
+    %
     % nucleiMask:       input binary mask of nuclei
     % options:          structure with fields
     % -minAreaStd:      only objects with A > mean(A) + minAreaStd*std(A)
@@ -11,23 +14,33 @@ function [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options)
     %                   considered fused (default 0.95)
     %                   NOTE: this part is computationally expensive
     %                   set value <= 0 to turn off and speed up
+    % -erodeSize        in units of mean radius, default 1
     %
     % newNucleiMask:    mask with separated nuclei
     % fusedMask:        mask containing potentially fused nuclei
-    %
-    % uses erosion of fused nuclei as seeds for seeded watershed within the
-    % original mask
+
     
     % ---------------------
     % Idse Heemskerk, 2016
     % ---------------------
     
     if ~exist('options','var')
+        options = struct();
+    end
+    if ~isfield(options,'minSolidity')
         minSolidity = 0.95;
-        minAreaStd = 1;
     else
         minSolidity = options.minSolidity;
+    end
+    if ~isfield(options,'minAreaStd')
+        minAreaStd = 1;
+    else
         minAreaStd = options.minAreaStd;
+    end
+    if ~isfield(options,'erodeSize')
+        erodeSize = 1;
+    else
+        erodeSize = options.erodeSize;
     end
     
     CC = bwconncomp(nucleiMask);
@@ -52,11 +65,12 @@ function [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options)
 
 %     figure,
 %     imshow(cat(3,nucleiMask,fused,0*fused))
-    
-    s = round(sqrt(mean(area))/pi);
+
+    s = round(erodeSize*sqrt(mean(area))/pi);
     nucmin = imerode(fusedMask,strel('disk',s));
-    basin = imcomplement(bwdist(~fusedMask));
-    basin = imimposemin(basin, nucmin | ~fusedMask);
+    outside = ~imdilate(fusedMask,strel('disk',1));
+    basin = imcomplement(bwdist(outside));
+    basin = imimposemin(basin, nucmin | outside);
 
     L = watershed(basin);
     newNucleiMask = L > 1 | nucleiMask - fusedMask;

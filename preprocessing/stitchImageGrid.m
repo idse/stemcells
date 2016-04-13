@@ -1,4 +1,22 @@
 function stitched = stitchImageGrid(upperleft, imgs)
+    % combine image grid into single image
+    %
+    % stitched = stitchImageGrid(upperleft, imgs)
+    %
+    %
+    % stitched:     combined image
+    %
+    % upperleft:    cell array of positions of upperleft corners with
+    %               upperleft corner of upperleft image being (1,1)
+    %               as produced by registerImageGrid(..)
+    % imgs:         cell array of images 
+    %               with rows and cols corresponding to grid
+    %
+    % see also registerImageGrid
+
+    % ---------------------
+    % Idse Heemskerk, 2016
+    % ---------------------
 
     % note: could be made fancier by averaging the overlap
 

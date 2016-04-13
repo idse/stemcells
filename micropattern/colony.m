@@ -1,4 +1,4 @@
-classdef colony < position
+classdef Colony < Position
     % Data class to store a stem cell colony
     
     % ---------------------
@@ -13,12 +13,18 @@ classdef colony < position
         %------------------------------
         
         radiusPixel     % radius of colony
-        radiusMicron  
-        radialAvg       % radial average 
-        radialAvgSeg    % radial average based on segmentation
-        radialStd       % radial standard deviation
-        radialStdSeg  
-        radialBinEdges  % radial bin edges in pixels
+        radiusMicron
+        
+        radialProfile   % struct with fields
+                        % NucAvg    : radial average 
+                        % NucAvgSeg : radial average based on segmentation
+                        % NucStd    : radial standard deviation
+                        % NucStdSeg  
+                        % CytAvg    : cytoplasmic
+                        % CytAvgSeg 
+                        % CytStd
+                        % CytStdSeg 
+                        % BinEdges  : radial bin edges in pixels
                         % assumed to be the same for segmented and
                         % unsegmented
         boundingBox     % [xmin xmax ymin ymax] into btf
@@ -31,7 +37,7 @@ classdef colony < position
     methods
         
         % constructor
-        function this = colony(nChannels, center, radiusPixel, radiusMicron, boundingBox)
+        function this = Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox)
 
             % matlab sucks
             if nargin == 0
@@ -50,7 +56,7 @@ classdef colony < position
         
         % saving and loading
         %---------------------------------
-       
+
         function saveImage(this, img, dataDir, channels)
             % save image of colony
             %
@@ -76,7 +82,7 @@ classdef colony < position
                 end
             end
         end
-        
+
         % process data
         %---------------------------------
 
@@ -87,23 +93,25 @@ classdef colony < position
             %
             % edges:    edges for radial histogram in pixels
             %
-            % populates this.radialAvgSeg where rows correspond to
+            % populates this.radialProfile.AvgSeg where rows correspond to
             % radial bins, and columns to channels
             
-            XY = this.data(:,1:2);
+            XY = this.cellData.XY;
             XY(:,1) = XY(:,1) - mean(XY(:,1));
             XY(:,2) = XY(:,2) - mean(XY(:,2));
             r = sqrt(sum(XY(:,1:2).^2,2));
-            [n,bini] = histc(r, this.radialBinEdges);
+            [n,bini] = histc(r, this.radialProfile.BinEdges);
 
             nBins = numel(n)-1; % last bin we ignore (see doc histc)
-            this.radialAvgSeg = zeros([nBins this.nChannels]);
+            N = numel(this.dataChannels);
+            this.radialProfile.NucAvgSeg = zeros([nBins N]);
+            this.radialProfile.NucStdSeg = zeros([nBins N]);
             
-            for ci = 1:this.nChannels    
+            for cii = 1:N
                 for i = 1:nBins
-                    bindata = this.data(bini == i, 3 + 2*ci);
-                    this.radialAvgSeg(i,ci) = mean(bindata);
-                    this.radialStdSeg(i,ci) = std(bindata);
+                    bindata = this.cellData.nucLevel(bini == i, cii);
+                    this.radialProfile.NucAvgSeg(i,cii) = mean(bindata);
+                    this.radialProfile.NucStdSeg(i,cii) = std(bindata);
                 end
             end
         end
