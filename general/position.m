@@ -129,8 +129,6 @@ classdef Position < handle
                     fname = fullfile(dataDir,listing(i).name);
                     seg = (squeeze(h5read(fname, '/exported_data')) == 2);
                 end
-                fname = fullfile(dataDir,listing(i).name);
-                seg = (squeeze(h5read(fname, '/exported_data')) == 2);
             end
             
             % Ilastik output data has xy transposed
