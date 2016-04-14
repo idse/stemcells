@@ -31,13 +31,13 @@ function upperleft = registerImageGrid(imgs, pixelOverlap)
     upperleft{1,1} = [1 1];
 
     j = 1;
-    for i = 2:4
+    for i = 2:size(imgs,2)
         shift = belowshift{i,j};
         upperleft{i,j} = upperleft{i-1,j} + [Np + shift(1) + 1, shift(2)];
     end
 
-    for i = 1:4
-        for j = 2:4
+    for i = 1:size(imgs,1)
+        for j = 2:size(imgs,2)
             shift = rightshift{i,j};
             upperleft{i,j} = upperleft{i,j-1} + [shift(1), Np + shift(2) + 1];
         end

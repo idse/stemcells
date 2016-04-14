@@ -13,8 +13,8 @@ function stitched = stitchImageGrid(upperleft, imgs)
     totalSize = max(UL) + N;
 
     stitched = zeros(totalSize,'uint16');
-    for i = 1:4
-        for j = 1:4
+    for i = 1:size(imgs,1)
+        for j = 1:size(imgs,2)
             I = upperleft{i,j}(1):upperleft{i,j}(1)+N-1;
             J = upperleft{i,j}(2):upperleft{i,j}(2)+N-1;
             stitched(I,J) = imgs{i,j};
