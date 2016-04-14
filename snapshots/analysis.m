@@ -118,14 +118,26 @@ for pi = 1%:meta.nPositions
     bgSeg = squeeze(seg(:,:,S4Channel,:));
     
     %%
+    pi = 1;
+    position = DynamicPositionAndor(meta, pi);
+    opts = struct('cytoplasmicLevels',true,'tMax', 1,...
+                        'segDir', fullfile(dataDir,'MIP'));
+    position.extractData(dataDir, nucChannel, opts)
+    
+    %%
     for ti = 1%:meta.nTime
+        
+        ti = 1
+        
+        opts = struct('tMax', 1);
+        position.extractData(dataDir, nuclearChannel, opts)
         
         % read RFP MIP z-index
         nucleiMIPidx = position.loadMIPidx(fullfile(dataDir,'MIP'), nucChannel, ti);
         
         % read smad4 z-stack
         S4 = position.loadImage(dataDir, S4Channel, pi);
-    
+    %%
         % make masks
         %--------------------------------
         bgmask = ~imdilate(imclose(bgSeg(:,:,ti),strel('disk',10)),strel('disk',5));

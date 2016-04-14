@@ -211,8 +211,7 @@ classdef Position < handle
             % -cleanupOptions       options for cleanup
             % -cytoplasmicLevels    extract approximate cytoplasmic levels
             % -MIPidxDir            directory of MIPidx files if desired
-
-            seg = this.loadSegmentation(dataDir, nuclearChannel);
+            % -tMax                 maximal time, default nTime
 
             if nargin < 4
                 opts = struct();
@@ -227,14 +226,22 @@ classdef Position < handle
             if ~isfield(opts,'cytoplasmicLevels')
                 opts.cytoplasmicLevels = false;
             end
+            if ~isfield(opts, 'tMax')
+                opts.tMax = this.nTime;
+            end
+            if ~isfield(opts, 'segDir')
+                opts.segDir = dataDir;
+            end
             if ~isfield(opts, 'MIPidxDir')
                 MIPidxDir = [];
             end
             
+            seg = this.loadSegmentation(opts.segDir, nuclearChannel);
+            
             % make clean nuclear mask and initialize cellData
             %-----------------------------------------------------------
 
-            for ti = 1:this.nTime
+            for ti = 1:opts.tMax
                 
                 nucmaskraw = seg(:,:,1);
                 nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
@@ -272,7 +279,7 @@ classdef Position < handle
 
                 for cii = 1:numel(opts.dataChannels)
                     
-                    imc = this.loadImage(dataDir, opts.dataChannels(cii));
+                    imc = this.loadImage(dataDir, opts.dataChannels(cii), ti);
 
                     % if is no MIPidx, analyze the MIP
                     % taking the MIP of a single z-slice costs no time so
