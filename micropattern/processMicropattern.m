@@ -6,6 +6,8 @@ warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
 dataDir = '/Volumes/IdseData/160318_micropattern_lefty/lefty';
 %dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
 
+colDir = fullfile(dataDir,'colonies');
+
 btfname = fullfile(dataDir, '160319_lefty.btf');
 %btfname = fullfile(dataDir, '160318_control.btf');
 
@@ -15,6 +17,9 @@ metaDataFile = fullfile(dataDir,'metaData.mat');
 
 % size limit of data chunks read in
 maxMemoryGB = 4;
+
+% TODO : local normalization by DAPI
+% TODO : background subtraction by large scale Fourier transform
 
 %%
 % metadata
@@ -165,7 +170,6 @@ for n = 1:numel(yedge)-1
         tic
         
         % channels to save to individual images
-        colDir = fullfile(dataDir,'colonies');
         if ~exist(colDir,'dir')
             mkdir(colDir);
         end
@@ -242,7 +246,7 @@ for n = 1:numel(yedge)-1
         toc
     end
 end
-%%
+
 save(fullfile(dataDir,'colonies'), 'colonies');
 
 %% visualize
@@ -305,7 +309,8 @@ if ~exist('colonies','var')
     load(fullfile(dataDir,'colonies'));
 end
 
-%% take just the large colonies
+%%
+% take just the large colonies
 
 colRadii = cat(1,colonies.radiusMicron);
 colonies1000idx = colRadii == 500;
@@ -327,18 +332,20 @@ figure, imshow(label2rgb(bwlabel(seg2),'jet','k','shuffle'));
 %% extract data using Ilastik segmentation
 
 tic
+
+cleanupOpts = struct('minArea', 30, 'cytoplasmicLevels', false);
+opts = struct('cleanupOptions', cleanupOpts);
+
 for coli = [colonies1000.ID]
     
     % extract segmented data
-    colonies(coli).extractData(colDir, DAPIChannel);
-    
+    colonies(coli).extractData(colDir, DAPIChannel, opts);
+
     % radial binning of segmented data
     colType = find(meta.colRadiiMicron == colonies(coli).radiusMicron);
     colonies(coli).makeRadialAvgSeg()
 end
-toc
 
-%%
 save(fullfile(dataDir,'colonies'), 'colonies');
 
 %% display segmented radial profile

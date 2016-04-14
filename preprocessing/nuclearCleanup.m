@@ -34,7 +34,7 @@ function newNuclearMask = nuclearCleanup(nuclearMask, options)
         options = struct();
     end
     if ~isfield(options,'minArea')
-        options.minArea = 500;
+        options.minArea = 100;
     end
     if ~isfield(options,'openSize')
         options.openSize = 5;
@@ -47,7 +47,6 @@ function newNuclearMask = nuclearCleanup(nuclearMask, options)
     end
     
     nuclearMask = bwareaopen(nuclearMask, options.minArea);    
-    
     nuclearMask = imopen(nuclearMask, strel('disk',options.openSize));
     nuclearMask = imfill(nuclearMask,'holes');
     
@@ -55,6 +54,8 @@ function newNuclearMask = nuclearCleanup(nuclearMask, options)
         nuclearMask = separateFusedNuclei(nuclearMask,options);
     end
     if options.clearBorder 
-        newNuclearMask = imclearborder(nuclearMask);
+        nuclearMask = imclearborder(nuclearMask);
     end
+
+    newNuclearMask = nuclearMask;
 end
