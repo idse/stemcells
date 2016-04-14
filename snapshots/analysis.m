@@ -93,116 +93,16 @@ bfsave(previewS4, fname);
 % t = (ti - treatmentTime)*dt;
 % text(100,100,['T = ' num2str(t) s{2}],'Color','white','FontSize',18);
 
-%% read nuclear segmentation
+%% extract nuclear and cytoplasmic levels
 
-S4cyt = zeros([meta.nPositions meta.nTime]);
-S4nuc = zeros([meta.nPositions meta.nTime]);
-
-S4cytZmed = zeros([meta.nPositions meta.nTime]);
-S4nucZmed = zeros([meta.nPositions meta.nTime]);
-S4bgZmed = zeros([meta.nPositions meta.nTime]);
-
-S4cytMIP = zeros([meta.nPositions meta.nTime]);
-S4nucMIP = zeros([meta.nPositions meta.nTime]);
-S4bgMIP = zeros([meta.nPositions meta.nTime]);
-
-% pi and ti run from 1 here
 for pi = 1%:meta.nPositions
-    tic
     
-    pi = 1;
     position = DynamicPositionAndor(meta, pi);
     
-    seg = position.loadSegmentation(fullfile(dataDir,'MIP'), nucChannel);
-    nucleiSeg = squeeze(seg(:,:,nucChannel,:));
-    bgSeg = squeeze(seg(:,:,S4Channel,:));
-    
-    %%
-    pi = 1;
-    position = DynamicPositionAndor(meta, pi);
     opts = struct('cytoplasmicLevels',true,'tMax', 1,...
-                        'segDir', fullfile(dataDir,'MIP'));
+                            'segmentationDir', fullfile(dataDir,'MIP'));
+                        
     position.extractData(dataDir, nucChannel, opts)
-    
-    %%
-    for ti = 1%:meta.nTime
-        
-        ti = 1
-        
-        opts = struct('tMax', 1);
-        position.extractData(dataDir, nuclearChannel, opts)
-        
-        % read RFP MIP z-index
-        nucleiMIPidx = position.loadMIPidx(fullfile(dataDir,'MIP'), nucChannel, ti);
-        
-        % read smad4 z-stack
-        S4 = position.loadImage(dataDir, S4Channel, pi);
-    %%
-        % make masks
-        %--------------------------------
-        bgmask = ~imdilate(imclose(bgSeg(:,:,ti),strel('disk',10)),strel('disk',5));
-        nucmaskraw = nucleiSeg(:,:,ti);
-        options = struct('separateFused', true, 'clearBorder',true);
-        nucmask = nuclearCleanup(nucmaskraw,options);
-
-        % processing z-level per nucleus
-        %--------------------------------
-        CC = bwconncomp(nucmask);
-
-        MIPidx = 0*nucleiMIPidx;
-        for i = 1:numel(CC.PixelIdxList)
-            MIPidx(CC.PixelIdxList{i}) = median(nucleiMIPidx(CC.PixelIdxList{i}));
-        end
-        %imshow(MIPidx,[])
- 
-        %%
-        cytoIdx = imdilate(MIPidx, strel('disk',10));
-        cytoIdx(nucmaskraw)=0;
-        %imshow(cytoIdx,[])
-
-        zimin = min(MIPidx(MIPidx>0));
-        zimax = max(MIPidx(:));
-
-        S4nucTmp = zeros([1 zimax]);
-        S4cytTmp = zeros([1 zimax]);
-        S4nucW = zeros([1 zimax]);
-        S4cytW = zeros([1 zimax]);
-
-        for zi = zimin:zimax
-
-            submask = MIPidx == zi;
-            if any(submask(:))
-                S4slice = S4(:,:,zi);
-                S4nucTmp(zi) = S4nucTmp(zi) + mean(S4slice(submask));
-                S4nucW(zi) = S4nucW(zi) + sum(submask(:));
-
-                submask = cytoIdx == zi;
-                S4cytTmp(zi) = S4cytTmp(zi) + mean(S4slice(submask));
-                S4cytW(zi) = S4cytW(zi) + sum(submask(:));
-            end
-        end
-
-        S4nuc(pi,ti) = sum(S4nucTmp.*S4nucW)/sum(S4nucW);
-        S4cyt(pi,ti) = sum(S4cytTmp.*S4cytW)/sum(S4cytW);
-        
-        % processing z-level median
-        %--------------------------------
-        zmed = median(MIPidx(MIPidx>0));
-
-        S4slice = S4(:,:,zmed);
-        %cytmask = imdilate(nucmask,strel('disk',10)) - nucmaskraw > 0;
-        cytmask = cytoIdx > 0;
-        S4nucZmed(pi,ti) = mean(S4slice(nucmask)); %S4nuc = mean(S4slice(MIPidx>0));
-        S4cytZmed(pi,ti) = mean(S4slice(cytmask));
-        S4bgZmed(pi,ti) = mean(S4slice(bgmask));
-        
-        % processing MIP
-        %--------------------------------
-        S4nucMIP(pi,ti) = mean(S4MIP(nucmask));
-        S4cytMIP(pi,ti) = mean(S4MIP(cytmask));
-        S4bgMIP(pi,ti) = mean(S4MIP(bgmask));
-    end
-    toc
 end
 
 %%

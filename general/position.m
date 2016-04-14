@@ -212,6 +212,8 @@ classdef Position < handle
             % -cytoplasmicLevels    extract approximate cytoplasmic levels
             % -MIPidxDir            directory of MIPidx files if desired
             % -tMax                 maximal time, default nTime
+            % -segmentationDir      directory of segmentation, default
+            %                       dataDir
 
             if nargin < 4
                 opts = struct();
@@ -229,14 +231,16 @@ classdef Position < handle
             if ~isfield(opts, 'tMax')
                 opts.tMax = this.nTime;
             end
-            if ~isfield(opts, 'segDir')
-                opts.segDir = dataDir;
+            if ~isfield(opts, 'segmentationDir')
+                opts.segmentationDir = dataDir;
             end
             if ~isfield(opts, 'MIPidxDir')
                 MIPidxDir = [];
             end
             
-            seg = this.loadSegmentation(opts.segDir, nuclearChannel);
+            this.dataChannels = opts.dataChannels;
+            
+            seg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
             
             % make clean nuclear mask and initialize cellData
             %-----------------------------------------------------------
@@ -261,7 +265,7 @@ classdef Position < handle
                 this.ncells(ti) = nCells;
                 this.cellData(ti).XY = centroids;
                 this.cellData(ti).area = areas;
-                this.cellData(ti).nucLevel = zeros([nCells this.nChannels]);
+                this.cellData(ti).nucLevel = zeros([nCells numel(opts.dataChannels)]);
 
                 % make cytoplasmic mask 
                 %----------------------
@@ -278,7 +282,7 @@ classdef Position < handle
                     stats = regionprops(L, 'PixelIdxList');
                     cytCC = struct('PixelIdxList', {cat(1,{stats.PixelIdxList})});
 
-                    this.cellData(ti).cytLevel = zeros([nCells this.nChannels]);
+                    this.cellData(ti).cytLevel = zeros([nCells numel(opts.dataChannels)]);
                 end
                 
                 % read out nuclear and cytoplasmic levels 

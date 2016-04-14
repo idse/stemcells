@@ -309,6 +309,7 @@ if ~exist('colonies','var')
     load(fullfile(dataDir,'colonies'));
 end
 
+%%
 % take just the large colonies
 
 colRadii = cat(1,colonies.radiusMicron);
@@ -344,7 +345,6 @@ for coli = [colonies1000.ID]
     colType = find(meta.colRadiiMicron == colonies(coli).radiusMicron);
     colonies(coli).makeRadialAvgSeg()
 end
-toc
 
 save(fullfile(dataDir,'colonies'), 'colonies');
 
