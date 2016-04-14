@@ -115,7 +115,7 @@ classdef Colony < Position
                 end
             end
         end
-        
+
         % getter for dependent properties
         %---------------------------------
         

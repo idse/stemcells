@@ -117,6 +117,7 @@ for pi = 1%:meta.nPositions
     nucleiSeg = squeeze(seg(:,:,nucChannel,:));
     bgSeg = squeeze(seg(:,:,S4Channel,:));
     
+    %%
     for ti = 1%:meta.nTime
         
         % read RFP MIP z-index

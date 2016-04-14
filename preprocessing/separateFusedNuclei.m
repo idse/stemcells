@@ -1,17 +1,17 @@
-function [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options) 
+function [newNuclearMask, fusedMask] = separateFusedNuclei(nuclearMask, options) 
     % separate fused nuclei in a binary image
     %
-    % [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options) 
+    % [newNuclearMask, fusedMask] = separateFusedNuclei(nuclearMask, options) 
     %
     % uses erosion of fused nuclei as seeds for seeded watershed within the
     % original mask
     %
-    % nucleiMask:       input binary mask of nuclei
+    % nuclearMask:       input binary mask of nuclei
     % options:          structure with fields
     % -minAreaStd:      only objects with A > mean(A) + minAreaStd*std(A)
     %                   can be considered fused (default 1)
     % -minSolidity:     only objects with solidity less than this can be
-    %                   considered fused (default 0.95)
+    %                   considered fused (default off, 0.95 is good value)
     %                   NOTE: this part is computationally expensive
     %                   set value <= 0 to turn off and speed up
     % -erodeSize        in units of mean radius, default 1
@@ -28,7 +28,7 @@ function [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options)
         options = struct();
     end
     if ~isfield(options,'minSolidity')
-        minSolidity = 0.95;
+        minSolidity = 0;
     else
         minSolidity = options.minSolidity;
     end
@@ -43,7 +43,7 @@ function [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options)
         erodeSize = options.erodeSize;
     end
     
-    CC = bwconncomp(nucleiMask);
+    CC = bwconncomp(nuclearMask);
     if minSolidity > 0
         stats = regionprops(CC, 'ConvexArea', 'Area');
         convexArea = [stats.ConvexArea];
@@ -60,20 +60,23 @@ function [newNucleiMask, fusedMask] = separateFusedNuclei(nucleiMask, options)
     sublist = CC.PixelIdxList(fusedCandidates);
     sublist = cat(1,sublist{:});
 
-    fusedMask = false(size(nucleiMask));
+    fusedMask = false(size(nuclearMask));
     fusedMask(sublist) = 1;
 
 %     figure,
-%     imshow(cat(3,nucleiMask,fused,0*fused))
+%     imshow(cat(3,nuclearMask,fused,0*fused))
 
     s = round(erodeSize*sqrt(mean(area))/pi);
     nucmin = imerode(fusedMask,strel('disk',s));
+    
+    % dilation by 1 pixel because otherwise the distance on the edge is
+    % zero so the mask is shrunk by 1 pixel
     outside = ~imdilate(fusedMask,strel('disk',1));
     basin = imcomplement(bwdist(outside));
     basin = imimposemin(basin, nucmin | outside);
 
     L = watershed(basin);
-    newNucleiMask = L > 1 | nucleiMask - fusedMask;
+    newNuclearMask = L > 1 | nuclearMask - fusedMask;
     
-    newNucleiMask = bwareaopen(newNucleiMask, round(0.2*mean(area)));
+    newNuclearMask = bwareaopen(newNuclearMask, round(0.2*mean(area)));
 end

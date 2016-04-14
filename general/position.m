@@ -21,6 +21,7 @@ classdef Position < handle
         %------------------------------
 
         nChannels           % number of colors imaged
+        nTime               % number of time points
         filename   
     end
 
@@ -39,14 +40,18 @@ classdef Position < handle
     methods
 
         % constructor
-        function this = Position(nChannels, filename)
+        function this = Position(nChannels, filename, nTime)
 
             % matlab sucks
             if nargin == 0
                 return
             end
+            if ~exist('nTime','var')
+                nTime = 0;
+            end
 
             this.nChannels = nChannels;
+            this.nTime = nTime;
             this.filename = filename;
             
             this.cellData = struct();
@@ -55,16 +60,22 @@ classdef Position < handle
         % saving and loading
         %---------------------------------
 
-        function img = loadImage(this, dataDir, channels)
+        function img = loadImage(this, dataDir, channels, time)
             % load position image
             %
             % img = loadImage(dataDir, channels)
+            % img = loadImage(dataDir, channels, time)
             %
             % dataDir:  main data directory 
             % channels: desired channels to be loaded, leave empty for all
+            % time:     time to load
             %
             % img:      loaded image
 
+            if exist('time','var')
+                error('todo : include reading for dynamic not Andor datasets');
+            end
+            
             if ~exist('channels','var')
                 channels = 1:this.nChannels;
             end
@@ -131,56 +142,171 @@ classdef Position < handle
                 end
             end
             
+            if isempty(seg)
+                error(['segmentation not found in ' dataDir, ', may be naming convention problem']);
+            end
+            
             % Ilastik output data has xy transposed
             seg = permute(seg, [2 1 3]);
+        end
+        
+        function MIPidx = loadMIPidx(this, dataDir, channel, time)
+            % load MIP index of position
+            %
+            % MIPidx = loadMIPidx(this, dataDir, channel)
+            %
+            % dataDir:  main data directory 
+            % channels: desired channels to be loaded, leave empty for all
+            % time:     time to load, default 1 for static images
+            %
+            % img:      loaded image
+
+            if ~exist('time','var')
+                time = 1;
+            end
+            
+            [startIndex,endIndex]  = regexp(this.filename,'_t([0-9]+|%.4d)');
+            
+            % remove time part of filename:
+            % MIPidx is supposed to be single file for all times
+            fname = this.filename([1:startIndex-1 endIndex+1:end]);
+            startIndex = regexp(fname,'_');
+            fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
+            fname = fullfile(dataDir, fname);
+            
+            % if the channels are split in Andor format, put it in
+            if ~isempty(regexp(fname,'_w%.4d','once'))
+                fname = sprintf(fname, channel-1);
+            end
+            
+            % when I make MIPs I replace m by p, I want all positions
+            % labeled p and thats how Andor should have done it
+            montageIdx = regexp(fname,'m[0-9]+','once');
+            if ~isempty(montageIdx)
+                fname(montageIdx) = 'p';
+            end
+            
+            if ~exist(fname,'file')
+                warning(['MIPidx file does not exist: ' fname]);
+                MIPidx = [];
+            else
+                MIPidx = imread(fname,time);
+            end
         end
         
         % process data
         %---------------------------------
 
-        function extractData(this, dataDir, nuclearChannel, dataChannels)
+        function extractData(this, dataDir, nuclearChannel, opts)
             % populate the data array
             %
             % extractData(dataDir, nuclearChannel)
             % extractData(dataDir, nuclearChannel, dataChannels)
             %
-            % dataDir:          data directory
-            % nuclearChannel:   channel of nuclear segmentation
-            % dataChannels:     channels for which to extract data
-            %                   default is all
+            % dataDir:              data directory
+            % nuclearChannel:       channel of nuclear segmentation
+            % options:              struct with fields
+            % -dataChannels         channels for which to extract data
+            %                       default is all
+            % -cleanupOptions       options for cleanup
+            % -cytoplasmicLevels    extract approximate cytoplasmic levels
+            % -MIPidxDir            directory of MIPidx files if desired
 
             seg = this.loadSegmentation(dataDir, nuclearChannel);
-            
-            if nargin < 4
-                dataChannels = 1:this.nChannels;
-            end
-            this.dataChannels = dataChannels;
-            
-            % most time consuming: nuclearCleanup
-            options = struct('separateFused', true, 'clearBorder',true,...
-                    'minAreaStd', 1, 'minSolidity',0);
-                
-            nucmaskraw = seg;
-            nucmask = nuclearCleanup(nucmaskraw, options);
-            %cytmask = imdilate(nucmask, strel('disk',10));
-            %cytmask(nucmaskraw)=0;
-                
-            CC = bwconncomp(seg);
-            stats = regionprops(CC, 'Area', 'Centroid');
-            centroids = cat(1,stats.Centroid);
-            areas = cat(1,stats.Area);
-            nCells = CC.NumObjects;
 
-            this.ncells = nCells;
-            this.cellData.XY = centroids;
-            this.cellData.area = areas;
-            this.cellData.nucLevel = zeros([nCells this.nChannels]);
+            if nargin < 4
+                opts = struct();
+            end
+            if ~isfield(opts,'dataChannels')
+                opts.dataChannels = 1:this.nChannels;
+            end
+            if ~isfield(opts, 'cleanupOptions')
+                opts.cleanupOptions = struct('separateFused', true,...
+                    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0);
+            end
+            if ~isfield(opts,'cytoplasmicLevels')
+                opts.cytoplasmicLevels = false;
+            end
+            if ~isfield(opts, 'MIPidxDir')
+                MIPidxDir = [];
+            end
             
-            for cii = 1:numel(dataChannels)
-                imc = this.loadImage(dataDir, dataChannels(cii));
-                imc = imc - min(imc(:));
-                for cellidx = 1:nCells
-                    this.cellData.nucLevel(cellidx, cii) = mean(imc(CC.PixelIdxList{cellidx}));
+            % make clean nuclear mask and initialize cellData
+            %-----------------------------------------------------------
+
+            for ti = 1:this.nTime
+                
+                nucmaskraw = seg(:,:,1);
+                nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
+                
+                nucCC = bwconncomp(nucmask);
+                stats = regionprops(nucCC, 'Area', 'Centroid');
+                centroids = cat(1,stats.Centroid);
+                areas = cat(1,stats.Area);
+                nCells = nucCC.NumObjects;
+
+                this.ncells(ti) = nCells;
+                this.cellData(ti).XY = centroids;
+                this.cellData(ti).area = areas;
+                this.cellData(ti).nucLevel = zeros([nCells this.nChannels]);
+
+                % make cytoplasmic mask by watershedding inside the dilation
+                %-----------------------------------------------------------
+
+                if opts.cytoplasmicLevels
+
+                    dilated = imdilate(nucmask, strel('disk',10));
+                    basin = imcomplement(bwdist(dilated));
+                    basin = imimposemin(basin, nucmask);
+                    L = watershed(basin);
+                    L(~dilated) = 0;
+                    L(nucmask) = 0;
+                    stats = regionprops(L, 'PixelIdxList');
+                    cytCC = struct('PixelIdxList', {cat(1,{stats.PixelIdxList})});
+
+                    this.cellData(ti).cytLevel = zeros([nCells this.nChannels]);
+                end
+                
+                % read out nuclear and cytoplasmic levels for each cell
+                %-----------------------------------------------------------
+
+                for cii = 1:numel(opts.dataChannels)
+                    
+                    imc = this.loadImage(dataDir, opts.dataChannels(cii));
+
+                    % if is no MIPidx, analyze the MIP
+                    % taking the MIP of a single z-slice costs no time so
+                    % this works for single images
+                    if ~isempty(MIPidxDir)
+                        MIPidx = this.loadMIPidx(MIPidxDir, nuclearChannel, time);
+                    else
+                        MIPidx = [];
+                    end
+                    % this construction is just so that it proceeds without
+                    % MIPidx if the MIPidx cannot be loaded
+                    if isempty(MIPidx)
+                        imc = max(imc,[],3);
+                        imc = imc - min(imc(:));
+                    end
+
+                    for cellidx = 1:nCells
+                        
+                        if ~isempty(MIPidx)
+                            zi = median(MIPidx(CC.PixelIdxList{cellidx}));
+                        else
+                            zi = 1;
+                        end
+                    
+                        nucPixIdx = nucCC.PixelIdxList{cellidx};
+                        nucPixIdx = double(zi-1)*size(imc,1)*size(imc,2) + nucPixIdx;
+                        this.cellData(ti).nucLevel(cellidx, cii) = mean(imc(nucPixIdx));
+                        
+                        if opts.cytoplasmicLevels
+                            cytPixIdx = cytCC.PixelIdxList{cellidx};
+                            cytPixIdx = double(zi-1)*size(imc,1)*size(imc,2) + cytPixIdx;
+                            this.cellData(ti).cytLevel(cellidx, cii) = mean(imc(cytPixIdx));
+                        end
+                    end
                 end
             end
         end
