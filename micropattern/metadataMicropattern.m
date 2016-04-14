@@ -1,4 +1,4 @@
-classdef metadataMicropattern < metadata
+classdef MetadataMicropattern < Metadata
     % metadata with additional properties for Andor IQ output
     
     % ---------------------
@@ -14,9 +14,9 @@ classdef metadataMicropattern < metadata
     
     methods
         
-        function this = metadataMicropattern(filename)
+        function this = MetadataMicropattern(filename)
 
-            this = this@metadata(filename);
+            this = this@Metadata(filename);
         end
     end
 end

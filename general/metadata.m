@@ -1,4 +1,4 @@
-classdef metadata
+classdef Metadata
     % a class to create a uniform metadata interface
 
     % ---------------------
@@ -37,13 +37,12 @@ classdef metadata
     
     methods
         
-        function this = metadata(filename)
+        function this = Metadata(filename)
 
             if nargin == 1
                 this = this.read(filename);
+                this.filename = filename;
             end
-            
-            this.filename = filename;
         end
         
         function this = read(this, filename)
@@ -91,11 +90,9 @@ classdef metadata
             % e.g. raw filename is 1.oib -> stores metadata in same place
             % under 1_metadata.mat
 
-            meta = this;
-            
             [datadir,barefname] = fileparts(this.filename);
             metafname = fullfile(datadir,[barefname '_metadata']);
-            save(metafname, 'meta');
+            save(metafname, 'this');
         end
         
         function displayPositions(this)

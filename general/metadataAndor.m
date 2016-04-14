@@ -1,4 +1,4 @@
-classdef metadata_Andor < metadata
+classdef MetadataAndor < Metadata
     % metadata with additional properties for Andor IQ output
     
     % ---------------------
@@ -9,20 +9,22 @@ classdef metadata_Andor < metadata
     
     properties
 
-        fnameFormat         % filename format as for sprintf
-        bareFileName        % filename without _suffixes
         tPerFile            % number of time points per file
     end
     
     methods
         
-        function this = metadata_Andor(dataDir)
+        function this = MetadataAndor(dataDir)
 
+            this = this@Metadata();
+            
             if nargin == 1
                 this = this.read(dataDir);
             end
-            
-            this.filename = dataDir;
+
+            % always true for the Andor:
+            this.xSize = 1024;
+            this.ySize = 1024;
         end
         
         function this = read(this, dataDir)
@@ -30,7 +32,15 @@ classdef metadata_Andor < metadata
             rawMeta = struct();
 
             % get the image filename formate
+            if ~exist(dataDir, 'dir')
+                error(['data dir does not exist ' dataDir]);
+            end
+            
             listing = dir(fullfile(dataDir,'*.tif'));
+            if isempty(listing)
+               error(['no metadata file found in ' dataDir]);
+            end
+            
             filename = listing(1).name;
             [s,matches] = strsplit(filename,{'_.[0-9]{4}'},...
                                    'DelimiterType','RegularExpression',...
@@ -38,8 +48,7 @@ classdef metadata_Andor < metadata
             for i = 1:numel(matches)
                 matches{i} = [matches{i}(1:2) '%.4d'];
             end
-            this.bareFileName = s{1};
-            this.fnameFormat = [s{1} matches{:} s{end}];
+            this.filename = [s{1} matches{:} s{end}];
 
             % open the meta data file
             listing = dir(fullfile(dataDir,'*.txt'));

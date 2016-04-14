@@ -4,9 +4,10 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     warning('off','BF:lowJavaMemory');
     
     % read metadata
-    meta = readMeta_Andor(inputdir);
-    filenameFormat = meta.fnameFormat;
-    barefname = meta.bareFileName;
+    meta = metadataAndor(inputdir);
+    filenameFormat = meta.filename;
+    s = strsplit(meta.filename,'_');
+    barefname = s{1};
     
     % some input checking
     if ~exist('saveidx','var')

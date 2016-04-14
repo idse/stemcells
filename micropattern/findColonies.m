@@ -90,9 +90,10 @@ function [colonies, cleanmask] = findColonies(mask, range, meta, s)
     nColonies = sum(contained);
                            
     % array of colony objects
-    colonies(nColonies) = colony;
+    colonies(nColonies) = Colony;
     for i = 1:nColonies;
-        colonies(i) = colony(meta.nChannels, CM(i,:), colRadii(i),...
+        % Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox)
+        colonies(i) = Colony(meta.nChannels, CM(i,:), colRadii(i),...
                                         colRadiiMicron(i), colrange(i,:)); 
     end
 end

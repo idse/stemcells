@@ -1,7 +1,22 @@
 function upperleft = registerImageGrid(imgs, pixelOverlap)
+    % register a grid of overlapping images
+    % 
+    % upperleft = registerImageGrid(imgs, pixelOverlap)
+    %
+    %
+    % upperleft:    cell array of positions of upperleft corners with
+    %               upperleft corner of upperleft image being (1,1)
+    %
+    % imgs:         cell array of images 
+    %               with rows and cols corresponding to grid
+    % pixelOverlap: width of overlapping strip in pixels
 
     % note: could be made fancier by combining redundant shift information
-
+    
+    % ---------------------
+    % Idse Heemskerk, 2016
+    % ---------------------
+    
     % I will assume NxN square images
     N = size(imgs{1,1},1);
 
@@ -30,14 +45,25 @@ function upperleft = registerImageGrid(imgs, pixelOverlap)
     upperleft = {};
     upperleft{1,1} = [1 1];
 
+    % register each row in the first column
     j = 1;
+<<<<<<< HEAD
     for i = 2:size(imgs,2)
+=======
+    for i = 2:size(imgs, 1)
+>>>>>>> idse/master
         shift = belowshift{i,j};
         upperleft{i,j} = upperleft{i-1,j} + [Np + shift(1) + 1, shift(2)];
     end
 
+<<<<<<< HEAD
     for i = 1:size(imgs,1)
         for j = 2:size(imgs,2)
+=======
+    % for each row, register all the columns relative to the first one
+    for i = 1:size(imgs, 1)
+        for j = 2:size(imgs, 2)
+>>>>>>> idse/master
             shift = rightshift{i,j};
             upperleft{i,j} = upperleft{i,j-1} + [shift(1), Np + shift(2) + 1];
         end
