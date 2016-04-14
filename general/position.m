@@ -327,6 +327,7 @@ classdef Position < handle
                     end
                 end
             end
+            fprintf('\n');
         end
         
         % getter for dependent properties
@@ -339,28 +340,38 @@ classdef Position < handle
         end
         
         function data = get.data(this)
-            % output CellTracker style data array
+            % output CellTracker style data array for first time point
             % 
             % data cols: x, y, area, -1, 
             % then (nuclear, cytoplasmic) mean for each channel
             
-            if ~isfield(this.cellData,'nucLevel') || isempty(this.cellData.nucLevel)
+            % this is just for old static stuff for now
+            % perhaps it can be removed alltogether
+            if this.nTime > 1
                 data = [];
                 return;
             end
             
-            if isfield(this.cellData,'cytLevel') && ~isempty(this.cellData.cytLevel)
-                cytLevel = this.cellData.cytLevel;
+            cData = this.cellData(1);
+            ncells = this.ncells(1);
+            
+            if ~isfield(cData,'nucLevel') || isempty(cData.nucLevel)
+                data = [];
+                return;
+            end
+            
+            if isfield(cData,'cytLevel') && ~isempty(cData.cytLevel)
+                cytLevel = cData.cytLevel;
             else
-                cytLevel = nan(size(this.cellData.nucLevel));
+                cytLevel = nan(size(cData.nucLevel));
             end
 
-            data = [this.cellData.XY, this.cellData.area,...
-                -ones([this.ncells 1]), zeros([this.ncells 2*this.nChannels])];
+            data = [cData.XY, cData.area,...
+                -ones([ncells 1]), zeros([ncells 2*numel(this.dataChannels)])];
             
-            for ci = 1:this.nChannels
-                data(:,3 + 2*ci) = this.cellData.nucLevel(:,ci);
-                data(:,4 + 2*ci) = cytLevel(:,ci);
+            for cii = 1:numel(this.dataChannels)
+                data(:,3 + 2*cii) = cData.nucLevel(:,this.dataChannels(cii));
+                data(:,4 + 2*cii) = cytLevel(:,this.dataChannels(cii));
             end
         end
 

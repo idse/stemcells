@@ -74,7 +74,7 @@ classdef DynamicPositionAndor < Position
             h = info.Height;
             nZslices = numel(info)/this.tPerFile;
             
-            ioffset = 1 + (subti-1)*nZslices;
+            ioffset = (subti-1)*nZslices;
             img = zeros([h w nZslices],'uint16');
             for i = 1:nZslices
                 img(:,:,i) = imread(fname, ioffset + i);
