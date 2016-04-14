@@ -47,7 +47,7 @@ classdef Position < handle
                 return
             end
             if ~exist('nTime','var')
-                nTime = 0;
+                nTime = 1;
             end
 
             this.nChannels = nChannels;
@@ -72,7 +72,7 @@ classdef Position < handle
             %
             % img:      loaded image
 
-            if exist('time','var')
+            if exist('time','var') && time > 1
                 error('todo : include reading for dynamic not Andor datasets');
             end
             
@@ -242,6 +242,12 @@ classdef Position < handle
             %-----------------------------------------------------------
 
             for ti = 1:opts.tMax
+
+                % progress indicator
+                fprintf('.');
+                if mod(ti,60)==0
+                    fprintf('\n');
+                end
                 
                 nucmaskraw = seg(:,:,1);
                 nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
@@ -257,11 +263,12 @@ classdef Position < handle
                 this.cellData(ti).area = areas;
                 this.cellData(ti).nucLevel = zeros([nCells this.nChannels]);
 
-                % make cytoplasmic mask by watershedding inside the dilation
-                %-----------------------------------------------------------
+                % make cytoplasmic mask 
+                %----------------------
 
                 if opts.cytoplasmicLevels
 
+                    % watershedding inside the dilation
                     dilated = imdilate(nucmask, strel('disk',10));
                     basin = imcomplement(bwdist(dilated));
                     basin = imimposemin(basin, nucmask);
@@ -274,8 +281,8 @@ classdef Position < handle
                     this.cellData(ti).cytLevel = zeros([nCells this.nChannels]);
                 end
                 
-                % read out nuclear and cytoplasmic levels for each cell
-                %-----------------------------------------------------------
+                % read out nuclear and cytoplasmic levels 
+                %-----------------------------------------
 
                 for cii = 1:numel(opts.dataChannels)
                     

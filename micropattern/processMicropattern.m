@@ -336,7 +336,7 @@ cleanupOpts = struct('minArea', 30, 'cytoplasmicLevels', false);
 opts = struct('cleanupOptions', cleanupOpts);
 
 for coli = [colonies1000.ID]
-
+    
     % extract segmented data
     colonies(coli).extractData(colDir, DAPIChannel, opts);
 
