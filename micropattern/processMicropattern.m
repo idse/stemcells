@@ -19,7 +19,8 @@ metaDataFile = fullfile(dataDir,'metaData.mat');
 maxMemoryGB = 4;
 
 % TODO : local normalization by DAPI
-% TODO : background subtraction by large scale Fourier transform
+% TODO : background subtraction by large scale Fourier transform or
+% TODO : make objects save as struct to make sure we don't lose data       
 
 %%
 % metadata
