@@ -56,7 +56,6 @@ classdef Metadata
             this.xSize = omeMeta.getPixelsSizeX(0).getValue();
             this.ySize = omeMeta.getPixelsSizeY(0).getValue();
 
-            omeMeta = r.getMetadataStore();
             this.xres = double(omeMeta.getPixelsPhysicalSizeX(0).value(ome.units.UNITS.MICROM));
             this.yres = double(omeMeta.getPixelsPhysicalSizeY(0).value(ome.units.UNITS.MICROM));
 
@@ -99,6 +98,8 @@ classdef Metadata
             % display positions 
             %
             % displayPositions();
+            %
+            % positions are center of field of view?
             
             XYZ = this.XYZ;
 

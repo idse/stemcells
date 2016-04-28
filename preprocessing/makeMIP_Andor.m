@@ -34,7 +34,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     MIP = {};
     MIPidx = {};
 
-    fileTmax = meta.nTime/meta.tPerFile - 1;
+    fileTmax = ceil(meta.nTime/meta.tPerFile) - 1;
     for ti = 0:fileTmax
 
         % read the data 

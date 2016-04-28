@@ -2,135 +2,36 @@ clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-%dataDir = '/Volumes/Seagate Backup Plus Drive/160317_ibidi_RIactivin';
-%dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
-%dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
-dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
+dataDir = '/Volumes/IdseData/160315_smad2';
+MIPdir = fullfile(dataDir,'MIP');
 
 meta = MetadataAndor(dataDir);
-%meta.nTime = 110; % JUST FOR cycloheximide_after
-%meta.nTime = 3; % JUST FOR cycloheximide_before
 filenameFormat = meta.filename;
 
 % manual metadata
 %-------------------
 
-% TODO : modify MetadataAndor to contain all info below
+fnameprefix = 'p1-';
 
-% barefname = 'RIactivin100';
-% treatmentTime = 8; % first time point after treatment
-% conditions = {'RI + Activin 100 ng/ml'};
-% posPerCondition = 16;
-% nWells = 1;
-
-%barefname = 'cycloheximide_after';
-%barefname = 'cycloheximide_before';
-% treatmentTime = 4;
-% conditions = {'no treatment','Activin 100 ng/ml', 'BMP 50 ng/ml', 'cyclohex 50 \mu g/ml',...
-%               'MG','Activin + cyclohex','Activin + MG','BMP + cyclohex'};
-% posPerCondition = 4;
-% nWells = 8;
-
-barefname = 'RIvsNot';
-treatmentTime = 4;
 posPerCondition = 4;
 nWells = 8;
 
 nucChannel = 2;
 S4Channel = 1;
 
-% visualize positions
-%---------------------
+meta.channelLabel = {'Smad4','H2B', 'Smad4', 'Smad2'};
 
-% meta.displayPositions;
+%%
+% IS IT ACTUALLY LOADING THE WHOLE STACK OR DOES IT THINK THIS IS FLAT?
 
-% TODO: create merged cellData for montage
-% movies of distribution over time
-
-           
-%% read the MIPs from previous step at time 1 
-
-gridSize = meta.montageGridSize;
-pixelOverlap = round(1024*meta.montageOverlap/100);
-
-imgsNuc = {};
-imgsS4 = {};
-
-for wellnr = 1:nWells
-    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
-    if isempty(gridSize) 
-        gridSize = [posPerCondition/2 2];
-    end
-
-    tmax = meta.nTime;
-    for ti = 1:tmax
-
-        disp(['processing time ' num2str(ti)]);
-
-        for pi = conditionPositions
-
-            disp(['reading MIP ' num2str(pi)]);
-            % gridSize 1 and 2 may be swapped, I have no way of knowing right now
-            [i,j] = ind2sub(gridSize, pi - conditionPositions(1) + 1);
-
-            fname = fullfile(dataDir,'MIP',[barefname sprintf('_MIP_p%.4d_w%.4d.tif',pi-1,nucChannel-1)]);
-            imgsNuc{j,i} = double(imread(fname,ti));
-
-            fname = fullfile(dataDir,'MIP',[barefname sprintf('_MIP_p%.4d_w%.4d.tif',pi-1,S4Channel-1)]);
-            imgsS4{j,i} = double(imread(fname,ti));
-        end
-
-        % stitch together
-        if ti == 1 && ~isempty(pixelOverlap)
-            % get register positions of upper left corner
-            upperleft = registerImageGrid(imgsNuc, pixelOverlap);
-        elseif ti == 1 && isempty(pixelOverlap)
-            upperleft = {};
-            for pi = conditionPositions
-                [i,j] = ind2sub(gridSize,pi - conditionPositions(1) + 1);
-                upperleft{j,i} = [1+(j-1)*(1024 + 50), 1+(i-1)*(1024 + 50)];
-            end
-        end
-        nucStitched = stitchImageGrid(upperleft, imgsNuc);
-        S4Stitched = stitchImageGrid(upperleft, imgsS4);
-
-        % make clean preview (not for quantitative analysis
-        nucSmall = imfilter(nucStitched,[1 1]/2);
-        nucSmall = nucSmall(1:2:end,1:2:end);
-        nucSmall = imadjust(mat2gray(nucSmall));
-        nucSmall = uint16((2^16-1)*nucSmall);
-
-        S4Small = imfilter(S4Stitched,[1 1]/2);
-        S4Small = S4Small(1:2:end,1:2:end);
-        S4Small = imadjust(mat2gray(medfilt2(S4Small,[3 3])));
-        S4Small = uint16((2^16-1)*S4Small);
-
-        if ti == 1
-            previewS4 = zeros([size(nucSmall) tmax],'uint16');
-            previewNuc = zeros([size(nucSmall) tmax],'uint16');
-        end
-        previewNuc(:,:,ti) = nucSmall;
-        previewS4(:,:,ti) = S4Small;
-    end
-
-    fname = fullfile(dataDir, ['stichedPreviewNuclei_well' num2str(wellnr) '.tif']);
-    imwrite(previewNuc(:,:,1), fname);
-    for ti = 2:tmax
-        imwrite(previewNuc(:,:,ti), fname,'WriteMode','Append');
-    end
-
-    fname = fullfile(dataDir, ['stichedPreviewS4_well' num2str(wellnr) '.tif']);
-    imwrite(previewS4(:,:,1), fname);
-    for ti = 2:tmax
-        imwrite(previewS4(:,:,ti), fname,'WriteMode','Append');
+for wi = 1%:nWells
+    for pi = 1%:posPerCondition
+            filename = [fnameprefix num2str(wi) '_' num2str(pi) '.tif'];
+            p = DynamicPositionAndor(meta, pi);
+            opts = struct('segmentationDir', fullfile(dataDir, 'MIP'));
+            p.extractData(dataDir, nucChannel, opts)
     end
 end
-% figure, imshow(cat(3,0*nucSmall,S4Small,0*S4Small));
-% s = strsplit(meta.timeInterval,' ');
-% dt = str2double(s{1});
-% unit = s{2};
-% t = (ti - treatmentTime)*dt;
-% text(100,100,['T = ' num2str(t) s{2}],'Color','white','FontSize',18);
 
 %% extract nuclear and cytoplasmic levels
 

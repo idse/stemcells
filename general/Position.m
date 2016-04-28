@@ -151,7 +151,7 @@ classdef Position < handle
             if isempty(listing)
                 error(['segmentation not found in ' dataDir]);
             end
-            
+
             seg = [];
             
             for i = 1:numel(listing)
@@ -163,7 +163,7 @@ classdef Position < handle
             end
             
             if isempty(seg)
-                error(['segmentation not found in ' dataDir, ', may be naming convention problem']);
+                warning(['segmentation not found in ' dataDir, ', may be naming convention problem']);
             end
             
             % Ilastik output data has xy transposed
@@ -423,10 +423,12 @@ classdef Position < handle
                     end
                     
                     nL = this.cellData(ti).nucLevel(:,cii);
-                    cL = this.cellData(ti).cytLevel(:,cii);
                     A = this.cellData(ti).area;
                     this.cellData(ti).nucLevelAvg(cii) = mean(nL.*A)/mean(A);
-                    this.cellData(ti).cytLevelAvg(cii) = mean(cL.*A)/mean(A);
+                    if opts.cytoplasmicLevels
+                        cL = this.cellData(ti).cytLevel(:,cii);
+                        this.cellData(ti).cytLevelAvg(cii) = mean(cL.*A)/mean(A);
+                    end
                 end
                 end
             end
@@ -478,7 +480,11 @@ classdef Position < handle
             end
             
             cData = this.cellData(1);
-            ncells = this.ncells(1);
+            if ~isempty(this.ncells)
+                ncells = this.ncells(1);
+            else
+                ncells = 0;
+            end
             
             if ~isfield(cData,'nucLevel') || isempty(cData.nucLevel)
                 data = [];

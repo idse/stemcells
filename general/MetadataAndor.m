@@ -37,10 +37,6 @@ classdef MetadataAndor < Metadata
             end
             
             listing = dir(fullfile(dataDir,'*.tif'));
-            if isempty(listing)
-               error(['no metadata file found in ' dataDir]);
-            end
-            
             filename = listing(1).name;
             [s,matches] = strsplit(filename,{'_.[0-9]{4}'},...
                                    'DelimiterType','RegularExpression',...
@@ -48,10 +44,17 @@ classdef MetadataAndor < Metadata
             for i = 1:numel(matches)
                 matches{i} = [matches{i}(1:2) '%.4d'];
             end
-            this.filename = [s{1} matches{:} s{end}];
+            if numel(s) > 1
+                this.filename = [s{1} matches{:} s{end}];
+            else
+                this.filename = filename;
+            end
 
             % open the meta data file
             listing = dir(fullfile(dataDir,'*.txt'));
+            if isempty(listing)
+               error(['no metadata file found in ' dataDir]);
+            end
             filename = fullfile(dataDir, listing(1).name);
 
             fid = fopen(filename);
@@ -123,7 +126,7 @@ classdef MetadataAndor < Metadata
             this.nPositions = nPositions;
 
             % read time interval
-            if nTimePts > 0 
+            if nTimePts > 1 
                 while ischar(tline) 
                     tline = fgets(fid);
                     k = strfind(tline, 'Repeat T');
@@ -135,25 +138,37 @@ classdef MetadataAndor < Metadata
                 this.timeInterval = s{2};
             end
 
-            % read positions
-            if nPositions > 1
-
-
-                % montage specific stuff
-                if isfield(rawMeta,'Montage')
-
-                    % montage grid size
-                    while ischar(tline) 
-                        tline = fgets(fid);
-                        k = strfind(tline, 'Montage Positions');
-                        if ~isempty(k)
-                            break;
-                        end
+            % montage grid size
+            if nPositions > 1 && isfield(rawMeta,'Montage')
+                while ischar(tline) 
+                    tline = fgets(fid);
+                    k = strfind(tline, 'Montage Positions');
+                    if ~isempty(k)
+                        break;
                     end
-                    s = strsplit(tline,' ');
-                    si = find(strcmp(s,'by'));
-                    this.montageGridSize = [str2double(s{si-1}) str2double(s{si+1})];
+                end
+                s = strsplit(tline,' ');
+                si = find(strcmp(s,'by'));
+                this.montageGridSize = [str2double(s{si-1}) str2double(s{si+1})];
+            end
 
+            % channel names
+            while ischar(tline) 
+                tline = fgets(fid);
+                k = strfind(tline, 'Repeat - Channel');
+                if ~isempty(k)
+                    break;
+                end
+            end
+            s = strsplit(tline,{'(',')'});
+            s = strsplit(s{2},',');
+            this.channelNames = s;
+            
+            % read positions        
+            if nPositions > 1
+                
+                if isfield(rawMeta,'Montage')        
+                    
                     % overlap for montage
                     while ischar(tline) 
                         tline = fgets(fid);
@@ -219,6 +234,8 @@ classdef MetadataAndor < Metadata
                     % time points per file
                     this.tPerFile = numel(info)/this.nZslices;
                 end
+            else
+                this.tPerFile = 1;
             end
             
             this.raw = rawMeta;

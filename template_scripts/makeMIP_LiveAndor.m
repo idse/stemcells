@@ -7,7 +7,8 @@ addpath(genpath('/Users/idse/repos/Warmflash/'));
 
 %dataDir = '/Volumes/IdseData/160323_8well_sox17/4days/sox17live_20160327_125754 PM';
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
-dataDir = '/Volumes/IdseData/160406-C2C12S4-TGFbRI';
+%dataDir = '/Volumes/IdseData/160406-C2C12S4-TGFbRI';
+dataDir = '/Volumes/SeagateBackup/160310_8well_dilutions';
 
 meta = MetadataAndor(dataDir);
 
@@ -20,6 +21,8 @@ S4Channel = 1;
 meta.displayPositions();
 
 %%
+
+% RERUN CURRENT WITH DBSTOP IF ERROR
 
 % ASSUME: files are split by position & wavelength
 
