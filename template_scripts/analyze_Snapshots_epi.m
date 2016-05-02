@@ -2,38 +2,83 @@ clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-dataDir = '/Volumes/IdseData/160315_smad2';
-MIPdir = fullfile(dataDir,'MIP');
+% THIS IS THE FIXED 8-WELL
+dataDir = '/Volumes/IdseData/160416-EndDIff-Sox17nS4cells-epi';
 
-dataDir = '/Volumes/IdseData/160411-CoCulture Fixed';
+btfname = fullfile(dataDir, 'endo_w1.btf');
+vsifile = fullfile(dataDir,'Image750.vsi');
 
-meta = MetadataAndor(dataDir);
-filenameFormat = meta.filename;
+% size limit of data chunks read in
+maxMemoryGB = 4;
 
-% manual metadata
-%-------------------
-
-fnameprefix = 'p1-';
-
-posPerCondition = 2;
-nWells = 2;
-
-nucChannel = 2;
-S4Channel = 1;
-
-meta.channelLabel = {'Smad4','H2B', 'Smad4', 'Smad2'};
+% TODO : local normalization by DAPI
+% TODO : background subtraction by large scale Fourier transform or
+% TODO : make objects save as struct to make sure we don't lose data       
 
 %%
-% IS IT ACTUALLY LOADING THE WHOLE STACK OR DOES IT THINK THIS IS FLAT?
+% metadata
+%----------------
 
-for wi = 1%:nWells
-    for pi = 1%:posPerCondition
-            filename = [fnameprefix num2str(wi) '_' num2str(pi) '.tif'];
-            p = DynamicPositionAndor(meta, pi);
-            opts = struct('segmentationDir', fullfile(dataDir, 'MIP'));
-            p.extractData(dataDir, nucChannel, opts)
-    end
+metaDataFile = fullfile(dataDir,'metaData.mat');
+
+% read metadata
+if exist(metaDataFile,'file')
+    disp('loading previously stored metadata');
+    load(metaDataFile);
+elseif exist('vsifile','var') && exist(vsifile,'file')
+    disp('extracting metadata from vsi file');
+    meta = Metadata(vsifile);
+    
+% or pretty much enter it by hand
+else
+    meta = Metadata();
+    h = Tiff(btfname);
+    meta.ySize = h.getTag('ImageLength');
+    meta.xSize = h.getTag('ImageWidth');
+    h.close;
+    meta.nChannels = 4;
+    meta.channelNames = {'DAPI','GFP','RFP','CY5'};
+    meta.xres = 0.650/2;
+    meta.yres = meta.xres;
 end
+
+% manually entered metadata
+%------------------------------
+
+meta.channelLabel = {'Bra','H2B', 'Sox17', 'eomes'};
+%meta.channelLabel = {'Bra','H2B', 'Smad4', 'Sox17'};
+nucChannel = 2;
+
+save(fullfile(dataDir,'metaData'),'meta');
+
+%%
+
+p = Position(meta.nChannels, btfname, 1);
+p.extractData(dataDir,nucChannel)
+
+%%
+sox17 =  p.loadImage(dataDir, 4);
+seg = p.loadSegmentation(dataDir, nucChannel);
+
+%%
+idx = 2048:3*2048;
+s17piece = sox17(idx,idx);
+segpiece = seg(idx,idx);
+
+%%
+figure, imshow(imadjust(mat2gray(s17piece)),[])
+%%
+figure, imshow(segpiece,[])
+%%
+
+[~,barefname,~] = fileparts(btfname);
+load(fullfile(dataDir, [barefname '.mat']));
+p.cellData 
+
+
+%%
+[~,barefname,~] = fileparts(btfname);
+save(fullfile(dataDir, [barefname '.mat']));
 
 %% extract nuclear and cytoplasmic levels
 

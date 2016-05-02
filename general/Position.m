@@ -51,7 +51,8 @@ classdef Position < handle
 
         % constructor
         function this = Position(nChannels, filename, nTime)
-
+            % Position(nChannels, filename, nTime)
+            
             % matlab sucks
             if nargin == 0
                 return
@@ -64,9 +65,19 @@ classdef Position < handle
                 this.timeTraces = struct();
             end
 
+            if ~isnumeric(nChannels)
+                error('first argument is nChannels, which is a number');
+            end
+            if ~isnumeric(nTime)
+                error('third argument is nTime, which is a number');
+            end
+            
             this.nChannels = nChannels;
             this.nTime = nTime;
-            this.filename = filename;
+            
+            % strip off path in case it was provided
+            [~, name, ext] = fileparts(filename);
+            this.filename = [name ext];
             
             this.cellData = struct();
         end
@@ -118,7 +129,7 @@ classdef Position < handle
         function seg = loadSegmentation(this, dataDir, channel)
             % load segmentation
             %
-            % seg = loadSegmentation(dataDir)
+            % seg = loadSegmentation(dataDir, channel)
             %
             % dataDir:  main data directory
             %
@@ -149,7 +160,7 @@ classdef Position < handle
                 listing = dir(fullfile(dataDir,[barefname '_*h5']));
             end
             if isempty(listing)
-                error(['segmentation not found in ' dataDir]);
+                error(['segmentation for channel ' num2str(channel) ' not found in ' dataDir]);
             end
 
             seg = [];

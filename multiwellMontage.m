@@ -1,7 +1,11 @@
 clear all;
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
+
 dataDir = '/Users/idse/data_tmp/';
 filename = fullfile(dataDir, 'IH_96wellTest.xyz');
+
+dataDir = '/Volumes/STORENGO';
+filename = fullfile(dataDir,'160428-RI96w_IH.xyz');
 
 resolution = 0.325; % 40x
 
@@ -53,7 +57,7 @@ if ~isempty(positions.AutofocusPositions)
 
     for i = 1:nPos
         strsplit(s{i+1},',');
-        autofocus(i,:) = str2double(s{i});
+        autofocus(i,:) = str2double(s{i+1});
     end
 end
 %positions.AutofocusPositions = autofocus;
@@ -65,20 +69,24 @@ end
 overlapPixel = 100; 
 
 gridXYZ = {};
+AF = {};
 nCols = size(XYZ,1)/2;
 
 for pi = 1:nCols
 
     x = mean(XYZ(2*pi-1:2*pi,:),1);
+    af = mean(autofocus(2*pi-1:2*pi));
+    
     spacing = (1024 - overlapPixel)*resolution;
 
-
     gridXYZ{pi} = zeros([9 3]);
+    AF{pi} = zeros([9 1]);
 
     i = 1;
     for n = -1:1
         for m = -1:1
             gridXYZ{pi}(i,:) = [x(1) + m*spacing, x(2) + n*spacing, x(3)];
+            AF{pi}(i) = af;
             i = i+1;
         end
     end
@@ -87,15 +95,20 @@ end
 
 % convert XYZ back to string
 gridXYZcombined = cat(1,gridXYZ{:});
+AFCombined = cat(1,AF{:});
 newNPos = size(gridXYZcombined,1);
 posStrings = {};
+AFstrings = {};
 for i = 1:newNPos
+    AFstrings{i} = num2str(AFCombined(i));
     posStrings{i} = sprintf('%d,%d,%.2f',gridXYZcombined(i,:));
 end
 newXYFields = strjoin([num2str(newNPos) posStrings],'\t');
+newAF = strjoin([num2str(newNPos) AFstrings],'\t');
 
 newPositions = positions;
 newPositions.XYFields = newXYFields;
+newPositions.AutofocusPositions = newAF;
 
 %% check
 
