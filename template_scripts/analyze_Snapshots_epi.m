@@ -45,235 +45,108 @@ end
 % manually entered metadata
 %------------------------------
 
-meta.channelLabel = {'Bra','H2B', 'Sox17', 'eomes'};
+meta.channelLabel = {'Sox17ab','H2B', 'Sox17', 'eomes'};
 %meta.channelLabel = {'Bra','H2B', 'Smad4', 'Sox17'};
 nucChannel = 2;
 
 save(fullfile(dataDir,'metaData'),'meta');
 
-%%
+%% load data for parameter check
 
 p = Position(meta.nChannels, btfname, 1);
-p.extractData(dataDir,nucChannel)
-
-%%
-sox17 =  p.loadImage(dataDir, 4);
+sox17ab =  p.loadImage(dataDir, 1);
+eomes =  p.loadImage(dataDir, 4);
+sox17 =  p.loadImage(dataDir, 3);
 seg = p.loadSegmentation(dataDir, nucChannel);
+nuc = p.loadImage(dataDir, nucChannel);
 
-%%
+%% check for good clean up parameters
+
 idx = 2048:3*2048;
 s17piece = sox17(idx,idx);
+s17abpiece = sox17ab(idx,idx);
+eomespiece = eomes(idx,idx);
+nucpiece = nuc(idx,idx);
 segpiece = seg(idx,idx);
 
-%%
-figure, imshow(imadjust(mat2gray(s17piece)),[])
-%%
-figure, imshow(segpiece,[])
-%%
+cleanupOptions = struct('separateFused', true,...
+                    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0,...
+                    'openSize', 3,'minArea',50);
+                
+nucmask = nuclearCleanup(segpiece, cleanupOptions);
+maskedge = imdilate(nucmask,strel('disk',1))-segpiece;
+
+figure, imshow(cat(3,imadjust(mat2gray(nucpiece)),maskedge,imadjust(mat2gray(s17piece))),[])
+
+%% process data
+
+options = struct('cleanupOptions', cleanupOptions,'imopenBGsub',50);
+p = Position(meta.nChannels, btfname, 1);
+p.extractData(dataDir,nucChannel,options)
+
+% save
+[~,barefname,~] = fileparts(btfname);
+save(fullfile(dataDir, [barefname '2.mat']),'p');
+
+%% load processed data
 
 [~,barefname,~] = fileparts(btfname);
-load(fullfile(dataDir, [barefname '.mat']));
+load(fullfile(dataDir, [barefname '2.mat']));
 p.cellData 
 
+%% scatter cell locations on top of image
+
+s17bg = imopen(s17piece,strel('disk',50));
+
+h2b = imadjust(mat2gray(nucpiece));
+s17 = imadjust(mat2gray(s17piece - s17bg));
+s17ab = imadjust(mat2gray(s17abpiece  - imopen(s17abpiece,strel('disk',50))));
+eom = imadjust(mat2gray(eomespiece - imopen(eomespiece,strel('disk',50))));
+
+figure, imshow(cat(3,h2b,maskedge,s17),[])
 
 %%
-[~,barefname,~] = fileparts(btfname);
-save(fullfile(dataDir, [barefname '.mat']));
 
-%% extract nuclear and cytoplasmic levels
+figure, imshow(cat(3,h2b,maskedge,s17),[])
 
-% externally I will have all indices starting at 1
-% the Andor offset to start at 0 will be internal
-
-opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
-                    'dataChannels',     S4Channel,...
-                    'segmentationDir',  fullfile(dataDir,'MIP'),...
-                    'nucShrinkage',     2,...
-                    'MIPidxDir',        fullfile(dataDir,'MIP'));
-
-opts.cleanupOptions = struct('separateFused', true,...
-    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',1500);
-
-% try out the setting on some frame:
-% bla = nuclearCleanup(seg(:,:,50), opts.cleanupOptions);
-% imshow(bla)
-
-tic
-positions(meta.nPositions) = DynamicPositionAndor();
-for pi = 1:meta.nPositions
-
-    positions(pi) = DynamicPositionAndor(meta, pi);
-    positions(pi).extractData(dataDir, nucChannel, opts);
-    positions(pi).makeTimeTraces();
-end
-toc
-
-save(fullfile(dataDir,'positions'), 'positions');
-%['positions_' datestr(now,'yymmdd')]
-
-%%
-load(fullfile(dataDir,'positions'));
-
-% positions_before = load(fullfile(dataDir,'positions_before'));
-% positions_before = positions_before.positions;
-% 
-% for pi = 1:meta.nPositions
-%     positions(pi).cellData = cat(2, positions_before(pi).cellData,...
-%                                             positions(pi).cellData);
-%     positions(pi).ncells = cat(2, positions_before(pi).ncells,...
-%                                             positions(pi).ncells);
-% 	positions(pi).nTime = positions_before(pi).nTime + positions(pi).nTime;
-%     positions(pi).makeTimeTraces;
-% end
-% 
-% save(fullfile(dataDir,'positions'), 'positions');
-
-%% make a video of the time traces
-
-s = strsplit(meta.timeInterval,' ');
-dt = str2double(s{1});
-unit = s{2};
-t = ((1:positions(1).nTime) - treatmentTime)*dt;
-
-frame = {};
-cd(dataDir);
-saveResult = true;
-minNCells = 10; % minimal number of cells
-fgc = 'w';
-bgc = 'k';
-
-for wellnr = 1:nWells
-
-    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
-
-    ttraceCat = cat(1,positions.timeTraces);
-    ttraceCat = ttraceCat(conditionPositions);
-    nucMean = mean(cat(2,ttraceCat.nucLevelAvg),2);
-    cytMean = mean(cat(2,ttraceCat.cytLevelAvg),2);
-    bgMean = mean(cat(2,ttraceCat.background),2);
-
-    % THIS SHOULD BE REARRANGED WITH ti ON THE INSIDE AND pi OUTSIDE
-    
-    for ti = 1:positions(1).nTime
-        clf 
-        hold on
-        for pi = conditionPositions
-
-            nucTrace = positions(pi).timeTraces.nucLevelAvg;
-            bgTrace = positions(pi).timeTraces.background;
-            cytTrace = positions(pi).timeTraces.cytLevelAvg;
-
-            ratio = (nucTrace - bgTrace)./(cytTrace - bgTrace);
-            ratio(positions(pi).ncells < minNCells) = NaN;
-            plot(t,ratio,'Color', 0.5*[1 0 0])
-        end
-        ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
-        bad = any(cat(1,positions(conditionPositions).ncells) < minNCells,1);
-        ratioMean(bad) = NaN;
-        plot(t, ratioMean,'w','LineWidth',2)
+cidx = p.cellData.XY(:,1) > idx(1) & p.cellData.XY(:,1) < idx(end)...
+            & p.cellData.XY(:,2) > idx(1) & p.cellData.XY(:,2) < idx(end);
         
-        fs = 24;
-        xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
-        ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold','Color',fgc);
-        
-        axis([t(1), t(end)+50, 0.3, 2]);
-        set(gcf,'color',bgc);
-        set(gca, 'LineWidth', 2);
-        set(gca,'FontSize', fs)
-        set(gca,'FontWeight', 'bold')
-        set(gca,'XColor',fgc);
-        set(gca,'YColor',fgc);
-        set(gca,'Color',0.5*[1 1 1]);
-        
-        if saveResult
-            export_fig(['timeTrace_well' num2str(wellnr) '.pdf'],'-native -m2');
-        end
+% color by normalize sox17-rfp
+C = mat2gray(p.cellData.nucLevel(cidx,3)./p.cellData.nucLevel(cidx,2));
 
-        if ~isnan(ratioMean(ti))
-            g0 = [0 1 0];
-            if max(ratioMean) > 1
-                g0 = g0/max(ratioMean);
-            end
-            plot(t(ti), ratioMean(ti),'o','LineWidth',3,'MarkerEdgeColor',g0,...
-                                    'MarkerSize',20,'MarkerFaceColor',ratioMean(ti)*g0)
-        end
-        hold off
-
-        frame{ti} = export_fig(gcf,'-native -m2');
-    end
-    if saveResult
-        v = VideoWriter(fullfile(dataDir,['ratioplot_well' num2str(wellnr) '.mp4']),'MPEG-4');
-        v.FrameRate = 5;
-        open(v)
-        for ti = 1:positions(1).nTime
-            writeVideo(v,frame{ti})
-        end
-        close(v);
-    end
-end
-
-%% make a combined plot of several conditions
-
-s = strsplit(meta.timeInterval,' ');
-dt = str2double(s{1});
-unit = s{2};
-t = ((1:positions(1).nTime) - treatmentTime)*dt;
-
-frame = {};
-cd(dataDir);
-saveResult = true;
-minNCells = 10; % minimal number of cells
-
-wellsWanted = [1 2 6 7];
-colors = lines(numel(wellsWanted));
-
-clf 
 hold on
-
-for wellidx = 1:numel(wellsWanted)
-    
-    wellnr = wellsWanted(wellidx);
-
-%     if wellnr == 2
-%         conditionPositions = 4*(wellnr-1)+1;
-%     else
-%         conditionPositions = 4*(wellnr-1)+1:4*wellnr;
-%     end
-
-    conditionPositions = 4*(wellnr-1)+1:4*wellnr;
-    
-    ttraceCat = cat(1,positions.timeTraces);
-    ttraceCat = ttraceCat(conditionPositions);
-    nucMean = mean(cat(2,ttraceCat.nucLevelAvg),2);
-    cytMean = mean(cat(2,ttraceCat.cytLevelAvg),2);
-    bgMean = mean(cat(2,ttraceCat.background),2);
-    ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
-    
-    bad = any(cat(1,positions(conditionPositions).ncells) < minNCells,1);
-    ratioMean(bad) = NaN;
-    plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
-
-    g0 = [0 1 0];
-    if max(ratioMean) > 1
-        g0 = g0/max(ratioMean);
-    end
-
-    fs = 24;
-    xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold')
-    ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold');
-
-    axis([t(1), t(end)+50, 0.3, 2]);
-    set(gcf,'color','w');
-    set(gca, 'LineWidth', 2);
-    set(gca,'FontSize', fs)
-    set(gca,'FontWeight', 'bold')
-
-    frame{ti} = export_fig(gcf,'-native -m2');
-end
+scatter(p.cellData.XY(cidx,1)-idx(1),p.cellData.XY(cidx,2)-idx(1),100,C,'.')
 hold off
-%title('comparison');
-set(gca,'FontSize', 16)
-legend(conditions(wellsWanted));
-if saveResult
-    export_fig(['timeTrace_multipleConditions.pdf'],'-native -m2');
-end
+
+%% scatter plot of sox17 staining vs sox17-rfp
+
+h2bLevels = p.cellData.nucLevel(:,nucChannel) - double(min(nuc(:)));
+s17Levels = p.cellData.nucLevel(:,3) - double(min(sox17(:)));
+s17abLevels = p.cellData.nucLevel(:,1) - double(min(sox17ab(:)));
+
+scatter(s17abLevels./h2bLevels, s17Levels./h2bLevels);
+axis([0 0.5 0 4])
+
+%% single histogram
+
+bright = s17Levels./h2bLevels > 0.15;
+figure, hist(p.cellData.nucLevel(bright,3)./p.cellData.nucLevel(bright,2),50)
+
+%%
+
+figure, imshow(cat(3,s17ab,eom + 0*maskedge,s17),[])
+%C = mat2gray(p.cellData.nucLevel(cidx,3)./p.cellData.nucLevel(cidx,2));
+%bright = cidx & mat2gray(p.cellData.nucLevel(:,3)./p.cellData.nucLevel(:,2)) > 0.05;
+%bright = cidx & mat2gray(p.cellData.nucLevel(:,3)) > 0.03;
+%bright = cidx & p.cellData.nucLevel(:,3) - min(p.cellData.nucLevel(:,3)) > 100;
+bright = cidx & s17Levels > mean(s17Levels);
+
+hold on
+scatter(p.cellData.XY(bright,1)-idx(1),p.cellData.XY(bright,2)-idx(1),100,'.c')
+hold off
+
+hold on
+scatter(p.cellData.XY(cidx & ~bright,1)-idx(1),p.cellData.XY(cidx & ~bright,2)-idx(1),100,'.r')
+hold off
+

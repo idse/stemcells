@@ -153,7 +153,7 @@ classdef Position < handle
             
              % for dynamic data the raw data will usually be a MIP
             % this code tries both
-            listing = dir(fullfile(dataDir,[barefname '*_Simple*h5']));
+            listing = dir(fullfile(dataDir,[barefname '*h5']));
             if isempty(listing)
                 s = strsplit(this.filename,'_.[0-9]+','DelimiterType','RegularExpression');
                 barefname = sprintf([s{1} '_MIP_p%.4d'], this.ID-1);
@@ -168,8 +168,21 @@ classdef Position < handle
             for i = 1:numel(listing)
                 if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
                         || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
+                    
                     fname = fullfile(dataDir,listing(i).name);
-                    seg = (squeeze(h5read(fname, '/exported_data')) == 2);
+                    seg = h5read(fname, '/exported_data');
+                    % Probabilities
+                    if size(seg,1) > 1 
+                        ssegsize = size(seg);
+                        ssegsize(1) = 1;
+                        simpleseg = false(ssegsize);
+                        simpleseg(seg(2,:,:,:) >= 0.5) = true;
+                        seg = squeeze(simpleseg);
+                        
+                    % Simple Segmentation
+                    else                
+                        seg = squeeze(seg == 2);
+                    end
                 end
             end
             
@@ -224,7 +237,7 @@ classdef Position < handle
             end
             
             if ~exist(fname,'file')
-                warning(['MIPidx file does not exist: ' fname]);
+                %warning(['MIPidx file does not exist: ' fname]);
                 MIPidx = [];
             else
                 MIPidx = imread(fname,time);
@@ -259,6 +272,7 @@ classdef Position < handle
             % -MIPidxDir            directory of MIPidx files if desired
             % -segmentationDir      directory of segmentation, default
             %                       dataDir
+            % -imopenBGsub          open size for imopenBGsub
 
             if nargin < 4
                 opts = struct();
@@ -284,6 +298,9 @@ classdef Position < handle
             end
             if ~isfield(opts, 'MIPidxDir')
                 opts.MIPidxDir = [];
+            end
+            if ~isfield(opts, 'imopenBGsub')
+                opts.imopenBGsub = [];
             end
             
             this.dataChannels = opts.dataChannels;
@@ -368,6 +385,10 @@ classdef Position < handle
                 else
                     MIPidx = [];
                 end
+                % ti == 1 so it doesnt say it a hundred times
+                if ti == 1 && isempty(MIPidx) 
+                   warning('------------ NO MIPidx FOUND ------------');
+                end
                 
                 % for background subtraction, median z-plane
                 % this ifempty(MIPidx) is just so that it proceeds without
@@ -382,7 +403,9 @@ classdef Position < handle
                 
                 % read out nuclear and cytoplasmic levels 
                 %-----------------------------------------
-                if zmed > 0 % zmed == 0 means no nuclei in mask so no cells
+                % zmed == 0 means no nuclei in mask so no cells in MIPidx
+                % case
+                if nCells > 0  % zmed > 0 
                     
                 for cii = 1:numel(opts.dataChannels)
                     
@@ -393,6 +416,11 @@ classdef Position < handle
                         imc = max(imc,[],3);
                     end
 
+                    if ~isempty(opts.imopenBGsub)
+                        disp('imopen bg sub');
+                        imc = imc - imopen(imc,strel('disk',opts.imopenBGsub));
+                    end
+                    
                     % current low-tech background subtraction:
                     %-------------------------------------------------
                     % mean value of segmented empty space in the image
@@ -441,6 +469,8 @@ classdef Position < handle
                         this.cellData(ti).cytLevelAvg(cii) = mean(cL.*A)/mean(A);
                     end
                 end
+                else
+                    warning(['------------ NO CELLS AT T = ' num2str(ti) '------------']);
                 end
             end
             fprintf('\n');

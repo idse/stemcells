@@ -5,7 +5,8 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 %dataDir = '/Volumes/Seagate Backup Plus Drive/160317_ibidi_RIactivin';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
-dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
+%dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
+dataDir = '/Volumes/IdseData/160402_SBbackground';
 
 meta = MetadataAndor(dataDir);
 %meta.nTime = 110; % JUST FOR cycloheximide_after
@@ -31,7 +32,7 @@ filenameFormat = meta.filename;
 % posPerCondition = 4;
 % nWells = 8;
 
-barefname = 'RIvsNot';
+barefname = 'SBbackground';
 treatmentTime = 4;
 posPerCondition = 4;
 nWells = 8;

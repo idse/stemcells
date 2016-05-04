@@ -8,12 +8,13 @@ addpath(genpath('/Users/idse/repos/Warmflash/'));
 %dataDir = '/Volumes/IdseData/160323_8well_sox17/4days/sox17live_20160327_125754 PM';
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
 %dataDir = '/Volumes/IdseData/160406-C2C12S4-TGFbRI';
-dataDir = '/Volumes/SeagateBackup/160310_8well_dilutions';
+%dataDir = '/Volumes/SeagateBackup/160310_8well_dilutions';
+dataDir = '/Volumes/IdseData/160502_SBbackground';
 
 meta = MetadataAndor(dataDir);
 
-nucChannel = 0;
-S4Channel = 1;
+nucChannel = 1;
+S4Channel = 0;
 
 %%
 % visualize positions
@@ -33,6 +34,6 @@ channels = [nucChannel S4Channel];
 saveidx = [true false]; 
 
 inputdir = dataDir;
-outputdir = fullfile(dataDir, 'MIP');
+outputdir = fullfile(dataDir, 'MIPx');
 
 batchMIP_Andor(inputdir, outputdir, channels, saveidx);

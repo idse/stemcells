@@ -65,6 +65,8 @@ classdef DynamicPositionAndor < Position
             
             warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffErrorAsWarning');
 
+            nFiles = ceil(this.nTime/this.tPerFile);
+
             fti = ceil(time/this.tPerFile) - 1;
             subti = rem(time-1,this.tPerFile) + 1;
             % there is no _t part if all timepoints fit in a single file
@@ -77,7 +79,11 @@ classdef DynamicPositionAndor < Position
             info = imfinfo(fname);
             w = info.Width;
             h = info.Height;
-            nZslices = numel(info)/this.tPerFile;
+            if fti + 1 < nFiles
+                nZslices = numel(info)/this.tPerFile;
+            else
+                nZslices = numel(info)/(this.nTime - this.tPerFile);
+            end
             
             ioffset = (subti-1)*nZslices;
             img = zeros([h w nZslices],'uint16');
