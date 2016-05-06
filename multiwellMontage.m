@@ -76,7 +76,7 @@ for pi = 1:nCols
 
     x = mean(XYZ(2*pi-1:2*pi,:),1);
     af = mean(autofocus(2*pi-1:2*pi));
-    
+
     spacing = (1024 - overlapPixel)*resolution;
 
     gridXYZ{pi} = zeros([9 3]);
