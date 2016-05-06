@@ -222,13 +222,14 @@ classdef Position < handle
             % MIPidx is supposed to be single file for all times
             startIndex = regexp(fname,'_.[0-9]+');
             fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
-            fname = fullfile(dataDir, fname);
-            
+
             % if the channels are split in Andor format, put it in
             if ~isempty(regexp(fname,'_w%.4d','once'))
                 fname = sprintf(fname, channel-1);
             end
             
+            fname = fullfile(dataDir, fname);
+ 
             % when I make MIPs I replace m or f by p, I want all positions
             % labeled the same and thats how Andor should have done it
             montageIdx = regexp(fname,'(m|f)[0-9]+','once');

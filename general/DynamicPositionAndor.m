@@ -79,7 +79,7 @@ classdef DynamicPositionAndor < Position
             info = imfinfo(fname);
             w = info.Width;
             h = info.Height;
-            if fti + 1 < nFiles
+            if fti + 1 < nFiles || this.nTime==this.tPerFile
                 nZslices = numel(info)/this.tPerFile;
             else
                 nZslices = numel(info)/(this.nTime - this.tPerFile);
