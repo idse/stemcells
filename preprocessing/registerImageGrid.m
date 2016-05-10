@@ -47,23 +47,14 @@ function upperleft = registerImageGrid(imgs, pixelOverlap)
 
     % register each row in the first column
     j = 1;
-<<<<<<< HEAD
-    for i = 2:size(imgs,2)
-=======
     for i = 2:size(imgs, 1)
->>>>>>> idse/master
         shift = belowshift{i,j};
         upperleft{i,j} = upperleft{i-1,j} + [Np + shift(1) + 1, shift(2)];
     end
 
-<<<<<<< HEAD
-    for i = 1:size(imgs,1)
-        for j = 2:size(imgs,2)
-=======
     % for each row, register all the columns relative to the first one
     for i = 1:size(imgs, 1)
         for j = 2:size(imgs, 2)
->>>>>>> idse/master
             shift = rightshift{i,j};
             upperleft{i,j} = upperleft{i,j-1} + [shift(1), Np + shift(2) + 1];
         end

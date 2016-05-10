@@ -4,7 +4,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     warning('off','BF:lowJavaMemory');
     
     % read metadata
-    meta = metadataAndor(inputdir);
+    meta = MetadataAndor(inputdir);
     filenameFormat = meta.filename;
     s = strsplit(meta.filename,'_');
     barefname = s{1};
@@ -34,7 +34,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     MIP = {};
     MIPidx = {};
 
-    fileTmax = meta.nTime/meta.tPerFile - 1;
+    fileTmax = ceil(meta.nTime/meta.tPerFile) - 1;
     for ti = 0:fileTmax
 
         % read the data 
@@ -67,7 +67,13 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     if exist(fname,'file')
         delete(fname);
     end
-    bfsave(MIPtot,fname, 'dimensionOrder', 'XYZCT');
+    % I HAD PROBLEMS WITH BFSAVE
+    %bfsave(MIPtot,fname, 'dimensionOrder', 'XYZCT');
+    MIPtot = squeeze(MIPtot);
+    imwrite(MIPtot(:,:,1), fname);
+    for i = 2:size(MIPtot,3)
+        imwrite(MIPtot(:,:,i), fname,'WriteMode','Append');
+    end
 
     % MIP index
     if saveidx
@@ -75,7 +81,12 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
         if exist(fname,'file')
             delete(fname);
         end
-        bfsave(MIPidxtot,fname, 'dimensionOrder', 'XYZCT');
+        %bfsave(MIPidxtot,fname, 'dimensionOrder', 'XYZCT');
+        MIPidxtot = squeeze(MIPidxtot);
+        imwrite(MIPidxtot(:,:,1), fname);
+        for i = 2:size(MIPidxtot,3)
+            imwrite(MIPidxtot(:,:,i), fname, 'WriteMode','Append');
+        end
     end
     
     warning('on','BF:lowJavaMemory');

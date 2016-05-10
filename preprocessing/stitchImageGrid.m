@@ -23,7 +23,9 @@ function stitched = stitchImageGrid(upperleft, imgs)
     UL = cat(1,upperleft{:});
     dUL = 1 - min(UL);
     for i = 1:numel(upperleft)
-        upperleft{i} = upperleft{i} + dUL;
+        if ~isempty(upperleft{i})
+            upperleft{i} = upperleft{i} + dUL;
+        end
     end
 
     % again assuming square images
@@ -33,9 +35,11 @@ function stitched = stitchImageGrid(upperleft, imgs)
     stitched = zeros(totalSize,'uint16');
     for i = 1:size(imgs,1)
         for j = 1:size(imgs,2)
-            I = upperleft{i,j}(1):upperleft{i,j}(1)+N-1;
-            J = upperleft{i,j}(2):upperleft{i,j}(2)+N-1;
-            stitched(I,J) = imgs{i,j};
+            if ~isempty(upperleft{i,j})
+                I = upperleft{i,j}(1):upperleft{i,j}(1)+N-1;
+                J = upperleft{i,j}(2):upperleft{i,j}(2)+N-1;
+                stitched(I,J) = imgs{i,j};
+            end
         end
     end
 end
