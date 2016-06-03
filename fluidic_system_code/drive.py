@@ -28,6 +28,7 @@ def setup(port,br):
         connected = True
     print("READY")
     print("Serial information:")
+    print(ser)
     return ser
     
     
