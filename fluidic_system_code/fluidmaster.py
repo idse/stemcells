@@ -12,7 +12,8 @@ import drive
 
 ## Set up the serial connection
 drive.setup(3,9600) # (COM port number,baud rate)
-
+## And the print file
+f = open("TransferRecord.txt","a")
 
 def pulse(wait,stims,stim_len,stim_btwn,vol1,spd1,vol2,spd2,bmedia):
     """
@@ -31,33 +32,34 @@ def pulse(wait,stims,stim_len,stim_btwn,vol1,spd1,vol2,spd2,bmedia):
     spd2 is the speed of m2 in microliters/second
     bmedia is the initial blank media in microliters
     """
+    f.write("\n{0} PULSE EXPERIMENT\n".format(timestamp()))
     # CALCULATE USEFUL VALUES
     trans_time1 = (round(vol1/spd1) + 1)  # how long the fluid transfer takes
     trans_time2 = (round(vol2/spd2) + 1)  # how long the fluid transfer takes
     # ESTABLISHING BASELINE
-    print(timestamp(),"Waiting to establish baseline.",sep=" ")
+    f.write("{0} Waiting to establish baseline.\n".format(timestamp()))
     time.sleep(wait)
     # REMOVE INITIAL MEDIA
-    print(timestamp(),"Removing initial media.",sep=" ")
+    f.write("{0} Removing initial media.\n".format(timestamp()))
     drive.m2(0,bmedia,100);time.sleep(bmedia/100)
     # START THE PULSES
     for i in range(stims):
         # ligand pulse
         drive.m1(1,vol1,spd1);time.sleep(trans_time1)
-        print(timestamp(),"Pulse",i+1,"START",sep=" ")
+        f.write("{0} Pulse {1} START\n".format(timestamp(),i+1))
         time.sleep(stim_len)
-        print(timestamp(),"Pulse",i+1,"END",sep=" ")
+        f.write("{0} Pulse {1} END\n".format(timestamp(),i+1))
         drive.m1(0,vol1,spd1);time.sleep(trans_time1)
         # blank media
         drive.m2(1,vol2,spd2);time.sleep(trans_time2)
         if i != (stims-1):
-            print(timestamp(),"Blank",i+1,"START",sep=" ")
+            f.write("{0} Blank {1} START\n".format(timestamp(),i+1))
             time.sleep(stim_btwn)
-            print(timestamp(),"Blank",i+1,"END",sep=" ")
+            f.write("{0} Blank {1} START\n".format(timestamp(),i+1))
             drive.m2(0,vol2,spd2);time.sleep(trans_time2)
         # if this is the last pulse, don't remove the blank media
         else:
-            print(timestamp(),"DONE",sep=" ")
+            f.write("{0} EXPERIMENT COMPLETE\n".format(timestamp()))
 
 
 def timestamp():

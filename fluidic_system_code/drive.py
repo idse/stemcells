@@ -1,7 +1,8 @@
 """
 Contains functions which perform base-level communication with arduino.
 Functions:
--setup                set up connection
+-setup                set up the serial connection
+-disconnect           close the serial connection
 -m1                   drive first motor
 -m2                   drive second motor
 
@@ -9,7 +10,7 @@ Name: drive
 Author: Clayton Little
 """
 
-ser = 0  # initialize serial object
+ser = 0  # set up serial object
 
 def setup(port,br):
     """
@@ -29,7 +30,9 @@ def setup(port,br):
     print("READY")
     print("Serial information:")
     print(ser)
-    return ser
+    return ser  
+def disconnect():
+    ser.close()
     
     
 def m1(dr,vol,spd=50):
@@ -52,3 +55,4 @@ def m2(dr,vol,spd=50):
     spd is the speed of fluid transfer in microLiters per seconds.
     """
     ser.write(bytes(','.join(['2',str(dr),str(vol),str(spd)])+'*',"ascii"))
+    

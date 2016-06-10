@@ -9,7 +9,7 @@ addpath(genpath('/Users/idse/repos/Warmflash/'));
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
 %dataDir = '/Volumes/IdseData/160406-C2C12S4-TGFbRI';
 %dataDir = '/Volumes/SeagateBackup/160310_8well_dilutions';
-dataDir = '/Volumes/IdseData/160502_SBbackground';
+dataDir = 'D:\160506_ActivinDilutions_110055 AM';
 
 meta = MetadataAndor(dataDir);
 
