@@ -31,7 +31,7 @@ classdef MetadataAndor < Metadata
             
             rawMeta = struct();
 
-            % get the image filename formate
+            % get the image filename format
             if ~exist(dataDir, 'dir')
                 error(['data dir does not exist ' dataDir]);
             end
@@ -54,6 +54,8 @@ classdef MetadataAndor < Metadata
             listing = dir(fullfile(dataDir,'*.txt'));
             if isempty(listing)
                error(['no metadata file found in ' dataDir]);
+            else
+                disp(['metadata file: ' listing(1).name]);
             end
             filename = fullfile(dataDir, listing(1).name);
 

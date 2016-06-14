@@ -2,11 +2,11 @@ clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-%dataDir = '/Volumes/Seagate Backup Plus Drive/160317_ibidi_RIactivin';
+dataDir = '/Volumes/IdseData/160317_ibidi_RIactivin';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
-dataDir = '/Volumes/IdseData/160402_SBbackground';
+%dataDir = '/Volumes/IdseData/160402_SBbackground';
 
 meta = MetadataAndor(dataDir);
 %meta.nTime = 110; % JUST FOR cycloheximide_after
@@ -18,11 +18,11 @@ filenameFormat = meta.filename;
 
 % TODO : modify MetadataAndor to contain all info below
 
-% barefname = 'RIactivin100';
-% treatmentTime = 8; % first time point after treatment
-% conditions = {'RI + Activin 100 ng/ml'};
-% posPerCondition = 16;
-% nWells = 1;
+barefname = 'RIactivin100';
+treatmentTime = 8; % first time point after treatment
+conditions = {'RI + Activin 100 ng/ml'};
+posPerCondition = 16;
+nWells = 1;
 
 %barefname = 'cycloheximide_after';
 %barefname = 'cycloheximide_before';
@@ -32,10 +32,10 @@ filenameFormat = meta.filename;
 % posPerCondition = 4;
 % nWells = 8;
 
-barefname = 'SBbackground';
-treatmentTime = 4;
-posPerCondition = 4;
-nWells = 8;
+% barefname = 'SBbackground';
+% treatmentTime = 4;
+% posPerCondition = 4;
+% nWells = 8;
 
 nucChannel = 2;
 S4Channel = 1;
@@ -187,13 +187,17 @@ s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
 t = ((1:positions(1).nTime) - treatmentTime)*dt;
+axislim = [t(1), t(end)+50, 0.4, 1.5];
 
 frame = {};
 cd(dataDir);
-saveResult = true;
+saveResult = true; % CHECK
 minNCells = 10; % minimal number of cells
-fgc = 'w';
-bgc = 'k';
+fgc = 'k';
+bgc = 'w';
+graphbgc = 1*[1 1 1]; 
+graphfgc = 'r';
+%w, k, 0.5, w
 
 for wellnr = 1:nWells
 
@@ -223,20 +227,20 @@ for wellnr = 1:nWells
         ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
         bad = any(cat(1,positions(conditionPositions).ncells) < minNCells,1);
         ratioMean(bad) = NaN;
-        plot(t, ratioMean,'w','LineWidth',2)
+        plot(t, ratioMean, graphfgc,'LineWidth',2)
         
         fs = 24;
         xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
         ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold','Color',fgc);
         
-        axis([t(1), t(end)+50, 0.3, 2]);
+        axis(axislim);
         set(gcf,'color',bgc);
         set(gca, 'LineWidth', 2);
         set(gca,'FontSize', fs)
         set(gca,'FontWeight', 'bold')
         set(gca,'XColor',fgc);
         set(gca,'YColor',fgc);
-        set(gca,'Color',0.5*[1 1 1]);
+        set(gca,'Color',graphbgc);
         
         if saveResult
             export_fig(['timeTrace_well' num2str(wellnr) '.pdf'],'-native -m2');
@@ -255,7 +259,8 @@ for wellnr = 1:nWells
         frame{ti} = export_fig(gcf,'-native -m2');
     end
     if saveResult
-        v = VideoWriter(fullfile(dataDir,['ratioplot_well' num2str(wellnr) '.mp4']),'MPEG-4');
+        disp('saving');
+        v = VideoWriter(fullfile(dataDir,['ratioplot_white_well' num2str(wellnr) '.mp4']),'MPEG-4');
         v.FrameRate = 5;
         open(v)
         for ti = 1:positions(1).nTime
@@ -320,8 +325,6 @@ for wellidx = 1:numel(wellsWanted)
     set(gca, 'LineWidth', 2);
     set(gca,'FontSize', fs)
     set(gca,'FontWeight', 'bold')
-
-    frame{ti} = export_fig(gcf,'-native -m2');
 end
 hold off
 %title('comparison');
