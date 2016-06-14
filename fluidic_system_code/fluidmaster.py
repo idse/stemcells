@@ -41,7 +41,7 @@ def pulse(wait,stims,stim_len,stim_btwn,vol1,spd1,vol2,spd2,bmedia):
     time.sleep(wait)
     # REMOVE INITIAL MEDIA
     f.write("{0} Removing initial media.\n".format(timestamp()))
-    drive.m2(0,bmedia,100);time.sleep(bmedia/100)
+    drive.m2(0,bmedia,100);time.sleep(bmedia/100 + 1)
     # START THE PULSES
     for i in range(stims):
         # ligand pulse
@@ -59,7 +59,7 @@ def pulse(wait,stims,stim_len,stim_btwn,vol1,spd1,vol2,spd2,bmedia):
             drive.m2(0,vol2,spd2);time.sleep(trans_time2)
         # if this is the last pulse, don't remove the blank media
         else:
-            f.write("{0} EXPERIMENT COMPLETE\n".format(timestamp()))
+            f.write("{0} EXPERIMENT COMPLETE\n\n".format(timestamp()))
 
 
 def timestamp():
