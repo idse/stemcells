@@ -29,7 +29,12 @@ classdef DynamicPositionAndor < Position
             this.cellData = struct();
             
             this.nTime = meta.nTime;
-            this.tPerFile = meta.tPerFile;
+            if ~isfield(meta,'tPerFile') || isempty(meta.tPerFile)
+                this.tPerFile = this.nTime;
+                warning('tPerFile not in meta, assuming tPerFile=nTime');
+            else
+                this.tPerFile = meta.tPerFile;
+            end
             this.ID = ID;
             
             % this is a clunky way to only put the actual position in the

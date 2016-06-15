@@ -9,6 +9,8 @@ classdef Metadata
 
         filename
         
+        %tPerFile
+        
         xres                % x-resolution
         yres                % y-resolution
         xSize
