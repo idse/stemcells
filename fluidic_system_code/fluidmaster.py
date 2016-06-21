@@ -12,7 +12,7 @@ import drive
 
 ## Set up the serial connection
 drive.setup(4,9600) # (COM port number,baud rate)
-## And the print file
+## And the print files
 logfilename = "TransferRecord.txt"
 
 def pulse(wait,stims,stim_len,stim_btwn,vol1,spd1,vol2,spd2,bmedia):
