@@ -1,12 +1,12 @@
 clear all; close all;
 
-addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
+addpath(genpath('C:\Users\mcg3\Documents\GitHub\stemcells')); 
 
-dataDir = '/Volumes/IdseData/160317_ibidi_RIactivin';
+%dataDir = '/Volumes/Seagate Backup Plus Drive/160317_ibidi_RIactivin';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
-%dataDir = '/Volumes/IdseData/160402_SBbackground';
+dataDir = 'F:\4wellsiSkiSno_20160617_22203 PM';
 
 meta = MetadataAndor(dataDir);
 %meta.nTime = 110; % JUST FOR cycloheximide_after
@@ -18,37 +18,35 @@ filenameFormat = meta.filename;
 
 % TODO : modify MetadataAndor to contain all info below
 
-barefname = 'RIactivin100';
-treatmentTime = 8; % first time point after treatment
-conditions = {'RI + Activin 100 ng/ml'};
-posPerCondition = 16;
-nWells = 1;
+% barefname = 'RIactivin100';
+% treatmentTime = 8; % first time point after treatment
+% conditions = {'RI + Activin 100 ng/ml'};
+% posPerCondition = 16;
+% nWells = 1;
 
 %barefname = 'cycloheximide_after';
 %barefname = 'cycloheximide_before';
 % treatmentTime = 4;
-% conditions = {'no treatment','Activin 100 ng/ml', 'BMP 50 ng/ml', 'cyclohex 50 \mu g/ml',...
-%               'MG','Activin + cyclohex','Activin + MG','BMP + cyclohex'};
+conditions = {'Ski + SnoN + Activin','Ski + SnoN + BMP', 'BMP', 'Activin'};
 % posPerCondition = 4;
 % nWells = 8;
 
-% barefname = 'SBbackground';
-% treatmentTime = 4;
-% posPerCondition = 4;
-% nWells = 8;
+barefname = '4wellsiSkiSno';
+treatmentTime = 10;
+posPerCondition = 6;
+nWells = 4;
 
 nucChannel = 2;
 S4Channel = 1;
 
-% visualize positions
+%% visualize positions
 %---------------------
 
-% meta.displayPositions;
+meta.displayPositions;
 
 % TODO: create merged cellData for montage
 % movies of distribution over time
 
-           
 %% read the MIPs from previous step at time 1 
 
 gridSize = meta.montageGridSize;
@@ -133,7 +131,7 @@ end
 % t = (ti - treatmentTime)*dt;
 % text(100,100,['T = ' num2str(t) s{2}],'Color','white','FontSize',18);
 
-%% extract nuclear and cytoplasmic levels
+%% levels and cleanup options
 
 % externally I will have all indices starting at 1
 % the Andor offset to start at 0 will be internal
@@ -147,14 +145,17 @@ opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
 opts.cleanupOptions = struct('separateFused', true,...
     'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',1500);
 
-% try out the setting on some frame:
-% bla = nuclearCleanup(seg(:,:,50), opts.cleanupOptions);
-% imshow(bla)
+%% try out the options on some frame
+pos = DynamicPositionAndor(meta,1);
+seg = pos.loadSegmentation(fullfile(dataDir,'MIP'),nucChannel);
+bla = nuclearCleanup(seg(:,:,1), opts.cleanupOptions);
+imshow(bla)
 
+%% extract nuclear and cytoplasmic levels
 tic
 positions(meta.nPositions) = DynamicPositionAndor();
 for pi = 1:meta.nPositions
-
+ 
     positions(pi) = DynamicPositionAndor(meta, pi);
     positions(pi).extractData(dataDir, nucChannel, opts);
     positions(pi).makeTimeTraces();
@@ -181,23 +182,22 @@ load(fullfile(dataDir,'positions'));
 % 
 % save(fullfile(dataDir,'positions'), 'positions');
 
-%% make a video of the time traces
+
+%% make a video of the time traces 
+% takes the ratio of the averages of the fluorescent levels
+% in each position for each well
 
 s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
 t = ((1:positions(1).nTime) - treatmentTime)*dt;
-axislim = [t(1), t(end)+50, 0.4, 1.5];
 
 frame = {};
 cd(dataDir);
-saveResult = true; % CHECK
+saveResult = true;
 minNCells = 10; % minimal number of cells
-fgc = 'k';
-bgc = 'w';
-graphbgc = 1*[1 1 1]; 
-graphfgc = 'r';
-%w, k, 0.5, w
+fgc = 'w';
+bgc = 'k';
 
 for wellnr = 1:nWells
 
@@ -227,20 +227,20 @@ for wellnr = 1:nWells
         ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
         bad = any(cat(1,positions(conditionPositions).ncells) < minNCells,1);
         ratioMean(bad) = NaN;
-        plot(t, ratioMean, graphfgc,'LineWidth',2)
+        plot(t, ratioMean,'w','LineWidth',2)
         
         fs = 24;
         xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
         ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold','Color',fgc);
         
-        axis(axislim);
+        axis([t(1), t(end)+50, 0.3, 2]);
         set(gcf,'color',bgc);
         set(gca, 'LineWidth', 2);
         set(gca,'FontSize', fs)
         set(gca,'FontWeight', 'bold')
         set(gca,'XColor',fgc);
         set(gca,'YColor',fgc);
-        set(gca,'Color',graphbgc);
+        set(gca,'Color',0.5*[1 1 1]);
         
         if saveResult
             export_fig(['timeTrace_well' num2str(wellnr) '.pdf'],'-native -m2');
@@ -259,8 +259,7 @@ for wellnr = 1:nWells
         frame{ti} = export_fig(gcf,'-native -m2');
     end
     if saveResult
-        disp('saving');
-        v = VideoWriter(fullfile(dataDir,['ratioplot_white_well' num2str(wellnr) '.mp4']),'MPEG-4');
+        v = VideoWriter(fullfile(dataDir,['ratioplot_well' num2str(wellnr) '.mp4']),'MPEG-4');
         v.FrameRate = 5;
         open(v)
         for ti = 1:positions(1).nTime
@@ -270,7 +269,120 @@ for wellnr = 1:nWells
     end
 end
 
-%% make a combined plot of several conditions
+%% make a video of the time traces (EDIT 6/20/2016)
+% takes the average of the ratios of the fluorescent levels
+% in each position for each well
+
+s = strsplit(meta.timeInterval,' ');
+dt = str2double(s{1});
+unit = s{2};
+t = ((1:positions(1).nTime) - treatmentTime)*dt;
+
+frame = {};
+cd(dataDir);
+saveResult = true;
+minNCells = 10; % minimal number of cells
+fgc = 'w';
+bgc = 'k';
+
+for wellnr = 1:nWells
+    
+    % find the positions for wellnr
+    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+    
+    % retrieve fluorescent data
+    ttraceCat = cat(1,positions.timeTraces);
+    ttraceCat = ttraceCat(conditionPositions);
+    
+    % these arrays have zeros where NaNs would be
+    nuc = cat(2,ttraceCat.nucLevelAvg);
+    cyt = cat(2,ttraceCat.cytLevelAvg);
+    bg = cat(2,ttraceCat.background);
+    
+    % the zeros in these arrays are changed to NaN
+    if wellnr == 1
+        warning('All fluorescent levels of zero are assumed to be misimaged.');
+    end
+    nuc(nuc == 0) = NaN;
+    cyt(cyt == 0) = NaN;
+    bg(bg == 0) = NaN;
+    
+    % taking the ratios for each position
+    ratios = zeros(size(nuc));
+    for pi = 1:posPerCondition
+        ratios(:,pi) = (nuc(:,pi) - bg(:,pi))./(cyt(:,pi) - bg(:,pi));
+        % for this position, make time points with too few cells = NaN
+        bad = cat(1,positions(posPerCondition*(wellnr-1) + pi).ncells) < minNCells;
+        ratios(bad',pi) = NaN;
+    end
+
+    % THIS SHOULD BE REARRANGED WITH ti ON THE INSIDE AND pi OUTSIDE
+    
+    for ti = 1:positions(1).nTime
+        clf 
+        hold on
+        
+        % plot the traces
+        for pi = conditionPositions
+
+            nucTrace = positions(pi).timeTraces.nucLevelAvg;
+            bgTrace = positions(pi).timeTraces.background;
+            cytTrace = positions(pi).timeTraces.cytLevelAvg;
+
+            ratio = (nucTrace - bgTrace)./(cytTrace - bgTrace);
+            ratio(positions(pi).ncells < minNCells) = NaN;
+            plot(t,ratio,'Color', 0.5*[1 0 0])
+        end
+        
+        % plot the average of the traces
+        ratioMean = mean(ratios,2,'omitnan');
+        plot(t, ratioMean,'w','LineWidth',2)
+        
+        % plot elements
+        fs = 24;
+        xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
+        ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold','Color',fgc);
+        
+        axis([t(1), t(end)+50, 0.3, 2]);
+        set(gcf,'color',bgc);
+        set(gca, 'LineWidth', 2);
+        set(gca,'FontSize', fs)
+        set(gca,'FontWeight', 'bold')
+        set(gca,'XColor',fgc);
+        set(gca,'YColor',fgc);
+        set(gca,'Color',0.5*[1 1 1]);
+        
+        % saving the result
+        if saveResult
+            export_fig(['timeTrace_well' num2str(wellnr) '.pdf'],'-native -m2');
+        end
+
+        if ~isnan(ratioMean(ti))
+            g0 = [0 1 0];
+            if max(ratioMean) > 1
+                g0 = g0/max(ratioMean);
+            end
+            plot(t(ti), ratioMean(ti),'o','LineWidth',3,'MarkerEdgeColor',g0,...
+                                    'MarkerSize',20,'MarkerFaceColor',ratioMean(ti)*g0)
+        end
+        hold off
+
+        frame{ti} = export_fig(gcf,'-native -m2');
+    end
+    if saveResult
+        v = VideoWriter(fullfile(dataDir,['ratioplot_well' num2str(wellnr) '.mp4']),'MPEG-4');
+        v.FrameRate = 5;
+        open(v)
+        for ti = 1:positions(1).nTime
+            writeVideo(v,frame{ti})
+        end
+        close(v);
+    end
+end
+
+%% make a combined plot of several conditions (EDIT 6/20/2016)
+% takes the ratio of the averages of the fluorescent levels
+% in each position for each well
 
 s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
@@ -282,7 +394,7 @@ cd(dataDir);
 saveResult = true;
 minNCells = 10; % minimal number of cells
 
-wellsWanted = [1 2 6 7];
+wellsWanted = 1:nWells;
 colors = lines(numel(wellsWanted));
 
 clf 
@@ -298,17 +410,52 @@ for wellidx = 1:numel(wellsWanted)
 %         conditionPositions = 4*(wellnr-1)+1:4*wellnr;
 %     end
 
-    conditionPositions = 4*(wellnr-1)+1:4*wellnr;
-    
+
+%%%%%%%%%%% older code:
+%     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+%     
+%     ttraceCat = cat(1,positions.timeTraces);
+%     ttraceCat = ttraceCat(conditionPositions);
+%     nucMean = mean(cat(2,ttraceCat.nucLevelAvg),2);
+%     cytMean = mean(cat(2,ttraceCat.cytLevelAvg),2);
+%     bgMean = mean(cat(2,ttraceCat.background),2);
+%     ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
+%     
+%     bad = any(cat(1,positions(conditionPositions).ncells) < minNCells,1);
+%     ratioMean(bad) = NaN;
+%     plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
+
+    % find the positions for wellnr
+    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+
+    % retrieve fluorescent data
     ttraceCat = cat(1,positions.timeTraces);
     ttraceCat = ttraceCat(conditionPositions);
-    nucMean = mean(cat(2,ttraceCat.nucLevelAvg),2);
-    cytMean = mean(cat(2,ttraceCat.cytLevelAvg),2);
-    bgMean = mean(cat(2,ttraceCat.background),2);
-    ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
     
-    bad = any(cat(1,positions(conditionPositions).ncells) < minNCells,1);
-    ratioMean(bad) = NaN;
+    % these arrays have zeros where NaNs would be
+    nuc = cat(2,ttraceCat.nucLevelAvg);
+    cyt = cat(2,ttraceCat.cytLevelAvg);
+    bg = cat(2,ttraceCat.background);
+    
+    % the zeros in these arrays are changed to NaN
+    if wellidx == 1
+        warning('All fluorescent levels of zero are assumed to be misimaged.');
+    end
+    nuc(nuc == 0) = NaN;
+    cyt(cyt == 0) = NaN; 
+    bg(bg == 0) = NaN;
+    
+    % positions with not enough cells are also changed to NaN
+    bad = (cat(1,positions(conditionPositions).ncells) < minNCells)';
+    nuc(bad) = NaN; cyt(bad) = NaN; bg(bad) = NaN;
+    
+    % taking the averages of each position
+    nucMean = mean(nuc,2,'omitnan');
+    cytMean = mean(cyt,2,'omitnan');
+    bgMean = mean(bg,2,'omitnan');
+    
+    % plot the average of the ratios
+    ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
     plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
 
     g0 = [0 1 0];
@@ -325,9 +472,99 @@ for wellidx = 1:numel(wellsWanted)
     set(gca, 'LineWidth', 2);
     set(gca,'FontSize', fs)
     set(gca,'FontWeight', 'bold')
+
+    %frame{ti} = export_fig(gcf,'-native -m2');
 end
 hold off
-%title('comparison');
+title('Effect of Ski and SnoN on Activin/BMP response (ratio of avgs)');
+set(gca,'FontSize', 16)
+legend(conditions(wellsWanted));
+if saveResult
+    export_fig(['timeTrace_multipleConditions.pdf'],'-native -m2');
+end
+
+%% make a combined plot of several conditions (EDIT 6/21/2016)
+% takes the average of the ratios of the fluorescent levels
+% in each position for each well
+
+s = strsplit(meta.timeInterval,' ');
+dt = str2double(s{1});
+unit = s{2};
+t = ((1:positions(1).nTime) - treatmentTime)*dt;
+
+frame = {};
+cd(dataDir);
+saveResult = true;
+minNCells = 10; % minimal number of cells
+
+wellsWanted = 1:nWells;
+colors = lines(numel(wellsWanted));
+
+clf 
+hold on
+
+for wellidx = 1:numel(wellsWanted)
+    
+    wellnr = wellsWanted(wellidx);
+
+%     if wellnr == 2
+%         conditionPositions = 4*(wellnr-1)+1;
+%     else
+%         conditionPositions = 4*(wellnr-1)+1:4*wellnr;
+%     end
+
+    % find the positions for wellnr
+    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+
+    % retrieve fluorescent data
+    ttraceCat = cat(1,positions.timeTraces);
+    ttraceCat = ttraceCat(conditionPositions);
+    
+    % these arrays have zeros where NaNs would be
+    nuc = cat(2,ttraceCat.nucLevelAvg);
+    cyt = cat(2,ttraceCat.cytLevelAvg);
+    bg = cat(2,ttraceCat.background);
+    
+    % the zeros in these arrays are changed to NaN
+    if wellidx == 1
+        warning('All fluorescent levels of zero are assumed to be misimaged.');
+    end
+    nuc(nuc == 0) = NaN;
+    cyt(cyt == 0) = NaN; 
+    bg(bg == 0) = NaN;
+    
+    % taking the ratios for each position
+    ratios = zeros(size(nuc));
+    for pi = 1:posPerCondition
+        ratios(:,pi) = (nuc(:,pi) - bg(:,pi))./(cyt(:,pi) - bg(:,pi));
+        % for this position, make time points with too few cells = NaN
+        bad = cat(1,positions(posPerCondition*(wellnr-1) + pi).ncells) < minNCells;
+        ratios(bad',pi) = NaN;
+    end
+    
+    % plot the average of the ratios
+    ratioMean = mean(ratios,2,'omitnan');
+    plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
+
+    g0 = [0 1 0];
+    if max(ratioMean) > 1
+        g0 = g0/max(ratioMean);
+    end
+
+    fs = 24;
+    xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold')
+    ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold');
+
+    axis([t(1), t(end)+50, 0.3, 2]);
+    set(gcf,'color','w');
+    set(gca, 'LineWidth', 2);
+    set(gca,'FontSize', fs)
+    set(gca,'FontWeight', 'bold')
+
+    %frame{ti} = export_fig(gcf,'-native -m2');
+end
+hold off
+title('Effect of Ski and SnoN on Activin/BMP response');
 set(gca,'FontSize', 16)
 legend(conditions(wellsWanted));
 if saveResult
