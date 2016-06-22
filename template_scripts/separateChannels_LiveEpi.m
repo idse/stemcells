@@ -1,12 +1,13 @@
 %% locate code and data
-addpath(genpath('C:\Users\Thomas\Documents\GitHub\stemcells')); 
-cd('F:\Clayton\160620-ManualPulseTest')
-%oifToTiffTimeLapse('Image966.vsi','D:\160602_pulsetest1\TIFF_FILES\I966');
+addpath(genpath('C:\Users\Thomas\Documents\GitHub\stemcells'));
+dataDir = 'F:\Clayton\160621-ManualPulseTest2';
+barefname = 'ManualPulseTest2';
+cd(dataDir);
 
 %% separate files
 for i = 20:35
     infile = ['Process_' num2str(i) '.vsi'];
-    outfilebase = ['F:\Clayton\160620-ManualPulseTest\MIP\ManualPulseTest_MIP_p00' num2str(i-20) '_w0000'];
+    outfilebase = fullfile(dataDir, sprintf([barefname '_MIP_p%.4d'],i-20));
     oifToTiffTimeLapse(infile,outfilebase)
     disp(i)
 end
