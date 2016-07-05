@@ -6,7 +6,7 @@ addpath(genpath('C:\Users\mcg3\Documents\GitHub\stemcells'));
 %dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
-dataDir = 'F:\4wellsiSkiSno_20160617_22203 PM';
+dataDir = 'F:\160617_4wellsiSkiSno_20160617_22203 PM';
 
 meta = MetadataAndor(dataDir);
 %meta.nTime = 110; % JUST FOR cycloheximide_after

@@ -198,7 +198,7 @@ imshow(bla)
 %%
 tic
 %positions(meta.nPositions) = DynamicPositionAndor();
-for pi = 3:meta.nPositions
+for pi = 1:meta.nPositions
 
     positions(pi) = DynamicPositionAndor(meta,pi);
     positions(pi).extractData(fullfile(dataDir,'MIP'), nucChannel, opts);

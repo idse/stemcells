@@ -15,7 +15,7 @@ nc = reader.getSizeC;
 
 for cc = 1:nc
     %outfile = [outfilebase '_' int2str(cc) '.tif'];
-    outfile = sprintf([outfilebase '_w%.4d.tif'],cc-1);
+    outfile = [outfilebase,sprintf('_w%.4d.tif',cc-1)];
     for ii = 1:nT
         iplane = reader.getIndex(0,cc-1,ii - 1) + 1;
         img = bfGetPlane(reader,iplane);
