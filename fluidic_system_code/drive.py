@@ -1,10 +1,11 @@
 """
-Contains functions which perform base-level communication with arduino.
+Contains functions which perform serial communication with arduino.
 Functions:
 -setup                set up the serial connection
 -disconnect           close the serial connection
--m1                   drive first motor
--m2                   drive second motor
+-m1                   drive first motor (fresh media)
+-m2                   drive second motor (waste media)
+-m3                   drive third motor (ligand )
 
 Name: drive
 Author: Clayton Little
@@ -31,6 +32,7 @@ def setup(port,br):
     print("Serial information:")
     print(ser)
     return ser  
+    
 def disconnect():
     ser.close()
     
@@ -55,4 +57,15 @@ def m2(dr,vol,spd=50):
     spd is the speed of fluid transfer in microLiters per seconds.
     """
     ser.write(bytes(','.join(['2',str(dr),str(vol),str(spd)])+'*',"ascii"))
+    
+    
+def m3(dr,vol,spd=50):
+    """
+    Sends a single command to the first motor.
+    
+    dr is an int specifying direction. 1 is inject. 0 is remove.
+    vol is the volume transfer in microLiters.
+    spd is the speed of fluid transfer in microLiters per seconds.
+    """
+    ser.write(bytes(','.join(['3',str(dr),str(vol),str(spd)])+'*',"ascii"))
     

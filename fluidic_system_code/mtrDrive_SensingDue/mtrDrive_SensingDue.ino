@@ -1,5 +1,5 @@
 /*
-   MotorDriveUnoPP sketch
+   mtrDrive_Due sketch
    Drives syringe pumps using arduino Due, with the motors pins in parallel.
 
    This codes expects a message in the format: 1,4567,890*
@@ -8,29 +8,30 @@
    This code requires some arbitrary character
    to indicate the end of the command. Here I have used "*"
 */
+#include <Scheduler.h>
 
+//Define how many motors we are driving
 #define numMtrs 3
-
 //Define parallel pins for all motors
 #define MS1 53
 #define MS2 51
 #define MS3 49
 //Define pins for motor 1
-#define EN_1  46
-#define stp_1 44
-#define dir_1 42
+#define EN_1  52
+#define stp_1 50
+#define dir_1 48
 //Define pins for motor 2
-#define EN_2  52
-#define stp_2 50
-#define dir_2 48
+#define EN_2  46
+#define stp_2 44
+#define dir_2 42
 //Define pins for motor 3
-#define EN_3  13
-#define stp_3 11
-#define dir_3 12
+#define EN_3  40
+#define stp_3 38
+#define dir_3 36
 
 
 
-//Declare pins
+//Declare motor pins array
 int pins[numMtrs][6] = {
   {EN_1, MS1, MS2, MS3, stp_1, dir_1},
   {EN_2, MS1, MS2, MS3, stp_2, dir_2},
@@ -38,7 +39,7 @@ int pins[numMtrs][6] = {
 };
 int dpins[6]; //the pins of the currently driven motor
 
-//Declare variables for serial reading
+//Declare serial reading variables
 char ui;                        //user serial input
 const int NUMBER_OF_FIELDS = 4; //expected # of fields
 int fieldIndex = 0;             //to iterate through fields
@@ -60,7 +61,7 @@ float errorCorrection = 1.025746;
 
 
 void setup() {
-  //Set pinModes:
+  //Set pinModes for motor pins:
   for (int i = 0; i < numMtrs; i++) {
     for (int j = 0; j < 6; j++) {
       pinMode(pins[i][j], OUTPUT);

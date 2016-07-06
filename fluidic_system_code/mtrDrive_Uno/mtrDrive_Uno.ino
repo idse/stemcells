@@ -1,6 +1,6 @@
 /*
-   MotorDriveUno sketch
-   Drives syringe pumps using arduino Uno.
+   mtrDrive_Uno sketch
+   Drives syringe pumps using arduino Uno. Pins are not in parallel.
    
    This codes expects a message in the format: 1,4567,890*
    The first field is an indicator of 1 or 0 for direction

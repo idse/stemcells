@@ -1,7 +1,12 @@
 """
-Contains the functions for different fluid transfer schemes.
+Contains functions for different fluid transfer schemes.
+Functions:
+-pulse2                two-motor ligand pulse scheme
+-pulse3                three-motor ligand pulse scheme2
+-updatelog             writes to console and external file
+-timestamp             returns nicely formatted data+time
 
-Name: fluidmaster
+Name: fluidMaster
 Author: Clayton Little
 """
 
@@ -14,6 +19,8 @@ import drive
 drive.setup(4,9600) # (COM port number,baud rate)
 ## And the print files
 logfilename = "TransferRecord.txt"
+
+
 
 def pulse(wait,stims,stim_len,stim_btwn,vol1,spd1,vol2,spd2,bmedia):
     """
