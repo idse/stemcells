@@ -1,7 +1,9 @@
-function seg = imseg(im,disksize,stdDev)
+% produces a binary image showing areas that are separated from the rest of the
+% image by a relatively sharp change in grayscale value.
+function seg = imseg(im,diskSize,stdDev,minArea)
 
 % find difference between min and max value around each pixel
-diff = imdilate(im,strel('disk',disksize)) - imerode(im,strel('disk',disksize));
+diff = imdilate(im,strel('disk',diskSize)) - imerode(im,strel('disk',diskSize));
 
 % find where the diff is unusually large
 segx = diff > (mean(mean(diff)) + stdDev * std(diff(:)));
@@ -26,5 +28,12 @@ segx_d_filled = segx_d_filled(1:end-1,2:end);
 % put them all together
 segx_filled = segx_a_filled | segx_b_filled | segx_c_filled | segx_d_filled;
 seg = segx_filled;
+%seg = diff > (mean(mean(diff)) + stdDev * std(diff(:))); % no filling
+
+% take out little spots
+seg = bwareaopen(seg,minArea);
+
+% overcompensate a little
+seg = imdilate(seg,strel('disk',1));
 
 return
