@@ -6,7 +6,7 @@ addpath(genpath('C:\Users\Thomas\Documents\GitHub\stemcells'));
 %dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
-dataDir = 'F:\Clayton\160617_syringeC2C12_7hintervals';
+dataDir = 'D:\160617_syringeC2C12_7hintervals';
 
 
 vsifile = fullfile(dataDir,'Process_12.vsi');
@@ -325,6 +325,12 @@ minNCells = 10; % minimal number of cells
 wellsWanted = 1;
 colors = lines(numel(wellsWanted));
 
+% pulse graph information
+plotPulseGraph = true;
+logDir = dataDir;
+logName = '160615_144240_timeLog.txt';
+startTime = -t(1)-15;
+
 clf 
 hold on
 
@@ -332,12 +338,7 @@ for wellidx = 1:numel(wellsWanted)
     
     wellnr = wellsWanted(wellidx);
 
-%     if wellnr == 2
-%         conditionPositions = 4*(wellnr-1)+1;
-%     else
-%         conditionPositions = 4*(wellnr-1)+1:4*wellnr;
-%     end
-
+    % plot condition
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
     
     ttraceCat = cat(1,positions.timeTraces);
@@ -355,7 +356,18 @@ for wellidx = 1:numel(wellsWanted)
     if max(ratioMean) > -7
         g0 = g0/max(ratioMean);
     end
+    
+    % plot pulse graph
+    if wellidx == 1
+        tmp = ratioMean;
+    else
+        tmp = [tmp ratioMean];
+    end
+    if plotPulseGraph && wellidx == numel(wellsWanted)
+        plotPulse(logDir,logName,startTime,min(tmp(:)),max(tmp(:)))
+    end
 
+    % plot parameters
     fs = 24;
     xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold')
     ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold');

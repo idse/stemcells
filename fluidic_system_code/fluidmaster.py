@@ -16,9 +16,7 @@ import datetime
 import drive
 
 ## Set up the serial connection
-drive.setup(4,9600) # (COM port number,baud rate)
-## And the print files
-logfilename = "TransferRecord.txt"
+#drive.setup(4,9600) # (COM port number,baud rate)
 
 
 
@@ -39,31 +37,35 @@ def pulse(wait,stims,stim_len,stim_btwn,vol1,spd1,vol2,spd2,bmedia):
     spd2 is the speed of m2 in microliters/second
     bmedia is the initial blank media in microliters
     """
+    # SET UP LOGS
+    global transferLog
+    global timeLog
+    transferLog = "transferLog.txt"
+    timeLog = datetime.datetime.fromtimestamp(time.time()).strftime('%y%m%d_%H%M%S') + "_timeLog.txt"
     updatelog("PULSE EXPERIMENT")
     # CALCULATE USEFUL VALUES
     trans_time1 = (round(vol1/spd1) + 1)  # how long the fluid transfer takes
     trans_time2 = (round(vol2/spd2) + 1)  # how long the fluid transfer takes
-    # ESTABLISHING BASELINE
-    updatelog("Waiting to establish baseline.")
+    # ESTABLISH BASELINE
     time.sleep(wait)
     # REMOVE INITIAL MEDIA
     updatelog("Removing initial media.")
-    drive.m2(0,bmedia,100);time.sleep(bmedia/100 + 1)
+    #########################drive.m2(0,bmedia,100);time.sleep(bmedia/100 + 1)
     # START THE PULSES
     for i in range(stims):
         # ligand pulse
-        drive.m1(1,vol1,spd1);time.sleep(trans_time1)
+        #########################drive.m1(1,vol1,spd1);time.sleep(trans_time1)
         updatelog("Pulse " + str(i+1) + " START")
         time.sleep(stim_len)
         updatelog("Pulse " + str(i+1) + " END")
-        drive.m1(0,vol1,spd1);time.sleep(trans_time1)
+        #########################drive.m1(0,vol1,spd1);time.sleep(trans_time1)
         # blank media
-        drive.m2(1,vol2,spd2);time.sleep(trans_time2)
+        #########################drive.m2(1,vol2,spd2);time.sleep(trans_time2)
         if i != (stims-1):
             updatelog("Blank " + str(i+1) + " START")
             time.sleep(stim_btwn)
             updatelog("Blank " + str(i+1) + " END")
-            drive.m2(0,vol2,spd2);time.sleep(trans_time2)
+            #########################drive.m2(0,vol2,spd2);time.sleep(trans_time2)
         # if this is the last pulse, don't remove the blank media
         else:
             updatelog("EXPERIMENT COMPLETE\n")
@@ -74,12 +76,18 @@ def updatelog(msg):
     Prints logs to the screen, as well as an external text file.
     msg is the message associated with a particular timestamp.
     """
-    f = open(logfilename,"a")
-    f.write(timestamp() + " " + msg + "\n")
+    ## first the readable file
+    f = open(transferLog,"a")
+    f.write(timestamp1() + " " + msg + "\n")
     f.close()
-    print(timestamp() + " " + msg)
+    print(timestamp1() + " " + msg)
+    ## then the file for MatLab to read
+    f = open(timeLog,"a")
+    f.write(str(round(time.time())) + ',')
+    f.close()
     
     
-def timestamp():
+def timestamp1():
+    ## Returns full date and time
     ts = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
     return ts
