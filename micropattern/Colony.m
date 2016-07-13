@@ -8,7 +8,7 @@ classdef Colony < Position
     properties
 
         center          % x-y pixel coordinates of center (relative to btf)
-        
+        well % well located in
         % different from cellTracker: 
         %------------------------------
         
@@ -37,7 +37,7 @@ classdef Colony < Position
     methods
         
         % constructor
-        function this = Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox, time)
+        function this = Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox, well, time)
 
             % matlab sucks
             if nargin == 0
@@ -53,7 +53,7 @@ classdef Colony < Position
             this.radiusPixel = radiusPixel;
             this.radiusMicron = radiusMicron;
             this.boundingBox = boundingBox;
-            
+            this.well = well; 
             d = num2str(2*radiusMicron);
             this.filename = ['col_d' num2str(d) '_id' num2str(this.ID) '.tif'];
         end
