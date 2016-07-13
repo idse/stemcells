@@ -139,7 +139,20 @@ for n = 1:numel(yedge)-1
             for ci = DAPIChannel
                 
                 imsize = 2048;
-                forIlim = img(imsize+1:4*imsize,imsize+1:4*imsize,ci);
+                si = size(img);
+                xx = min(si(1),4*imsize); yy = min(si(2),4*imsize);
+                if xx < 2*imsize
+                    x0 = 1;
+                else
+                    x0 = imsize + 1;
+                end
+                if yy < 2*imsize
+                    y0 = 1;
+                else
+                    y0 = imsize + 1;
+                end
+                    
+                forIlim = img(x0:xx,y0:yy,ci);
                 minI = double(min(forIlim(:)));
                 maxI = double(max(forIlim(:)));
                 forIlim = mat2gray(forIlim);
