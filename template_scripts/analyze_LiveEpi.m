@@ -338,18 +338,37 @@ for wellidx = 1:numel(wellsWanted)
     
     wellnr = wellsWanted(wellidx);
 
-    % plot condition
+    % find the positions for wellnr
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
-    
+
+    % retrieve fluorescent data
     ttraceCat = cat(1,positions.timeTraces);
     ttraceCat = ttraceCat(conditionPositions);
-    nucMean = mean(cat(2,ttraceCat.nucLevelAvg),2);
-    cytMean = mean(cat(2,ttraceCat.cytLevelAvg),2);
-    bgMean = mean(cat(2,ttraceCat.background),2);
-    ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
     
-    bad = any(cat(1,positions(conditionPositions).ncells) < minNCells,1);
-    ratioMean(bad) = NaN;
+    % these arrays have zeros where NaNs would be
+    nuc = cat(2,ttraceCat.nucLevelAvg);
+    cyt = cat(2,ttraceCat.cytLevelAvg);
+    bg = cat(2,ttraceCat.background);
+    
+    % the zeros in these arrays are changed to NaN
+    if wellidx == 1
+        warning('All fluorescent levels of zero are assumed to be misimaged.');
+    end
+    nuc(nuc == 0) = NaN;
+    cyt(cyt == 0) = NaN; 
+    bg(bg == 0) = NaN;
+    
+    % taking the ratios for each position
+    ratios = zeros(size(nuc));
+    for pi = 1:posPerCondition
+        ratios(:,pi) = (nuc(:,pi) - bg(:,pi))./(cyt(:,pi) - bg(:,pi));
+        % for this position, make time points with too few cells = NaN
+        bad = cat(1,positions(posPerCondition*(wellnr-1) + pi).ncells) < minNCells;
+        ratios(bad',pi) = NaN;
+    end
+    
+    % plot the average of the ratios
+    ratioMean = mean(ratios,2,'omitnan');
     plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
 
     g0 = [0 1 0];

@@ -507,12 +507,6 @@ for wellidx = 1:numel(wellsWanted)
     
     wellnr = wellsWanted(wellidx);
 
-%     if wellnr == 2
-%         conditionPositions = 4*(wellnr-1)+1;
-%     else
-%         conditionPositions = 4*(wellnr-1)+1:4*wellnr;
-%     end
-
     % find the positions for wellnr
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
 
