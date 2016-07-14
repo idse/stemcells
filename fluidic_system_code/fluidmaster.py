@@ -16,7 +16,7 @@ import datetime
 import drive
 
 ## Set up the serial connection
-#drive.setup(4,9600) # (COM port number,baud rate)
+drive.setup(4,9600) # (COM port number,baud rate)
 
 
 
@@ -50,22 +50,22 @@ def pulse(wait,stims,stim_len,stim_btwn,vol1,spd1,vol2,spd2,bmedia):
     time.sleep(wait)
     # REMOVE INITIAL MEDIA
     updatelog("Removing initial media.")
-    #########################drive.m2(0,bmedia,100);time.sleep(bmedia/100 + 1)
+    drive.m2(0,bmedia,100);time.sleep(bmedia/100 + 1)
     # START THE PULSES
     for i in range(stims):
         # ligand pulse
-        #########################drive.m1(1,vol1,spd1);time.sleep(trans_time1)
+        drive.m1(1,vol1,spd1);time.sleep(trans_time1)
         updatelog("Pulse " + str(i+1) + " START")
         time.sleep(stim_len)
         updatelog("Pulse " + str(i+1) + " END")
-        #########################drive.m1(0,vol1,spd1);time.sleep(trans_time1)
+        drive.m1(0,vol1,spd1);time.sleep(trans_time1)
         # blank media
-        #########################drive.m2(1,vol2,spd2);time.sleep(trans_time2)
+        drive.m2(1,vol2,spd2);time.sleep(trans_time2)
         if i != (stims-1):
             updatelog("Blank " + str(i+1) + " START")
             time.sleep(stim_btwn)
             updatelog("Blank " + str(i+1) + " END")
-            #########################drive.m2(0,vol2,spd2);time.sleep(trans_time2)
+            drive.m2(0,vol2,spd2);time.sleep(trans_time2)
         # if this is the last pulse, don't remove the blank media
         else:
             updatelog("EXPERIMENT COMPLETE\n")

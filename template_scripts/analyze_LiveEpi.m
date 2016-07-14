@@ -49,7 +49,6 @@ meta.filename = 'syringeC2C12_7hintervals_MIP_p%.4d_w%.4d.tif';
 meta.nTime = 200;
 meta.timeInterval = '10 min';
 meta.nPositions = 8;
-nucChannel = 2;
 
 %save(fullfile(dataDir,'metaData'),'meta');
 
@@ -329,7 +328,7 @@ colors = lines(numel(wellsWanted));
 plotPulseGraph = true;
 logDir = dataDir;
 logName = '160615_144240_timeLog.txt';
-startTime = -t(1)-15;
+startTime = treatmentTime*dt;
 
 clf 
 hold on

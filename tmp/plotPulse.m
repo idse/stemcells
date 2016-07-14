@@ -19,6 +19,6 @@ level(pulse) = high;                      % pulses get high value
 level(~pulse) = low;                      % blanks get low value
 
 % plotting
-plot(time-startTime,level);
+plot(time-startTime,level,'LineWidth',2);
 
 return
