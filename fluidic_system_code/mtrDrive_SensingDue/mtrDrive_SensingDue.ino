@@ -28,6 +28,9 @@
 #define EN_3  40
 #define stp_3 38
 #define dir_3 36
+//Define pins for hall Sensor
+#define hallF A0  //front
+#define hallB A1  //back
 
 
 
@@ -50,13 +53,20 @@ int done = 0;                   //indicator variable
 long xlim;  //indicate volume (in # of steps)
 long spd_t; //delay time between steps (for controlling speed)
 
-//Declare constants (an underscore indicates "per")
+//Declare basic syringe constants (an underscore indicates "per")
 float mm_turn = 1.25;
 float mcl_mm = (30.0 / 82) * 1000;
 int stp_turn = 3200;
-float stp_mcl = stp_turn / mcl_mm / mm_turn;
+float stp_mcl = stp_turn / mcl_mm / mm_turn; // ~7
 float mcs_stp = 1000000 / stp_mcl;
 float errorCorrection = 1.025746;
+//Declare precision syringe constants
+float mm_turn_PS = 5.00;
+float mcl_mm_PS = (1.0 / 60) * 1000;
+int stp_turn_PS = 3200;
+float stp_mcl_PS = stp_turn / mcl_mm / mm_turn; // 38.4
+float mcs_stp_PS = 1000000 / stp_mcl;
+
 
 
 
@@ -113,7 +123,10 @@ void loop() {
   for (int i = 0; i < 6; i++) {
     dpins[i] = pins[values[0] - 1][i];
   }
-  SmallStepMode();
+  if (values[0] == 3)
+    PrecisionSyringe();
+  else
+    SmallStepMode();
 
   //Reset for next command:
   for (int i = 0; i <= fieldIndex; i++)
@@ -142,8 +155,8 @@ void resetBEDpins()
 
 
 
-// Drive motor @ 1/16th microstep
-void SmallStepMode()
+// Drive blank and waste syringes
+void BasicSyringe()
 {
   //Pull EN down to enable FETs and allow motor to move
   digitalWrite(dpins[0], LOW);
@@ -183,3 +196,56 @@ void SmallStepMode()
     }
   }
 }
+
+
+
+
+// Drive concentrated ligand syringe
+void PrecisionSyringe()
+{
+  //Pull EN down to enable FETs and allow motor to move
+  digitalWrite(dpins[0], LOW);
+  //Pull MS1,MS2, and MS3 high to set logic to 1/16th microstep resolution
+  digitalWrite(dpins[1], HIGH); digitalWrite(dpins[2], HIGH); digitalWrite(dpins[3], HIGH);
+  //DIRECTION
+  if (values[1] == 1)
+    digitalWrite(dpins[5], HIGH); //Pull direction pin high to inject
+  else
+    digitalWrite(dpins[5], LOW); //Pull direction pin low to remove
+  //VOLUME
+  xlim = ceil(values[2] * stp_mcl_PS);
+  Serial.print("Steps: "); Serial.println(xlim);
+  //SPEED
+  spd_t = ceil(mcs_stp_PS / values[3] / 2);
+  Serial.print("Delay: "); Serial.println(spd_t); Serial.println();
+  //DRIVE
+  if (spd_t <= 16383) //microsecond delay is only accurate for such values
+  {
+    for (int x = 1; x <= xlim; x++) //Loop the forward stepping enough times for motion to be visible
+    {
+      digitalWrite(dpins[4], HIGH); //Trigger one step forward
+      delayMicroseconds(spd_t);
+      digitalWrite(dpins[4], LOW);  //Pull step pin low so it can be triggered again
+      delayMicroseconds(spd_t);
+    }
+  }
+  else //must use millisecond delay
+  {
+    spd_t = ceil(spd_t / 1000.0);  //convert to milliseconds
+    for (int x = 1; x <= xlim; x++) //Loop the forward stepping enough times for motion to be visible
+    {
+      digitalWrite(dpins[4], HIGH); //Trigger one step forward
+      delay(spd_t);
+      digitalWrite(dpins[4], LOW);  //Pull step pin low so it can be triggered again
+      delay(spd_t);
+    }
+  }
+}
+
+
+
+void checkHall() 
+{
+  
+}
+

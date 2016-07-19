@@ -1,5 +1,5 @@
 /*
- * FluidSensor
+ * fluidSensor
  * 
  * Measures the resistance of a fluid while alternating the current
  * to prevent electrolysis. A measurement is taken every time the current
