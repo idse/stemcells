@@ -2,11 +2,12 @@ clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-dataDir = '/Volumes/IdseData/160317_ibidi_RIactivin';
+%dataDir = '/Volumes/IdseData/160317_ibidi_RIactivin';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
 %dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
 %dataDir = '/Volumes/IdseData/160402_SBbackground';
+dataDir = '/Volumes/IdseData/160716_ActivinBMP3rdtry';
 
 meta = MetadataAndor(dataDir);
 %meta.nTime = 110; % JUST FOR cycloheximide_after
@@ -18,19 +19,12 @@ filenameFormat = meta.filename;
 
 % TODO : modify MetadataAndor to contain all info below
 
-barefname = 'RIactivin100';
-treatmentTime = 8; % first time point after treatment
-conditions = {'RI + Activin 100 ng/ml'};
-posPerCondition = 16;
-nWells = 1;
-
-%barefname = 'cycloheximide_after';
-%barefname = 'cycloheximide_before';
-% treatmentTime = 4;
-% conditions = {'no treatment','Activin 100 ng/ml', 'BMP 50 ng/ml', 'cyclohex 50 \mu g/ml',...
-%               'MG','Activin + cyclohex','Activin + MG','BMP + cyclohex'};
-% posPerCondition = 4;
-% nWells = 8;
+barefname = 'ActivinBMP3rd';
+treatmentTime = 4;
+conditions = {'A50-6h-BMP50','-6h-BMP50', 'BMP50-6h-LDN400nM', 'BMP1+SB',...
+              'x','x-6h-oldmedia','BMP1-6h-x','BMP1'};
+posPerCondition = 4;
+nWells = 8;
 
 % barefname = 'SBbackground';
 % treatmentTime = 4;
@@ -39,6 +33,7 @@ nWells = 1;
 
 nucChannel = 2;
 S4Channel = 1;
+tmax = 125;%meta.nTime;
 
 % visualize positions
 %---------------------
@@ -58,12 +53,12 @@ imgsNuc = {};
 imgsS4 = {};
 
 for wellnr = 1:nWells
+    
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
     if isempty(gridSize) 
         gridSize = [posPerCondition/2 2];
     end
 
-    tmax = meta.nTime;
     for ti = 1:tmax
 
         disp(['processing time ' num2str(ti)]);
@@ -142,7 +137,8 @@ opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
                     'dataChannels',     S4Channel,...
                     'segmentationDir',  fullfile(dataDir,'MIP'),...
                     'nucShrinkage',     2,...
-                    'MIPidxDir',        fullfile(dataDir,'MIP'));
+                    'MIPidxDir',        fullfile(dataDir,'MIP'),...
+                    'tMax',             tmax);
 
 opts.cleanupOptions = struct('separateFused', true,...
     'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',1500);
@@ -153,6 +149,7 @@ opts.cleanupOptions = struct('separateFused', true,...
 
 tic
 positions(meta.nPositions) = DynamicPositionAndor();
+
 for pi = 1:meta.nPositions
 
     positions(pi) = DynamicPositionAndor(meta, pi);
@@ -161,7 +158,7 @@ for pi = 1:meta.nPositions
 end
 toc
 
-save(fullfile(dataDir,'positions'), 'positions');
+%save(fullfile(dataDir,'positions'), 'positions');
 %['positions_' datestr(now,'yymmdd')]
 
 %%
@@ -181,13 +178,13 @@ load(fullfile(dataDir,'positions'));
 % 
 % save(fullfile(dataDir,'positions'), 'positions');
 
-%% make a video of the time traces
+%% make a video (and figure) of the time traces
 
 s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
 t = ((1:positions(1).nTime) - treatmentTime)*dt;
-axislim = [t(1), t(end)+50, 0.4, 1.5];
+axislim = [t(1), t(end)+50, 0.4, 1.6];
 
 frame = {};
 cd(dataDir);
@@ -211,7 +208,7 @@ for wellnr = 1:nWells
 
     % THIS SHOULD BE REARRANGED WITH ti ON THE INSIDE AND pi OUTSIDE
     
-    for ti = 1:positions(1).nTime
+    for ti = 1%:positions(1).nTime
         clf 
         hold on
         for pi = conditionPositions
@@ -258,16 +255,16 @@ for wellnr = 1:nWells
 
         frame{ti} = export_fig(gcf,'-native -m2');
     end
-    if saveResult
-        disp('saving');
-        v = VideoWriter(fullfile(dataDir,['ratioplot_white_well' num2str(wellnr) '.mp4']),'MPEG-4');
-        v.FrameRate = 5;
-        open(v)
-        for ti = 1:positions(1).nTime
-            writeVideo(v,frame{ti})
-        end
-        close(v);
-    end
+%     if saveResult
+%         disp('saving');
+%         v = VideoWriter(fullfile(dataDir,['ratioplot_white_well' num2str(wellnr) '.mp4']),'MPEG-4');
+%         v.FrameRate = 5;
+%         open(v)
+%         for ti = 1:positions(1).nTime
+%             writeVideo(v,frame{ti})
+%         end
+%         close(v);
+%     end
 end
 
 %% make a combined plot of several conditions
@@ -282,7 +279,8 @@ cd(dataDir);
 saveResult = true;
 minNCells = 10; % minimal number of cells
 
-wellsWanted = [1 2 6 7];
+wellsWanted = [1 2 3];
+%wellsWanted = 4:8;
 colors = lines(numel(wellsWanted));
 
 clf 
@@ -320,7 +318,7 @@ for wellidx = 1:numel(wellsWanted)
     xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold')
     ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold');
 
-    axis([t(1), t(end)+50, 0.3, 2]);
+    axis([t(1), t(end)+50, 0.4, 1.6]);
     set(gcf,'color','w');
     set(gca, 'LineWidth', 2);
     set(gca,'FontSize', fs)

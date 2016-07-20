@@ -107,7 +107,7 @@ classdef Position < handle
             fname = fullfile(dataDir, this.filename);
             [~,~,ext] = fileparts(this.filename);
             
-            if strcmp(ext,'.tif')
+            if strcmp(ext,'.tif') || strcmp(ext,'.btf')
 
                 info = imfinfo(fname);
                 w = info.Width;
@@ -274,6 +274,10 @@ classdef Position < handle
             % -segmentationDir      directory of segmentation, default
             %                       dataDir
             % -imopenBGsub          open size for imopenBGsub
+            %
+            % -nuclearSegmentation  binary stack with 3rd dim time for
+            %                       providing a segmentation by hand
+            % -rawData              xyz rawData
 
             if nargin < 4
                 opts = struct();
@@ -303,10 +307,17 @@ classdef Position < handle
             if ~isfield(opts, 'imopenBGsub')
                 opts.imopenBGsub = [];
             end
-            
             this.dataChannels = opts.dataChannels;
             
-            nucSeg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
+            % improve the way data is passed to extractData
+            if isfield(opts, 'nuclearSegmentation')            
+                nucSeg = opts.segmentation;
+                if size(nucSeg,3) ~= this.nTime
+                    error('slice number of nuclear segmentation doesnt match number of time points');
+                end
+            else
+                nucSeg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
+            end
             
             % for the purpose of the current background subtraction
             seg = {};
@@ -328,8 +339,9 @@ classdef Position < handle
                 nucmaskraw = nucSeg(:,:,ti);
                 %bgmask = ~seg{1}(:,:,ti); MAKES NO DIFFERENCE: LEAVE OUT
                 %nucmaskraw(bgmask) = false;
-
-                nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
+                if ~isfield(opts, 'nuclearSegmentation')  
+                    nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
+                end
                 
                 % make cytoplasmic mask 
                 %----------------------
@@ -437,7 +449,11 @@ classdef Position < handle
                             imcZmed = imc(:,:,zmed);
                             this.cellData(ti).background(cii) = mean(imcZmed(bgmask));
                         else
-                            this.cellData(ti).background(cii) = this.cellData(ti-1).background(cii);
+                            if ti > 1
+                                this.cellData(ti).background(cii) = this.cellData(ti-1).background(cii);
+                            else
+                                this.cellData(ti).background(cii) = min(min(imc(:,:,zmed)));
+                            end
                         end
                     else
                         this.cellData(ti).background(cii) = min(min(imc(:,:,zmed)));
@@ -488,7 +504,7 @@ classdef Position < handle
             cytLevelAvg = zeros([this.nTime numel(this.dataChannels)]);
             bg = zeros([this.nTime numel(this.dataChannels)]);
 
-            for ti = 1:this.nTime
+            for ti = 1:numel(this.cellData)
                 nucLevelAvg(ti, :) = this.cellData(ti).nucLevelAvg;
                 cytLevelAvg(ti, :) = this.cellData(ti).cytLevelAvg;
                 bg(ti) = this.cellData(ti).background;

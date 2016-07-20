@@ -4,13 +4,13 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 
 % THIS IS THE FIXED 8-WELL
 %dataDir = '/Volumes/IdseData/Quyen/160627-8well-Act-pluripotency';
-dataDir = '/Users/Idse/data_tmp/160627-8well-Act-pluripotency';
-btfname = fullfile(dataDir, 'w1.btf');
-vsifile = fullfile(dataDir,'w1.vsi');
+% dataDir = '/Users/Idse/data_tmp/160627-8well-Act-pluripotency';
+% btfname = fullfile(dataDir, 'w1.btf');
+% vsifile = fullfile(dataDir,'w1.vsi');
 
-% dataDir = '/Volumes/IdseData/Quyen/160708-8well-RIvsnoRI-EPI-2-cropped';
-% btfname = fullfile(dataDir, 'w2_E6-CHIR-Act.btf');
-% vsifile = fullfile(dataDir,'w2_E6-CHIR-Act.vsi');
+dataDir = '/Users/Idse/data_tmp/160708-8well-RIvsnoRI-EPI-2-cropped';
+btfname = fullfile(dataDir, 'w2_E6-CHIR-Act.btf');
+vsifile = fullfile(dataDir,'w2_E6-CHIR-Act.vsi');
 % 
 % btfname = fullfile(dataDir, 'w6_E6-CHIR-Act.btf');
 % vsifile = fullfile(dataDir,'w6_E6-CHIR-Act.vsi');
@@ -73,67 +73,71 @@ for ci = 1:meta.nChannels
     preview{ci} = imread(btfname,'Index',ci,'PixelRegion',{[ymin,ymax],[xmin, xmax]});
 end
 
-%%
-nucmask = mat2gray(preview{1}) > graythresh(preview{1});
-nucadj = imadjust(mat2gray(preview{1}));
+%% create overall nuclear mask by thresholding through stretchlim
 
-%%
-test = imextendedmax(preview{1}, 3000);
-figure, imshow(cat(3,nucadj,test,test));
-
-%%
-im = preview{1};%(2500:3000, 200:700);
-%s = 3;
-%im2 = imfilter(im, fspecial('gauss',3*s, s));
-
+% 3.5 microns is a good scale for the filters
 s = round(3.5/meta.xres);
-im3 = imfilter(im, -fspecial('log',3*s, s));
-%im2 = im3;
-%im2 = medfilt2(im,[3 3]);
-%im2 = imerode(im,strel('disk',3));
+areacutoff = round(s^2);
 
-%bla = imextendedmax(im2,1000);
-bla = imextendedmax(im3, round(mean(im3(:))));
-figure, imshow(cat(3,imadjust(mat2gray(im)),bla,bla));
+%im = preview{1}(2500:3000, 200:700);
+im = preview{1};%(3000:end, 1:600);
+
+% packing = 0.5;
+% imp = mat2gray(im);
+% lim = stretchlim(imp, [0.01 1-packing]);
+% mask = imp > lim(2);
+
+imdil = imdilate(double(im),strel('disk',2*s));
+imer = imerode(double(im),strel('disk',2*s));
+imnormalized = (double(im) - imer)./(imdil - imer);
+
+mask = imnormalized > 0.5 & im > 1000;
+mask = imclose(mask, strel('disk',2));
+mask = bwareaopen(mask, areacutoff);
+bg = ~mask;
 
 %%
+% visualize
+maskedge = mask - imerode(mask,strel('disk',1));
+impp = imadjust(imp);
+overlay = cat(3, impp, maskedge, impp);
+imshow(overlay)
 
+%% create seeds for watersheeding the overall mask
 
+logim = imfilter(im, -fspecial('log',3*s, s));
+seeds = imextendedmax(logim, round(mean(logim(:))));
+
+figure, imshow(cat(3,impp, seeds, impp));
+
+%% do the watershed
+
+D = bwdist(bg);
+Dc = imcomplement(mat2gray(D));
+Ds = mat2gray(bwdist(seeds));
+Dtot = Ds + Dc;
+
+V = imimposemin(Dtot, seeds);
+L = watershed(V);
+L2 = uint16(L).*uint16(mask);
+
+nucseg = imerode(L2 > 0,strel('disk',1));
+nucseg = bwareaopen(nucseg, areacutoff);
 
 %%
-imdil = imdilate(double(im), strel('disk', 30));
-imratio = double(im)./imdil;
-imshow(imratio,[])
-%%
-figure, imshow(im)
+Lrgb = label2rgb(L2,'jet','k','shuffle');
+imshow(Lrgb)
 
 %%
-im = preview{1};
-bla = imreconstruct(im - 4000, im);
-imshow(bla)
-
-
-%% check for good clean up parameters
-
-idx = 2048:3*2048;
-s17piece = sox17(idx,idx);
-s17abpiece = sox17ab(idx,idx);
-eomespiece = eomes(idx,idx);
-nucpiece = nuc(idx,idx);
-segpiece = seg(idx,idx);
-
-cleanupOptions = struct('separateFused', true,...
-                    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0,...
-                    'openSize', 3,'minArea',50);
-                
-nucmask = nuclearCleanup(segpiece, cleanupOptions);
-maskedge = imdilate(nucmask,strel('disk',1))-segpiece;
-
-figure, imshow(cat(3,imadjust(mat2gray(nucpiece)),maskedge,imadjust(mat2gray(s17piece))),[])
+newmaskedge = nucseg - imerode(nucseg,strel('disk',1));
+overlay = cat(3, impp, newmaskedge, impp + seeds);
+imshow(overlay)
 
 %% process data
 
-options = struct('cleanupOptions', cleanupOptions,'imopenBGsub',50);
+% rawData DOES NOT WORK, SHOULD IT ? HERE'S WHERE I LEFT IT 7/17/16
+
+options = struct('rawData', cat(3,preview{:}), 'nuclearSegmentation',nucseg,'imopenBGsub',50);
 p = Position(meta.nChannels, btfname, 1);
 p.extractData(dataDir,nucChannel,options)
 
