@@ -10,7 +10,8 @@ addpath(genpath('/Users/idse/repos/Warmflash/'));
 %dataDir = '/Volumes/IdseData/160406-C2C12S4-TGFbRI';
 %dataDir = '/Volumes/SeagateBackup/160310_8well_dilutions';
 %dataDir = '/Volumes/IdseData/160502_SBbackground';
-dataDir = '/Volumes/IdseData/160429_MPRI';
+%dataDir = '/Volumes/IdseData/160716_ActivinBMP3rdtry';
+dataDir = '/Volumes/IdseData2/160718_siSkiSno2ndtry/siSki2';
 
 meta = MetadataAndor(dataDir);
 
@@ -36,5 +37,7 @@ saveidx = [true false];
 
 inputdir = dataDir;
 outputdir = fullfile(dataDir, 'MIP');
-
 batchMIP_Andor(inputdir, outputdir, channels, saveidx);
+
+%tmax = 125;
+%batchMIP_Andor(inputdir, outputdir, channels, saveidx, tmax);

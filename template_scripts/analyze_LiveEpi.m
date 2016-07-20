@@ -1,17 +1,10 @@
 clear all; close all;
 
 addpath(genpath('C:\Users\Thomas\Documents\GitHub\stemcells')); 
-
-%dataDir = '/Volumes/Seagate Backup Plus Drive/160317_ibidi_RIactivin';
-%dataDir = '/Users/idse/data_tmp/cycloheximide_after_20160330_32055 PM';
-%dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
-%dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
 dataDir = 'D:\160617_syringeC2C12_7hintervals';
-
 
 vsifile = fullfile(dataDir,'Process_12.vsi');
 maxMemoryGB = 4;
-
 
 %% metadata
 %----------------
@@ -43,7 +36,6 @@ end
 %------------------------------
 
 meta.channelLabel = {'H2B','Smad4'};
-%meta.channelLabel = {'Bra','H2B', 'Smad4', 'Sox17'};
 %meta.tPerFile = 138;
 meta.filename = 'syringeC2C12_7hintervals_MIP_p%.4d_w%.4d.tif';
 meta.nTime = 200;
@@ -52,33 +44,6 @@ meta.nPositions = 8;
 
 %save(fullfile(dataDir,'metaData'),'meta');
 
-
-% 
-% meta = MetadataAndor(dataDir);
-% %meta.nTime = 110; % JUST FOR cycloheximide_after
-% %meta.nTime = 3; % JUST FOR cycloheximide_before
-% filenameFormat = meta.filename;
-% 
-% % manual metadata
-% %-------------------
-% 
-% % TODO : modify MetadataAndor to contain all info below
-% 
-% % barefname = 'RIactivin100';
-% % treatmentTime = 8; % first time point after treatment
-% % conditions = {'RI + Activin 100 ng/ml'};
-% % posPerCondition = 16;
-% % nWells = 1;
-% 
-% %barefname = 'cycloheximide_after';
-% %barefname = 'cycloheximide_before';
-% % treatmentTime = 4;
-% % conditions = {'no treatment','Activin 100 ng/ml', 'BMP 50 ng/ml', 'cyclohex 50 \mu g/ml',...
-% %               'MG','Activin + cyclohex','Activin + MG','BMP + cyclohex'};
-% % posPerCondition = 4;
-% % nWells = 8;
-
-%%
 barefname = 'syringeC2C12_7hintervals';
 treatmentTime = 7;
 posPerCondition = 8;

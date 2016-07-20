@@ -1,4 +1,4 @@
-function [colonies, cleanmask] = findColonies(mask, range, meta, s)
+function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     % find colonies in binary mask
     %
     % [colonies, cleanmask] = findColonies(mask, range, meta, s)
@@ -21,6 +21,7 @@ function [colonies, cleanmask] = findColonies(mask, range, meta, s)
     %-----------------------
 
     minArea = floor(pi*min(colRadiusPixel).^2/2);
+    maxArea = ceil(2*pi*max(colRadiusPixel).^2);
 
     % try to make solid objects out of colonies
     cleanmask = mask(range(3):range(4),range(1):range(2));
@@ -29,12 +30,19 @@ function [colonies, cleanmask] = findColonies(mask, range, meta, s)
     cleanmask = imfill(cleanmask,'holes');
     cleanmask = imopen(cleanmask,strel('disk',s));
     cleanmask = bwareaopen(cleanmask,minArea);
-
+    
+    %remove the colonies to get the mask of the wells
+    wellmask = ~bwareaopen(cleanmask,maxArea);
+    
     % remove colonies that are not round
     CC = bwconncomp(cleanmask);
     stats = regionprops(CC, 'Eccentricity', 'BoundingBox','Centroid');
     cleanmask(cat(1,CC.PixelIdxList{[stats.Eccentricity] > 0.5})) = false;
-
+    
+    %labelled well image
+    welllabel = bwlabel(wellmask);
+    
+    
     % find colonies
     %-----------------------
     
@@ -45,21 +53,33 @@ function [colonies, cleanmask] = findColonies(mask, range, meta, s)
     end
     
     % determine colony size
+    
+ 
     bb = cat(1,stats.BoundingBox);
     bb = bb(goodColIdx,:);
     linsize = max(bb(:,3:4),[],2);
+    
+    if numel(colRadiusPixel) > 1
     edges = imfilter(2*colRadiusPixel,[1 1]/2);
     edges = [0, edges(1:end-1), 2*edges(end-1)-edges(end-2)];
     [~,colType] = histc(linsize,edges);
-
+    else
+        colType = ones(size(linsize));
+    end
+    
     % colony centers
     CM = cat(1,stats.Centroid);
     CM = CM([stats.Eccentricity] < 0.5,:);
+    
+    %get wells
+     well = welllabel(sub2ind(size(welllabel),floor(CM(:,2)),floor(CM(:,1))));
+
     
     % shift to absolute position
     CM(:,1) = CM(:,1) + double(range(1) - 1);
     CM(:,2) = CM(:,2) + double(range(3) - 1);
 
+    
     % note: colRadii here is the radii of individual colonies
     % meta.colRadii contains the small number of possible radii
     
@@ -94,6 +114,6 @@ function [colonies, cleanmask] = findColonies(mask, range, meta, s)
     for i = 1:nColonies;
         % Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox)
         colonies(i) = Colony(meta.nChannels, CM(i,:), colRadii(i),...
-                                        colRadiiMicron(i), colrange(i,:)); 
+                                        colRadiiMicron(i), colrange(i,:),well(i)); 
     end
 end
