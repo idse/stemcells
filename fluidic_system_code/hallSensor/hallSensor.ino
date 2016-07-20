@@ -7,11 +7,11 @@
 
 //Define pins for hall Sensor
 #define front A0
-#define back A1
+#define back A5
 
 //Declare variables/constants
 float ana;
-int readInt = 1000;
+int readInt = 100;
 
 void setup() {
   Serial.begin(9600);
