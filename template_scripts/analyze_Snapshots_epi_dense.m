@@ -9,7 +9,6 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 % vsifile = fullfile(dataDir,'w1.vsi');
 
 dataDir = '/Users/Idse/data_tmp/160708-8well-RIvsnoRI-EPI-2-cropped';
-btfname = fullfile(dataDir, 'w2_E6-CHIR-Act.btf');
 vsifile = fullfile(dataDir,'w2_E6-CHIR-Act.vsi');
 % 
 % btfname = fullfile(dataDir, 'w6_E6-CHIR-Act.btf');
@@ -60,90 +59,69 @@ save(fullfile(dataDir,'metaData'),'meta');
 
 %% load data for parameter check
 
-% GRID OVERLAP SETTINGS WHEN IMAGING!
-
-n = 3;
+n = 2;
 m = 2;
 ymin = n*2048;
 xmin = n*2048;
 ymax = ymin + m*2048;
 xmax = xmin + m*2048;
 preview = {};
-for ci = 1:meta.nChannels
-    preview{ci} = imread(btfname,'Index',ci,'PixelRegion',{[ymin,ymax],[xmin, xmax]});
-end
 
-%% create overall nuclear mask by thresholding through stretchlim
+% 2-3 times slower but saves us the btf trouble
+series = 1;
+tic
+img_bf = bfopen_mod(vsifile,xmin,ymin,xmax-xmin+1,ymax-ymin+1,series);
+for ci = 1:meta.nChannels
+    preview{ci} = img_bf{1}{ci,1};
+end
+toc
+
+%% check parameters for generating nuclear mask
 
 % 3.5 microns is a good scale for the filters
-s = round(3.5/meta.xres);
-areacutoff = round(s^2);
+opts.s = round(3.5/meta.xres);
+opts.areacutoff = round(opts.s^2);
+opts.normalizedthresh = 0.5;
+opts.absolutethresh = 1000;
 
 %im = preview{1}(2500:3000, 200:700);
 im = preview{1};%(3000:end, 1:600);
 
-% packing = 0.5;
-% imp = mat2gray(im);
-% lim = stretchlim(imp, [0.01 1-packing]);
-% mask = imp > lim(2);
+profile on
+nucseg = dirtyNuclearSegmentation(im, opts);
+profile viewer
 
-imdil = imdilate(double(im),strel('disk',2*s));
-imer = imerode(double(im),strel('disk',2*s));
-imnormalized = (double(im) - imer)./(imdil - imer);
-
-mask = imnormalized > 0.5 & im > 1000;
-mask = imclose(mask, strel('disk',2));
-mask = bwareaopen(mask, areacutoff);
-bg = ~mask;
-
-%%
-% visualize
-maskedge = mask - imerode(mask,strel('disk',1));
-impp = imadjust(imp);
-overlay = cat(3, impp, maskedge, impp);
-imshow(overlay)
-
-%% create seeds for watersheeding the overall mask
-
-logim = imfilter(im, -fspecial('log',3*s, s));
-seeds = imextendedmax(logim, round(mean(logim(:))));
-
-figure, imshow(cat(3,impp, seeds, impp));
-
-%% do the watershed
-
-D = bwdist(bg);
-Dc = imcomplement(mat2gray(D));
-Ds = mat2gray(bwdist(seeds));
-Dtot = Ds + Dc;
-
-V = imimposemin(Dtot, seeds);
-L = watershed(V);
-L2 = uint16(L).*uint16(mask);
-
-nucseg = imerode(L2 > 0,strel('disk',1));
-nucseg = bwareaopen(nucseg, areacutoff);
-
-%%
-Lrgb = label2rgb(L2,'jet','k','shuffle');
-imshow(Lrgb)
-
-%%
+% visualize nuclear mask
 newmaskedge = nucseg - imerode(nucseg,strel('disk',1));
-overlay = cat(3, impp, newmaskedge, impp + seeds);
+impp = imadjust(mat2gray(im));
+overlay = cat(3, impp, newmaskedge, impp);
 imshow(overlay)
+
+%% create full mask
+
+im = bfopen_mod(vsifile,[],[],[],[],series, nucChannel);
+im = im{1}{nucChannel,1};
+
+tic
+nucseg = dirtyNuclearSegmentation(im, opts);
+toc
+
+[~,barefname,~] = fileparts(vsifile);
+imwrite(nucseg, fullfile(dataDir, [barefname '_nucseg.tif']), 'Compression', 'none');
 
 %% process data
 
-% rawData DOES NOT WORK, SHOULD IT ? HERE'S WHERE I LEFT IT 7/17/16
-
-options = struct('rawData', cat(3,preview{:}), 'nuclearSegmentation',nucseg,'imopenBGsub',50);
-p = Position(meta.nChannels, btfname, 1);
+% options = struct(   'nuclearSegmentation',  nucseg,...
+%                     'imopenBGsub',          50);
+profile on
+options = struct('nuclearSegmentation',  nucseg);
+p = Position(meta.nChannels, vsifile, 1);
 p.extractData(dataDir,nucChannel,options)
+profile viewer
 
 % save
-[~,barefname,~] = fileparts(btfname);
-save(fullfile(dataDir, [barefname '2.mat']),'p');
+[~,barefname,~] = fileparts(vsifile);
+save(fullfile(dataDir, [barefname '_positions.mat']),'p');
 
 %% load processed data
 

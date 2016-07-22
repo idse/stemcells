@@ -118,9 +118,11 @@ classdef Position < handle
                     img(:,:,cii) = imread(fname, channels(cii));
                 end
             else
-                img = readStack(fname);
-                img = img(:,:,channels); % yes this is very inefficient
-                                         % I will fix it up later 
+                %img = readStack(fname);
+                xmin = []; ymin = []; xmax = []; ymax = [];
+                series = 1;
+                img_bf = bfopen_mod(fname,xmin,ymin,xmax-xmin+1,ymax-ymin+1,series,channels);
+                img = cat(3,img_bf{1}{:,1});
             end
             
             %disp(['loaded image ' fname]);
@@ -277,7 +279,6 @@ classdef Position < handle
             %
             % -nuclearSegmentation  binary stack with 3rd dim time for
             %                       providing a segmentation by hand
-            % -rawData              xyz rawData
 
             if nargin < 4
                 opts = struct();
@@ -309,20 +310,21 @@ classdef Position < handle
             end
             this.dataChannels = opts.dataChannels;
             
-            % improve the way data is passed to extractData
+            % pass nuclear segmentation manually or load Ilastik standard
+            seg = cell([1 4]);
             if isfield(opts, 'nuclearSegmentation')            
-                nucSeg = opts.segmentation;
+                nucSeg = opts.nuclearSegmentation;
                 if size(nucSeg,3) ~= this.nTime
                     error('slice number of nuclear segmentation doesnt match number of time points');
                 end
             else
                 nucSeg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
-            end
-            
-            % for the purpose of the current background subtraction
-            seg = {};
-            for cii = 1:numel(opts.dataChannels)    
-                seg{cii} = this.loadSegmentation(opts.segmentationDir, opts.dataChannels(cii));
+                % for the purpose of the current background subtraction
+                % this may need some work, why am I creating a background
+                % mask for each channel separately?
+                for cii = 1:numel(opts.dataChannels)    
+                    seg{cii} = this.loadSegmentation(opts.segmentationDir, opts.dataChannels(cii));
+                end
             end
             
             for ti = 1:opts.tMax
@@ -341,6 +343,8 @@ classdef Position < handle
                 %nucmaskraw(bgmask) = false;
                 if ~isfield(opts, 'nuclearSegmentation')  
                     nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
+                else
+                    nucmask = nucmaskraw;
                 end
                 
                 % make cytoplasmic mask 
@@ -422,8 +426,14 @@ classdef Position < handle
                     
                 for cii = 1:numel(opts.dataChannels)
                     
+                    disp(['loading channel ' num2str(opts.dataChannels(cii))]);
                     imc = this.loadImage(dataDir, opts.dataChannels(cii), ti);
-
+                    disp(['size: ' num2str(size(imc))]);
+                    
+                    if size(nucmask) ~= size(imc)
+                        error(['nucmask size ' num2str(size(nucmask)) ' does not match image size ' num2str(size(imc))]);
+                    end
+                    
                     % if no MIPidx, just use MIP
                     if isempty(MIPidx)
                         imc = max(imc,[],3);

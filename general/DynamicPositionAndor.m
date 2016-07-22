@@ -29,7 +29,7 @@ classdef DynamicPositionAndor < Position
             this.cellData = struct();
             
             this.nTime = meta.nTime;
-            if ~isfield(struct(meta),'tPerFile') || isempty(meta.tPerFile)
+            if isempty(meta.tPerFile) %~isfield(struct(meta),'tPerFile') || 
                 this.tPerFile = this.nTime;
                 warning('tPerFile not in meta, assuming tPerFile=nTime');
             else

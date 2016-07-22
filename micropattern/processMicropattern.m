@@ -3,8 +3,8 @@ clear all; close all;
 %addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
 
-dataDir = 'img798';
-%dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
+%dataDir = 'img798';
+dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
 
 colDir = fullfile(dataDir,'colonies');
 
