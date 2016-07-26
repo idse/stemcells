@@ -9,13 +9,10 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 % vsifile = fullfile(dataDir,'w1.vsi');
 
 dataDir = '/Users/Idse/data_tmp/160708-8well-RIvsnoRI-EPI-2-cropped';
-vsifile = fullfile(dataDir,'w2_E6-CHIR-Act.vsi');
-% 
-% btfname = fullfile(dataDir, 'w6_E6-CHIR-Act.btf');
-% vsifile = fullfile(dataDir,'w6_E6-CHIR-Act.vsi');
+filelist = {'w1_E6.vsi','w2_E6-CHIR-Act.vsi', 'w6_E6-CHIR-Act.vsi', 'w8_mTeSR.vsi'};
 
-% size limit of data chunks read in
-maxMemoryGB = 4;
+vsifile = fullfile(dataDir,filelist{1});
+[~,barefname,~] = fileparts(vsifile);
 
 % TODO : local normalization by DAPI
 % TODO : background subtraction by large scale Fourier transform or
@@ -51,7 +48,8 @@ end
 % manually entered metadata
 %------------------------------
 
-meta.channelLabel = {'DAPI','', '', ''};
+meta.channelLabel = {'DAPI','sox17', 'sox2', 'nanog'};
+%meta.channelLabel = {'DAPI','nanog', 'sox2', 'oct4'};
 %meta.channelLabel = {'Bra','H2B', 'Smad4', 'Sox17'};
 nucChannel = 1;
 
@@ -59,7 +57,7 @@ save(fullfile(dataDir,'metaData'),'meta');
 
 %% load data for parameter check
 
-n = 2;
+n = 1;
 m = 2;
 ymin = n*2048;
 xmin = n*2048;
@@ -75,6 +73,14 @@ for ci = 1:meta.nChannels
     preview{ci} = img_bf{1}{ci,1};
 end
 toc
+
+%% save preview to check in FIJI
+
+filename = fullfile(dataDir, [barefname '_preview.tif']);
+imwrite(preview{1}, filename);
+for ci = 2:meta.nChannels
+    imwrite(preview{ci}, filename, 'WriteMode','append');
+end
 
 %% check parameters for generating nuclear mask
 
@@ -106,7 +112,6 @@ tic
 nucseg = dirtyNuclearSegmentation(im, opts);
 toc
 
-[~,barefname,~] = fileparts(vsifile);
 imwrite(nucseg, fullfile(dataDir, [barefname '_nucseg.tif']), 'Compression', 'none');
 
 %% process data
@@ -120,68 +125,97 @@ p.extractData(dataDir,nucChannel,options)
 profile viewer
 
 % save
-[~,barefname,~] = fileparts(vsifile);
 save(fullfile(dataDir, [barefname '_positions.mat']),'p');
 
-%% load processed data
+%% scatter cell locations on top of part of preview to check result
 
-[~,barefname,~] = fileparts(btfname);
-load(fullfile(dataDir, [barefname '2.mat']));
-p.cellData 
+DAPI = mat2gray(preview{1});
+XY = p.cellData.XY;
 
-%% scatter cell locations on top of image
+inpreview =     XY(:,1) < xmax & XY(:,1) > xmin...
+                & XY(:,2) < ymax & XY(:,2) > ymin;
+XY = XY(inpreview,:);
 
-s17bg = imopen(s17piece,strel('disk',50));
+imshow(DAPI,[])
+hold on
+scatter(XY(:,1) - xmin,XY(:,2) - ymin, '.r');
+hold off
 
-h2b = imadjust(mat2gray(nucpiece));
-s17 = imadjust(mat2gray(s17piece - s17bg));
-s17ab = imadjust(mat2gray(s17abpiece  - imopen(s17abpiece,strel('disk',50))));
-eom = imadjust(mat2gray(eomespiece - imopen(eomespiece,strel('disk',50))));
+%% load processed data for all files in the file list
 
-figure, imshow(cat(3,h2b,maskedge,s17),[])
+allData = {};
+nucLevelAll = [];
 
-%%
+for i = 1:numel(filelist)
 
-figure, imshow(cat(3,h2b,maskedge,s17),[])
+    vsifile = fullfile(dataDir,filelist{i});
+    [~,barefname,~] = fileparts(vsifile);
 
-cidx = p.cellData.XY(:,1) > idx(1) & p.cellData.XY(:,1) < idx(end)...
-            & p.cellData.XY(:,2) > idx(1) & p.cellData.XY(:,2) < idx(end);
+    load(fullfile(dataDir, [barefname '_positions.mat']));
+    allData{i} = p;
+    
+    N = p.cellData.nucLevel(:,nucChannel);
+    nucLevel = bsxfun(@rdivide, p.cellData.nucLevel, N);
+    nucLevelAll = cat(1, nucLevelAll, nucLevel);
+end
+
+% %%
+% tol = 0.001;
+% lim = {};
+% 
+% Alim = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
+% Blim = stretchlim(mat2gray(B),tol)*(max(B) - min(B)) + min(B);
+
+%% analyze single file
+
+p = allData{1};
+
+%% histogram of different channels
+% for w2_E6-CHIR-Act.vsi we see low nanog levels but many saturating sox17 cells
+
+for channelIndex = 1:4
+    hist(p.cellData.nucLevel(:,channelIndex), 40)
+    title(meta.channelLabel{channelIndex})
+    filename = fullfile(dataDir, [barefname '_distribution_' meta.channelLabel{channelIndex}]);
+    saveas(gcf, filename);
+    saveas(gcf, [filename '.png']);
+end
+
+%% look at image of DAPI, sox17, nanog
+% for w2_E6-CHIR-Act.vsi notice that none of the high nanog staining is real
+
+imshow(cat(3, imadjust(mat2gray(preview{1})), 0.5*mat2gray(preview{2}), mat2gray(preview{4})),[])
+
+%% look at the part of the nanog distribution that has content
+% for w2_E6-CHIR-Act.vsi
+
+bins = linspace(0,6000,40);
+n = histc(p.cellData.nucLevel(:,4), bins);
+bar(bins,n)
+axis([bins(1) bins(end) 0 max(n)]);
+
+%% scatter plots of markers against each other
+
+tol = 0.001;
+
+for channelIdx1 = 2:4;
+    for channelIdx2 = channelIdx1+1:4
+
+        N = p.cellData.nucLevel(:,nucChannel);
+        A = p.cellData.nucLevel(:,channelIdx1)./N;
+        B = p.cellData.nucLevel(:,channelIdx2)./N;
+
+        scatter(A, B,'.');
+        xlabel(meta.channelLabel{channelIdx1})
+        ylabel(meta.channelLabel{channelIdx2})
+
+        Alim = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
+        Blim = stretchlim(mat2gray(B),tol)*(max(B) - min(B)) + min(B);
+
+        axis([0 Alim(2) 0 Blim(2)]);
         
-% color by normalize sox17-rfp
-C = mat2gray(p.cellData.nucLevel(cidx,3)./p.cellData.nucLevel(cidx,2));
-
-hold on
-scatter(p.cellData.XY(cidx,1)-idx(1),p.cellData.XY(cidx,2)-idx(1),100,C,'.')
-hold off
-
-%% scatter plot of sox17 staining vs sox17-rfp
-
-h2bLevels = p.cellData.nucLevel(:,nucChannel) - double(min(nuc(:)));
-s17Levels = p.cellData.nucLevel(:,3) - double(min(sox17(:)));
-s17abLevels = p.cellData.nucLevel(:,1) - double(min(sox17ab(:)));
-
-scatter(s17abLevels./h2bLevels, s17Levels./h2bLevels);
-axis([0 0.5 0 4])
-
-%% single histogram
-
-bright = s17Levels./h2bLevels > 0.15;
-figure, hist(p.cellData.nucLevel(bright,3)./p.cellData.nucLevel(bright,2),50)
-
-%%
-
-figure, imshow(cat(3,s17ab,eom + 0*maskedge,s17),[])
-%C = mat2gray(p.cellData.nucLevel(cidx,3)./p.cellData.nucLevel(cidx,2));
-%bright = cidx & mat2gray(p.cellData.nucLevel(:,3)./p.cellData.nucLevel(:,2)) > 0.05;
-%bright = cidx & mat2gray(p.cellData.nucLevel(:,3)) > 0.03;
-%bright = cidx & p.cellData.nucLevel(:,3) - min(p.cellData.nucLevel(:,3)) > 100;
-bright = cidx & s17Levels > mean(s17Levels);
-
-hold on
-scatter(p.cellData.XY(bright,1)-idx(1),p.cellData.XY(bright,2)-idx(1),100,'.c')
-hold off
-
-hold on
-scatter(p.cellData.XY(cidx & ~bright,1)-idx(1),p.cellData.XY(cidx & ~bright,2)-idx(1),100,'.r')
-hold off
-
+        filename = fullfile(dataDir, [barefname '_scatter_' meta.channelLabel{channelIdx1} '_' meta.channelLabel{channelIdx2}]);
+        saveas(gcf, filename);
+        saveas(gcf, [filename '.png']);
+    end
+end
