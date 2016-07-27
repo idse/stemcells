@@ -159,26 +159,41 @@ for i = 1:numel(filelist)
     nucLevelAll = cat(1, nucLevelAll, nucLevel);
 end
 
-% %%
-% tol = 0.001;
-% lim = {};
-% 
-% Alim = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
-% Blim = stretchlim(mat2gray(B),tol)*(max(B) - min(B)) + min(B);
+%% determine limits for displaying intensities
 
-%% analyze single file
+tol = 0.001;
+lim = {};
 
-p = allData{1};
+for i = 1:4
+    A = nucLevelAll(:,i);
+    lim{i} = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
+end
 
 %% histogram of different channels
 % for w2_E6-CHIR-Act.vsi we see low nanog levels but many saturating sox17 cells
 
-for channelIndex = 1:4
-    hist(p.cellData.nucLevel(:,channelIndex), 40)
-    title(meta.channelLabel{channelIndex})
-    filename = fullfile(dataDir, [barefname '_distribution_' meta.channelLabel{channelIndex}]);
-    saveas(gcf, filename);
-    saveas(gcf, [filename '.png']);
+for fi = 1:numel(filelist)
+    
+    vsifile = fullfile(dataDir,filelist{fi});
+    [~,barefname,~] = fileparts(vsifile);
+    
+    p = allData{fi};    
+    N = p.cellData.nucLevel(:,nucChannel);
+    nucLevel = bsxfun(@rdivide, p.cellData.nucLevel, N);
+
+    for channelIndex = 2:4
+
+        bins = linspace(0,lim{channelIndex}(2),40);
+        n = histc(nucLevel(:,channelIndex), bins);
+        bar(bins,n)
+        axis([bins(1) bins(end) 0 max(n)]);
+
+    %    hist(p.cellData.nucLevel(:,channelIndex), 40)
+        title(meta.channelLabel{channelIndex})
+        filename = fullfile(dataDir, [barefname '_distribution_' meta.channelLabel{channelIndex}]);
+        saveas(gcf, filename);
+        saveas(gcf, [filename '.png']);
+    end
 end
 
 %% look at image of DAPI, sox17, nanog
@@ -186,36 +201,32 @@ end
 
 imshow(cat(3, imadjust(mat2gray(preview{1})), 0.5*mat2gray(preview{2}), mat2gray(preview{4})),[])
 
-%% look at the part of the nanog distribution that has content
-% for w2_E6-CHIR-Act.vsi
-
-bins = linspace(0,6000,40);
-n = histc(p.cellData.nucLevel(:,4), bins);
-bar(bins,n)
-axis([bins(1) bins(end) 0 max(n)]);
-
 %% scatter plots of markers against each other
 
-tol = 0.001;
+for fi = 1:numel(filelist)
 
-for channelIdx1 = 2:4;
-    for channelIdx2 = channelIdx1+1:4
+    vsifile = fullfile(dataDir,filelist{fi});
+    [~,barefname,~] = fileparts(vsifile);
 
-        N = p.cellData.nucLevel(:,nucChannel);
-        A = p.cellData.nucLevel(:,channelIdx1)./N;
-        B = p.cellData.nucLevel(:,channelIdx2)./N;
+    p = allData{fi};
 
-        scatter(A, B,'.');
-        xlabel(meta.channelLabel{channelIdx1})
-        ylabel(meta.channelLabel{channelIdx2})
+    for channelIdx1 = 2:4;
+        for channelIdx2 = channelIdx1+1:4
 
-        Alim = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
-        Blim = stretchlim(mat2gray(B),tol)*(max(B) - min(B)) + min(B);
+            N = p.cellData.nucLevel(:,nucChannel);
+            A = p.cellData.nucLevel(:,channelIdx1)./N;
+            B = p.cellData.nucLevel(:,channelIdx2)./N;
 
-        axis([0 Alim(2) 0 Blim(2)]);
-        
-        filename = fullfile(dataDir, [barefname '_scatter_' meta.channelLabel{channelIdx1} '_' meta.channelLabel{channelIdx2}]);
-        saveas(gcf, filename);
-        saveas(gcf, [filename '.png']);
+            scatter(A, B,'.');
+            xlabel(meta.channelLabel{channelIdx1})
+            ylabel(meta.channelLabel{channelIdx2})
+            title(filelist{fi},'Interpreter','none');
+            
+            axis([0 lim{channelIdx1}(2) 0 lim{channelIdx2}(2)]);
+
+            filename = fullfile(dataDir, [barefname '_scatter_' meta.channelLabel{channelIdx1} '_' meta.channelLabel{channelIdx2}]);
+            saveas(gcf, filename);
+            saveas(gcf, [filename '.png']);
+        end
     end
 end
