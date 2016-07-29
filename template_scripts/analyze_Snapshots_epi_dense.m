@@ -172,7 +172,7 @@ end
 %% histogram of different channels
 % for w2_E6-CHIR-Act.vsi we see low nanog levels but many saturating sox17 cells
 
-for fi = 1:numel(filelist)
+for fi = 3%1:numel(filelist)
     
     vsifile = fullfile(dataDir,filelist{fi});
     [~,barefname,~] = fileparts(vsifile);
@@ -181,7 +181,7 @@ for fi = 1:numel(filelist)
     N = p.cellData.nucLevel(:,nucChannel);
     nucLevel = bsxfun(@rdivide, p.cellData.nucLevel, N);
 
-    for channelIndex = 2:4
+    for channelIndex = 2%2:4
 
         bins = linspace(0,lim{channelIndex}(2),40);
         n = histc(nucLevel(:,channelIndex), bins);
@@ -191,8 +191,8 @@ for fi = 1:numel(filelist)
     %    hist(p.cellData.nucLevel(:,channelIndex), 40)
         title(meta.channelLabel{channelIndex})
         filename = fullfile(dataDir, [barefname '_distribution_' meta.channelLabel{channelIndex}]);
-        saveas(gcf, filename);
-        saveas(gcf, [filename '.png']);
+        %saveas(gcf, filename);
+        %saveas(gcf, [filename '.png']);
     end
 end
 
@@ -229,4 +229,19 @@ for fi = 1:numel(filelist)
             saveas(gcf, [filename '.png']);
         end
     end
+end
+
+%% determine fraction of sox17+ etc
+
+cutoff = 2;
+channelIdx = 2;
+
+for fi = 1:numel(filelist)
+    
+    p = allData{fi};
+    
+    N = p.cellData.nucLevel(:,nucChannel);
+    A = p.cellData.nucLevel(:,channelIdx)./N;
+
+    disp([filelist{fi} ' : ' num2str(100*sum(A > cutoff)/numel(A),2)]);
 end
