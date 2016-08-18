@@ -235,6 +235,11 @@ classdef MetadataAndor < Metadata
                 else
                     % time points per file
                     this.tPerFile = numel(info)/this.nZslices;
+                    % for the case where wavelenghts were not exported
+                    % separately
+                    if isempty(strfind(filename,'_w'))
+                        this.tPerFile = this.tPerFile/this.nChannels;
+                    end
                 end
             else
                 this.tPerFile = 1;

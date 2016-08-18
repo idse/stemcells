@@ -168,9 +168,9 @@ classdef Position < handle
             seg = [];
             
             for i = 1:numel(listing)
-                if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
-                        || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
-                    
+                %if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
+                %        || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
+
                     fname = fullfile(dataDir,listing(i).name);
                     seg = h5read(fname, '/exported_data');
                     % Probabilities
@@ -185,7 +185,7 @@ classdef Position < handle
                     else                
                         seg = squeeze(seg == 2);
                     end
-                end
+                %end
             end
             
             if isempty(seg)
@@ -296,6 +296,9 @@ classdef Position < handle
             if ~isfield(opts,'cytoplasmicLevels')
                 opts.cytoplasmicLevels = false;
             end
+            if ~isfield(opts, 'cytoSize')
+                opts.cytoSize = 10;
+            end
             if ~isfield(opts, 'tMax')
                 opts.tMax = this.nTime;
             end
@@ -319,12 +322,12 @@ classdef Position < handle
                 end
             else
                 nucSeg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
-                % for the purpose of the current background subtraction
-                % this may need some work, why am I creating a background
-                % mask for each channel separately?
-                for cii = 1:numel(opts.dataChannels)    
-                    seg{cii} = this.loadSegmentation(opts.segmentationDir, opts.dataChannels(cii));
-                end
+            end
+            % for the purpose of the current background subtraction
+            % this may need some work, why am I creating a background
+            % mask for each channel separately?
+            for cii = 1:numel(opts.dataChannels)    
+                seg{cii} = this.loadSegmentation(opts.segmentationDir, opts.dataChannels(cii));
             end
             
             for ti = 1:opts.tMax
@@ -353,7 +356,7 @@ classdef Position < handle
                 if opts.cytoplasmicLevels
 
                     % watershedding inside the dilation
-                    dilated = imdilate(nucmask, strel('disk',10));
+                    dilated = imdilate(nucmask, strel('disk',opts.cytoSize));
                     basin = imcomplement(bwdist(dilated));
                     basin = imimposemin(basin, nucmask);
                     L = watershed(basin);
@@ -449,6 +452,7 @@ classdef Position < handle
                     % mean value of segmented empty space in the image
                     % or otherwise just min of image
                     if ~isempty(seg{cii})
+                        disp('bg seg bg sub');
                         fgmask = seg{cii}(:,:,ti);
                         bgmask = ~imdilate(imclose(fgmask,strel('disk',10)),strel('disk',5));
                         % if the background area is too small to be

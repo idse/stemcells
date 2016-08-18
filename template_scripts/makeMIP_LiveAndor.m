@@ -12,7 +12,7 @@ addpath(genpath('/Users/idse/repos/Warmflash/'));
 %dataDir = '/Volumes/IdseData/160502_SBbackground';
 %dataDir = '/Volumes/IdseData/160716_ActivinBMP3rdtry';
 dataDir = '/Volumes/IdseData2/160718_siSkiSno2ndtry/siSki2';
-
+dataDir = '/Users/idse/data_tmp/160812_siRNASki+Skil';
 meta = MetadataAndor(dataDir);
 
 nucChannel = 1;

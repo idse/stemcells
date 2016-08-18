@@ -1,17 +1,19 @@
 clear all; close all;
 
-addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
+%addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
 
-dataDir = '/Volumes/IdseData/160318_micropattern_lefty/lefty';
-%dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
+%dataDir = 'img798';
+dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
 
 colDir = fullfile(dataDir,'colonies');
 
-btfname = fullfile(dataDir, '160319_lefty.btf');
+btfname = fullfile(dataDir, 'Col1n2-797.btf');
 %btfname = fullfile(dataDir, '160318_control.btf');
 
-vsifile = fullfile(dataDir,'Image665.vsi');
+vsifile = fullfile(dataDir,'Image797.vsi');
+
+metaDataFile = fullfile(dataDir,'metaData.mat');
 
 % size limit of data chunks read in
 maxMemoryGB = 4;
@@ -24,8 +26,6 @@ maxMemoryGB = 4;
 % metadata
 %----------------
 
-metaDataFile = fullfile(dataDir,'metaData.mat');
-
 % read metadata
 if exist(metaDataFile,'file')
     disp('loading previously stored metadata');
@@ -36,7 +36,7 @@ elseif exist('vsifile','var') && exist(vsifile,'file')
     
 % or pretty much enter it by hand
 else
-    meta = Metadata();
+    meta = MetadataMicropattern();
     h = Tiff(btfname);
     meta.ySize = h.getTag('ImageLength');
     meta.xSize = h.getTag('ImageWidth');
@@ -52,7 +52,7 @@ end
 
 meta.channelLabel = {'DAPI','Cdx2','Sox2','Bra'};
 
-meta.colRadiiMicron = [200 500 800 1000]/2;
+meta.colRadiiMicron = 700;
 meta.colMargin = 10; % margin outside colony to process, in pixels
 meta.colRadiiPixel = meta.colRadiiMicron/meta.xres;
 
@@ -62,13 +62,24 @@ save(fullfile(dataDir,'metaData'),'meta');
 
 %% processing loop
 
+% masks for radial averages
+[radialMaskStack, edges] = makeRadialBinningMasks(meta);
+
 % split the image up in big chunks for efficiency
-% add one sided overlap to make sure all colonies are completely
-% within at least one chunk
-% theoretically one radius should be enough but we need a little
-% margin
-overlapWidth = 1.25*max(meta.colRadiiPixel);
-chunks = makeChunks(meta, maxMemoryGB, overlapWidth);
+maxBytes = (maxMemoryGB*1024^3);
+bytesPerPixel = 2;
+dataSize = meta.ySize*meta.xSize*meta.nChannels*bytesPerPixel;
+nChunks = ceil(dataSize/maxBytes);
+
+if nChunks > 1
+    nRows = 2;
+else
+    nRows = 1;
+end
+nCols = ceil(nChunks/nRows);
+
+xedge = (0:nCols)*(meta.xSize/nCols);
+yedge = (0:nRows)*(meta.ySize/nRows);
 
 % define the data structures to be filled in
 preview = zeros(floor([2048 2048*meta.xSize/meta.ySize 4]));
@@ -87,16 +98,29 @@ for n = 1:numel(yedge)-1
 
         disp(['reading chunk ' num2str(chunkIdx) ' of ' num2str(nChunks)])
         
-        xmin = chunks.xlim{n,m}(1); xmax = chunks.xlim{n,m}(2);
-        ymin = chunks.ylim{n,m}(1); ymax = chunks.ylim{n,m}(2);
-
+        xmin = uint32(xedge(m) + 1); xmax = uint32(xedge(m+1));
+        ymin = uint32(yedge(n) + 1); ymax = uint32(yedge(n+1));
+        
+        % add one sided overlap to make sure all colonies are completely
+        % within at least one chunk
+        % theoretically one radius should be enough but we need a little
+        % margin
+        if n < nRows 
+            ymax = ymax + 1.25*max(meta.colRadiiPixel); 
+        end
+        if m < nCols
+            xmax = xmax + 1.25*max(meta.colRadiiPixel);
+        end
+        chunkheight = ymax - ymin + 1;
+        chunkwidth = xmax - xmin + 1;
+        
         % for preview (thumbnail)
         ymaxprev = ceil(size(preview,1)*double(ymax)/meta.ySize);
         yminprev = ceil(size(preview,1)*double(ymin)/meta.ySize);
         xmaxprev = ceil(size(preview,2)*double(xmax)/meta.xSize);
         xminprev = ceil(size(preview,2)*double(xmin)/meta.xSize);
         
-        img = zeros([chunks.height{n,m}, chunks.width{n,m}, meta.nChannels],'uint16');
+        img = zeros([chunkheight, chunkwidth, meta.nChannels],'uint16');
         for ci = 1:meta.nChannels
             tic
             disp(['reading channel ' num2str(ci)])
@@ -115,7 +139,20 @@ for n = 1:numel(yedge)-1
             for ci = DAPIChannel
                 
                 imsize = 2048;
-                forIlim = img(imsize+1:4*imsize,imsize+1:4*imsize,ci);
+                si = size(img);
+                xx = min(si(1),4*imsize); yy = min(si(2),4*imsize);
+                if xx < 2*imsize
+                    x0 = 1;
+                else
+                    x0 = imsize + 1;
+                end
+                if yy < 2*imsize
+                    y0 = 1;
+                else
+                    y0 = imsize + 1;
+                end
+                    
+                forIlim = img(x0:xx,y0:yy,ci);
                 minI = double(min(forIlim(:)));
                 maxI = double(max(forIlim(:)));
                 forIlim = mat2gray(forIlim);
@@ -224,7 +261,7 @@ for n = 1:numel(yedge)-1
     end
 end
 
-%save(fullfile(dataDir,'colonies'), 'colonies');
+save(fullfile(dataDir,'colonies'), 'colonies');
 
 %% visualize
     

@@ -19,12 +19,12 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     if ~exist(outputdir,'dir')
         mkdir(outputdir);
     end
+    if isempty(strfind(filenameFormat,'_w'))
+        warning('this will go twice as fast if you export channels separately');
+    end
     ci = channel;
     if ci+1 > meta.nChannels 
         error('channel exceeds number of channels');
-    end
-    if isempty(strfind(filenameFormat,'_w'))
-        error('export files with wavelength separated');
     end
     pi = position;
     if pi+1 > meta.nPositions
@@ -34,7 +34,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     if ~exist('tmax','var')
         tmax = Inf;
     end
- 
+
     MIP = {};
     MIPidx = {};
 
@@ -51,17 +51,25 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
 
             % read the data 
             % (if all time points are in one file there is no _t part)
-            if fileTmax > 0 
-                fname = sprintf(filenameFormat, pi, ti, ci);
+            if ~isempty(strfind(filenameFormat,'_w'))
+                if fileTmax > 0 
+                    fname = sprintf(filenameFormat, pi, ti, ci);
+                else
+                    fname = sprintf(filenameFormat, pi, ci);
+                end
             else
-                fname = sprintf(filenameFormat, pi, ci);
+                if fileTmax > 0 
+                    fname = sprintf(filenameFormat, pi, ti);
+                else
+                    fname = sprintf(filenameFormat, pi);
+                end
             end
             tic
             stack = readStack(fullfile(inputdir,fname));
             toc
 
             % make MIP
-            [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,:,1:tmaxinfile),[],3);
+            [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,channel+1,1:tmaxinfile),[],3);
             MIPidx{ti+1} = uint16(MIPidx{ti+1});
             clear stack; 
         end

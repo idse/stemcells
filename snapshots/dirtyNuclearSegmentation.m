@@ -27,6 +27,9 @@ function nucseg = dirtyNuclearSegmentation(im, opts)
         areacutoff = s^2;
         warning('area cutoff was not provided, using default');
     end
+    if ~isfield(opts, 'toobigNstd')
+        opts.toobigNstd = 2;
+    end
 
     % actual code
     %-------------
@@ -53,7 +56,7 @@ function nucseg = dirtyNuclearSegmentation(im, opts)
     V = imimposemin(Dtot, seeds);
     L = watershed(V);
     L(~mask) = 0;
-    
+
     %Lrgb = label2rgb(L,'jet','k','shuffle');
     %imshow(Lrgb)
 
@@ -64,4 +67,10 @@ function nucseg = dirtyNuclearSegmentation(im, opts)
     %newmaskedge = nucseg - imerode(nucseg,strel('disk',1));
     %overlay = cat(3, impp, newmaskedge, impp + seeds);
     %imshow(overlay)
+    
+    % remove largest nuclei (probably segmentation error)
+    stats = regionprops(nucseg,'Area');
+    Acutoff = round(mean([stats.Area]) + opts.toobigNstd*std([stats.Area]));
+    toobig = bwareaopen(nucseg, Acutoff);
+    nucseg(toobig) = 0;
 end
