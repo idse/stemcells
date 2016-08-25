@@ -7,7 +7,8 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 %dataDir = '/Users/idse/data_tmp/cycloheximide_before_20160330_42945 PM';
 %dataDir = '/Volumes/IdseData/160416_RIvsnoRI';
 %dataDir = '/Volumes/IdseData/160402_SBbackground';
-dataDir = '/Volumes/IdseData/160716_ActivinBMP3rdtry';
+%dataDir = '/Volumes/IdseData/160716_ActivinBMP3rdtry';
+dataDir = '/Users/idse/data_tmp/160812_siRNASki+Skil';
 
 meta = MetadataAndor(dataDir);
 %meta.nTime = 110; % JUST FOR cycloheximide_after
@@ -19,12 +20,13 @@ filenameFormat = meta.filename;
 
 % TODO : modify MetadataAndor to contain all info below
 
-barefname = 'ActivinBMP3rd';
+%barefname = '160812_siRNASki+Skil';
+barefname = '160812';
 treatmentTime = 4;
-conditions = {'A50-6h-BMP50','-6h-BMP50', 'BMP50-6h-LDN400nM', 'BMP1+SB',...
-              'x','x-6h-oldmedia','BMP1-6h-x','BMP1'};
+conditions = {'ctrl','siSmad4', 'siSkiSnoN', 'siSkiSnoN',...
+              'siSmad4','ctrl'};
 posPerCondition = 4;
-nWells = 8;
+nWells = 6;
 
 % barefname = 'SBbackground';
 % treatmentTime = 4;
@@ -33,7 +35,7 @@ nWells = 8;
 
 nucChannel = 2;
 S4Channel = 1;
-tmax = 125;%meta.nTime;
+tmax = meta.nTime;
 
 % visualize positions
 %---------------------

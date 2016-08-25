@@ -6,7 +6,10 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     % read metadata
     meta = MetadataAndor(inputdir);
     filenameFormat = meta.filename;
-    s = strsplit(meta.filename,'_');
+    s = strsplit(meta.filename,'_f');
+    if numel(s) < 2
+        s = strsplit(meta.filename,'_p');
+    end
     barefname = s{1};
     
     % some input checking

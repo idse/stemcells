@@ -37,7 +37,7 @@ saveidx = [true false];
 
 inputdir = dataDir;
 outputdir = fullfile(dataDir, 'MIP');
-batchMIP_Andor(inputdir, outputdir, channels, saveidx);
+batchMIP_Andor(inputdir, outputdir, channels, saveidx, meta.nTime, 24);
 
 %tmax = 125;
 %batchMIP_Andor(inputdir, outputdir, channels, saveidx, tmax);
