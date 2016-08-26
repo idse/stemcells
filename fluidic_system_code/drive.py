@@ -68,4 +68,13 @@ def m3(dr,vol,spd=50):
     spd is the speed of fluid transfer in microLiters per seconds.
     """
     ser.write(bytes(','.join(['3',str(dr),str(vol),str(spd)])+'*',"ascii"))
+
+def m4(dr,vol,spd=50):
+    """
+    Sends a single command to the first motor.
     
+    dr is an int specifying direction. 1 is inject. 0 is remove.
+    vol is the volume transfer in microLiters.
+    spd is the speed of fluid transfer in microLiters per seconds.
+    """
+    ser.write(bytes(','.join(['4',str(dr),str(vol),str(spd)])+'*',"ascii"))
