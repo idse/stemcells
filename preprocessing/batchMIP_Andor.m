@@ -1,7 +1,5 @@
 function batchMIP_Andor(inputdir, outputdir, channels, saveidx, tmax, positions)
 
-    nargin
-
     meta = MetadataAndor(inputdir);
 
     if ~exist('positions','var')

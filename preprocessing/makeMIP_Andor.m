@@ -72,7 +72,11 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
             toc
 
             % make MIP
-            [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,channel+1,1:tmaxinfile),[],3);
+            if ~isempty(strfind(filenameFormat,'_w'))
+                [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,1,1:tmaxinfile),[],3);
+            else
+                [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,channel+1,1:tmaxinfile),[],3);
+            end
             MIPidx{ti+1} = uint16(MIPidx{ti+1});
             clear stack; 
         end

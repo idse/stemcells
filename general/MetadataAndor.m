@@ -37,7 +37,12 @@ classdef MetadataAndor < Metadata
             end
             
             listing = dir(fullfile(dataDir,'*.tif'));
-            filename = listing(1).name;
+            i = 1;
+            filename = listing(i).name;
+            while strcmp(filename(1),'.')
+                i = i + 1;
+                filename = filename(i).name;
+            end
             [s,matches] = strsplit(filename,{'_.[0-9]{4}'},...
                                    'DelimiterType','RegularExpression',...
                                    'CollapseDelimiters',false);
@@ -237,7 +242,7 @@ classdef MetadataAndor < Metadata
                     this.tPerFile = numel(info)/this.nZslices;
                     % for the case where wavelenghts were not exported
                     % separately
-                    if isempty(strfind(filename,'_w'))
+                    if isempty(strfind(this.filename,'_w'))
                         this.tPerFile = this.tPerFile/this.nChannels;
                     end
                 end

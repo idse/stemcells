@@ -225,9 +225,14 @@ classdef Position < handle
             startIndex = regexp(fname,'_.[0-9]+');
             fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
 
-            % if the channels are split in Andor format, put it in
+            % if the channels were split in export, put in the channel index
             if ~isempty(regexp(fname,'_w%.4d','once'))
                 fname = sprintf(fname, channel-1);
+                
+            % otherwise they were still split by makeMIP so we should
+            % modify the filename
+            else
+                fname = [fname(1:end-4) sprintf('_w%.4d',channel-1) fname(end-3:end)];
             end
             
             fname = fullfile(dataDir, fname);
@@ -240,7 +245,7 @@ classdef Position < handle
             end
             
             if ~exist(fname,'file')
-                %warning(['MIPidx file does not exist: ' fname]);
+                error(['MIPidx file does not exist: ' fname]);
                 MIPidx = [];
             else
                 MIPidx = imread(fname,time);
@@ -429,11 +434,11 @@ classdef Position < handle
                     
                 for cii = 1:numel(opts.dataChannels)
                     
-                    disp(['loading channel ' num2str(opts.dataChannels(cii))]);
+                    %disp(['loading channel ' num2str(opts.dataChannels(cii))]);
                     imc = this.loadImage(dataDir, opts.dataChannels(cii), ti);
-                    disp(['size: ' num2str(size(imc))]);
+                    %disp(['size: ' num2str(size(imc))]);
                     
-                    if size(nucmask) ~= size(imc)
+                    if size(nucmask) ~= [size(imc,1) size(imc,2)]
                         error(['nucmask size ' num2str(size(nucmask)) ' does not match image size ' num2str(size(imc))]);
                     end
                     
@@ -452,7 +457,7 @@ classdef Position < handle
                     % mean value of segmented empty space in the image
                     % or otherwise just min of image
                     if ~isempty(seg{cii})
-                        disp('bg seg bg sub');
+                        %disp('bg seg bg sub');
                         fgmask = seg{cii}(:,:,ti);
                         bgmask = ~imdilate(imclose(fgmask,strel('disk',10)),strel('disk',5));
                         % if the background area is too small to be
