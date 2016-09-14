@@ -64,10 +64,13 @@ function [newNuclearMask, fusedMask] = separateFusedNuclei(nuclearMask, options)
     fusedMask(sublist) = 1;
 
 %     figure,
-%     imshow(cat(3,nuclearMask,fused,0*fused))
+%     imshow(cat(3,nuclearMask,fusedMask,0*fusedMask))
 
     s = round(erodeSize*sqrt(mean(area))/pi);
     nucmin = imerode(fusedMask,strel('disk',s));
+
+%     figure,
+%     imshow(cat(3,mat2gray(nuclearMask),fusedMask,nucmin))
     
     % dilation by 1 pixel because otherwise the distance on the edge is
     % zero so the mask is shrunk by 1 pixel
@@ -76,7 +79,7 @@ function [newNuclearMask, fusedMask] = separateFusedNuclei(nuclearMask, options)
     basin = imimposemin(basin, nucmin | outside);
 
     L = watershed(basin);
-    newNuclearMask = L > 1 | nuclearMask - fusedMask;
+    newNuclearMask = nuclearMask & L > 1 | nuclearMask - fusedMask;
     
     newNuclearMask = bwareaopen(newNuclearMask, round(0.2*mean(area)));
 end

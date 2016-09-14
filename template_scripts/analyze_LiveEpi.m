@@ -20,11 +20,19 @@ elseif exist('vsifile','var') && exist(vsifile,'file')
     meta = Metadata(vsifile);
 end
 
+% determine process numbers of vsi files
+vsifiles = dir(fullfile(dataDir,'*.vsi'));
+processNumbers = zeros([numel(vsifiles) 1],'uint16');
+for i = 1:numel(vsifiles)
+    s = strsplit(vsifiles(i).name,{'_','.'});
+    processNumbers(i) = uint16(str2double(s{2}));
+end
+processnr = min(processNumbers):max(processNumbers);
+
 % manually entered metadata
 %------------------------------
 
 meta.timeInterval = '9 min';
-meta.nPositions = 16;
 
 %save(fullfile(dataDir,'metaData'),'meta');
 
@@ -32,6 +40,7 @@ barefname = 'syringeC2C12_7hintervals';
 treatmentTime = 7;
 meta.nWells = 2;
 meta.posPerCondition = 6;
+meta.nPositions = meta.nWells*meta.posPerCondition;
 meta.conditions = {'pluronic + fibronectin', 'fibronectin'};
 
 nucChannel = 2;
@@ -49,9 +58,13 @@ stitchedPreviews(dataDir, meta);
 
 opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
                     'dataChannels',     S4Channel,...
+                    'fgChannel',        S4Channel,...
                     'segmentationDir',  fullfile(dataDir,'MIP'),...
-                    'nucShrinkage',     2);
-                    
+                    'tMax',             meta.nTime,...
+                    'nucShrinkage',     2,...
+                    'cytoSize',         10,...
+                    'bgMargin',         4);
+                
 % add this if there is a MIPidx
                     %'MIPidxDir',        fullfile(dataDir,'MIP'));
 
@@ -59,25 +72,54 @@ opts.cleanupOptions = struct('separateFused', true,...
     'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',800);
 
 %%
-% try out the setting on some frame:
-pos = DynamicPositionAndor(meta,1);
-seg = pos.loadSegmentation(fullfile(dataDir,'MIP'),nucChannel);
-bla = nuclearCleanup(seg(:,:,1), opts.cleanupOptions);
-imshow(bla)
-
-%%
 tic
-%positions(meta.nPositions) = DynamicPositionAndor();
+positions(meta.nPositions) = Position();
 for pi = 1:meta.nPositions
 
-    positions(pi) = DynamicPositionAndor(meta,pi);
-    positions(pi).extractData(fullfile(dataDir,'MIP'), nucChannel, opts);
+    vsifile = fullfile(dataDir,['Process_' num2str(processnr(pi)) '.vsi']);
+
+    positions(pi) = Position(meta.nChannels, vsifile, meta.nTime);
+    positions(pi).setID(pi);
+    positions(pi).extractData(dataDir, nucChannel, opts);
     positions(pi).makeTimeTraces();
+    
+    save(fullfile(dataDir,'positions'), 'positions');
 end
 toc
 
-save(fullfile(dataDir,'positions'), 'positions');
-%['positions_' datestr(now,'yymmdd')]
+%% finding the right options for nuclear cleanup
+
+pi = 1;
+vsifile = fullfile(dataDir,['Process_' num2str(processnr(pi)) '.vsi']);
+P = Position(meta.nChannels, vsifile, meta.nTime);
+P.setID(pi);
+seg = P.loadSegmentation(fullfile(dataDir,'MIP'), nucChannel);
+
+% try out the nuclear cleanup settings on some frame:
+time = 1;
+bla = nuclearCleanup(seg(:,:,time), opts.cleanupOptions);
+figure, imshow(cat(3,mat2gray(bla),seg(:,:,time),seg(:,:,time)))
+
+%% finding the right options for extract data
+
+opts.tMax = time;
+debugInfo = P.extractData(dataDir, nucChannel, opts);
+
+bgmask = debugInfo.bgmask;
+nucmask = debugInfo.nucmask;
+cytmask = false(size(nucmask));
+cytmask(cat(1,debugInfo.cytCC.PixelIdxList{:}))=true;
+
+bg = P.cellData(time).background
+nucl = P.cellData(time).nucLevelAvg
+cytl = P.cellData(time).cytLevelAvg
+(nucl-bg)/(cytl - bg)
+
+im = P.loadImage(dataDir, S4Channel, time);
+MIP = max(im,[],3);
+A = imadjust(mat2gray(MIP));
+s = 0.4;
+imshow(cat(3, A + 0*bgmask, A + s*nucmask, A + s*cytmask));
 
 %%
 load(fullfile(dataDir,'positions'));
@@ -96,62 +138,100 @@ load(fullfile(dataDir,'positions'));
 % 
 % save(fullfile(dataDir,'positions'), 'positions');
 
-%% make a video of the time traces
+
+%% make a video (and figure) of the time traces
+
+tmax = meta.nTime;
+nWells = meta.nWells;
+posPerCondition = meta.posPerCondition;
 
 s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
-t = ((1:positions(1).nTime) - treatmentTime)*dt;
+t = ((1:tmax) - treatmentTime)*dt;
+axislim = [t(1), t(end)+50, 0.5, 1.5];
 
 frame = {};
 cd(dataDir);
-saveResult = true;
+saveResult = true; % CHECK
 minNCells = 10; % minimal number of cells
-fgc = 'w';
-bgc = 'k';
+fgc = 'k';
+bgc = 'w';
+graphbgc = 1*[1 1 1]; 
+graphfgc = 'r';
+%w, k, 0.5, w
 
-for wellnr = 1:nWells
+colors = hsv(posPerCondition); %0.5*[1 0 0]
+
+baseline = zeros([1 nWells]); % store baseline avg of each well
+
+for wellnr = 1%:nWells
 
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
 
     ttraceCat = cat(1,positions.timeTraces);
     ttraceCat = ttraceCat(conditionPositions);
-    nucMean = mean(cat(2,ttraceCat.nucLevelAvg),2);
-    cytMean = mean(cat(2,ttraceCat.cytLevelAvg),2);
-    bgMean = mean(cat(2,ttraceCat.background),2);
 
+    % weigh by number of cells, tends to make little difference
+    W = cat(1,positions.ncells); 
+    W = W(conditionPositions,:)';
+    %W = ones(size(W)); % don't weigh
+    W = bsxfun(@rdivide, posPerCondition*W, sum(W,2));
+    
+    nucTrace = cat(2,ttraceCat.nucLevelAvg);
+    cytTrace = cat(2,ttraceCat.cytLevelAvg);
+    bgTrace = cat(2,ttraceCat.background);
+    
+    nucMean = nanmean(nucTrace(1:tmax,:).*W,2);
+    cytMean = nanmean(cytTrace(1:tmax,:).*W,2);
+    bgMean = nanmean(bgTrace(1:tmax,:).*W,2);
+    
+    ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
+    %meanRatio = nanmean(ratio,1); % makes little difference
+    baseline(wellnr) = mean(ratioMean(t < treatmentTime));
+    
     % THIS SHOULD BE REARRANGED WITH ti ON THE INSIDE AND pi OUTSIDE
     
-    for ti = 1:positions(1).nTime
-        clf 
+    for ti = 1%:positions(1).nTime
+        clf
         hold on
-        for pi = conditionPositions
+        ratio = zeros([numel(conditionPositions) tmax]);
+        for i = 1:numel(conditionPositions)
 
+            pi = conditionPositions(i);
+            
             nucTrace = positions(pi).timeTraces.nucLevelAvg;
             bgTrace = positions(pi).timeTraces.background;
             cytTrace = positions(pi).timeTraces.cytLevelAvg;
-
-            ratio = (nucTrace - bgTrace)./(cytTrace - bgTrace);
-            ratio(positions(pi).ncells < minNCells) = NaN;
-            plot(t,ratio,'Color', 0.5*[1 0 0])
+            
+            R = (nucTrace - bgTrace)./(cytTrace - bgTrace);
+            ratio(pi,:) = R(1:tmax)';
+            ratio(pi, positions(pi).ncells < minNCells) = NaN;
+            plot(t,ratio(pi,:),'Color', colors(i,:))
         end
-        ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
-        bad = any(cat(1,positions(conditionPositions).ncells) < minNCells,1);
-        ratioMean(bad) = NaN;
-        plot(t, ratioMean,'w','LineWidth',2)
+        
+        plot(t, ratioMean, graphfgc,'LineWidth',2)
+        %plot(t, meanRatio, 'g','LineWidth',2)
+        
+        legendstr = {};
+        for i = 1:posPerCondition
+            legendstr = [legendstr num2str(i)];
+        end
+        legendstr = [legendstr 'mean'];
+        legend(legendstr);
         
         fs = 24;
         xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
         ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold','Color',fgc);
         
-        axis([t(1), t(end)+50, 0.3, 2]);
+        axis(axislim);
         set(gcf,'color',bgc);
         set(gca, 'LineWidth', 2);
         set(gca,'FontSize', fs)
         set(gca,'FontWeight', 'bold')
         set(gca,'XColor',fgc);
         set(gca,'YColor',fgc);
-        set(gca,'Color',0.5*[1 1 1]);
+        set(gca,'Color',graphbgc);
         
         if saveResult
             export_fig(['timeTrace_well' num2str(wellnr) '.pdf'],'-native -m2');
@@ -169,18 +249,21 @@ for wellnr = 1:nWells
 
         frame{ti} = export_fig(gcf,'-native -m2');
     end
-    if saveResult
-        v = VideoWriter(fullfile(dataDir,['ratioplot_well' num2str(wellnr) '.mp4']),'MPEG-4');
-        v.FrameRate = 5;
-        open(v)
-        for ti = 1:positions(1).nTime
-            writeVideo(v,frame{ti})
-        end
-        close(v);
-    end
+%     if saveResult
+%         disp('saving');
+%         v = VideoWriter(fullfile(dataDir,['ratioplot_white_well' num2str(wellnr) '.mp4']),'MPEG-4');
+%         v.FrameRate = 5;
+%         open(v)
+%         for ti = 1:positions(1).nTime
+%             writeVideo(v,frame{ti})
+%         end
+%         close(v);
+%     end
 end
 
 %% make a combined plot of several conditions
+
+posPerCondition = meta.posPerCondition;
 
 s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
@@ -192,7 +275,7 @@ cd(dataDir);
 saveResult = true;
 minNCells = 10; % minimal number of cells
 
-wellsWanted = 1;
+wellsWanted = 1:2;
 colors = lines(numel(wellsWanted));
 
 % pulse graph information
@@ -238,7 +321,7 @@ for wellidx = 1:numel(wellsWanted)
     end
     
     % plot the average of the ratios
-    ratioMean = mean(ratios,2,'omitnan');
+    ratioMean = nanmean(ratios,2);
     plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
 
     g0 = [0 1 0];
@@ -246,22 +329,22 @@ for wellidx = 1:numel(wellsWanted)
         g0 = g0/max(ratioMean);
     end
     
-    % plot pulse graph
-    if wellidx == 1
-        tmp = ratioMean;
-    else
-        tmp = [tmp ratioMean];
-    end
-    if plotPulseGraph && wellidx == numel(wellsWanted)
-        plotPulse(logDir,logName,startTime,min(tmp(:)),max(tmp(:)))
-    end
+%     % plot pulse graph
+%     if wellidx == 1
+%         tmp = ratioMean;
+%     else
+%         tmp = [tmp ratioMean];
+%     end
+%     if plotPulseGraph && wellidx == numel(wellsWanted)
+%         plotPulse(logDir,logName,startTime,min(tmp(:)),max(tmp(:)))
+%     end
 
     % plot parameters
     fs = 24;
     xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold')
     ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold');
 
-    axis([t(1), t(end)+50, 0.3, 2]);
+    axis([t(1), t(end)+50, 0.6, 1.5]);
     set(gcf,'color','w');
     set(gca, 'LineWidth', 2);
     set(gca,'FontSize', fs)
@@ -270,9 +353,9 @@ for wellidx = 1:numel(wellsWanted)
     %frame{ti} = export_fig(gcf,'-native -m2');
 end
 hold off
-title('Syringe Pump: C2C12 w/ tgfb @ 7h intervals');
+%title('Syringe Pump: C2C12 w/ tgfb @ 7h intervals');
 set(gca,'FontSize', 16)
-legend(conditions(wellsWanted));
+legend(meta.conditions(wellsWanted));
 if saveResult
     export_fig(['timeTrace_multipleConditions.pdf'],'-native -m2');
 end

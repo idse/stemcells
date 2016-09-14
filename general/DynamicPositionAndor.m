@@ -75,7 +75,7 @@ classdef DynamicPositionAndor < Position
             subti = rem(time-1,this.tPerFile) + 1;
             
             % if channels were separated
-            if strcmp(this.filename,'_w')
+            if strfind(this.filename,'_w')
 
                 % there is no _t part if all timepoints fit in a single file
                 if this.nTime > this.tPerFile

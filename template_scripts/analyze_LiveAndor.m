@@ -1,7 +1,7 @@
 clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
-dataDir = '/Users/idse/data_tmp/160812_siRNASki+Skil';
+dataDir = '/Users/idse/data_tmp/160812_C2C12siRNASki+Skil';
 
 meta = MetadataAndor(dataDir);
 
@@ -10,19 +10,12 @@ meta = MetadataAndor(dataDir);
 
 % TODO : modify MetadataAndor to contain all info below
 
-%barefname = '160812_siRNASki+Skil';
-barefname = '160812';
 treatmentTime = 4;
 
 meta.nWells = 6;
 meta.posPerCondition = 4;
 meta.conditions = {'ctrl','siSmad4', 'siSkiSnoN', 'siSkiSnoN',...
               'siSmad4','ctrl'};
-
-% barefname = 'SBbackground';
-% treatmentTime = 4;
-% posPerCondition = 4;
-% nWells = 8;
 
 nucChannel = 2;
 S4Channel = 1;
@@ -48,22 +41,21 @@ stitchedPreviews(dataDir, meta);
 
 opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
                     'dataChannels',     S4Channel,...
+                    'fgChannel',        S4Channel,...
                     'segmentationDir',  fullfile(dataDir,'MIP'),...
-                    'nucShrinkage',     2,...
                     'MIPidxDir',        fullfile(dataDir,'MIP'),...
-                    'tMax',             tmax);
+                    'tMax',             tmax,...
+                    'nucShrinkage',     2,...
+                    'cytoSize',         5,...
+                    'bgMargin',         4);
 
 opts.cleanupOptions = struct('separateFused', true,...
-    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',1500);
-
-% try out the setting on some frame:
-% bla = nuclearCleanup(seg(:,:,50), opts.cleanupOptions);
-% imshow(bla)
+    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',100);
 
 tic
 positions(meta.nPositions) = DynamicPositionAndor();
 
-for pi = 1:meta.nPositions
+for pi = 1%:meta.nPositions
 
     positions(pi) = DynamicPositionAndor(meta, pi);
     positions(pi).extractData(dataDir, nucChannel, opts);
@@ -73,6 +65,37 @@ toc
 
 %save(fullfile(dataDir,'positions'), 'positions');
 %['positions_' datestr(now,'yymmdd')]
+
+%% finding the right options for extract data
+
+pi = 1;
+P = DynamicPositionAndor(meta, pi);
+time = 2;
+opts.tMax = time;
+
+% try out the nuclear cleanup settings on some frame:
+% bla = nuclearCleanup(seg(:,:,time), opts.cleanupOptions);
+% imshow(bla)
+
+opts.cytoSize = 5;
+opts.nucShrinkage = 3;
+debugInfo = P.extractData(dataDir, nucChannel, opts);
+
+bgmask = debugInfo.bgmask;
+nucmask = debugInfo.nucmask;
+cytmask = false(size(nucmask));
+cytmask(cat(1,debugInfo.cytCC.PixelIdxList{:}))=true;
+
+bg = P.cellData(time).background
+nucl = P.cellData(time).nucLevelAvg
+cytl = P.cellData(time).cytLevelAvg
+(nucl-bg)/(cytl - bg)
+
+im = P.loadImage(dataDir, S4Channel, time);
+MIP = max(im,[],3);
+A = imadjust(mat2gray(MIP));
+s = 0.4;
+imshow(cat(3, A + 0*bgmask, A + s*nucmask, A + s*cytmask));
 
 %%
 load(fullfile(dataDir,'positions'));
@@ -93,11 +116,14 @@ load(fullfile(dataDir,'positions'));
 
 %% make a video (and figure) of the time traces
 
+nWells = meta.nWells;
+posPerCondition = meta.posPerCondition;
+
 s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
 t = ((1:tmax) - treatmentTime)*dt;
-axislim = [t(1), t(end)+50, 0.4, 1.6];
+axislim = [t(1), t(end)+50, 0.5, 2];
 
 frame = {};
 cd(dataDir);
@@ -109,40 +135,45 @@ graphbgc = 1*[1 1 1];
 graphfgc = 'r';
 %w, k, 0.5, w
 
+colors = hsv(4); %0.5*[1 0 0]
+
 baseline = zeros([1 nWells]); % store baseline avg of each well
 
-for wellnr = 1:nWells
+for wellnr = 3%:nWells
 
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
 
     ttraceCat = cat(1,positions.timeTraces);
     ttraceCat = ttraceCat(conditionPositions);
-    
+
     % weigh by number of cells, tends to make little difference
     W = cat(1,positions.ncells); 
     W = W(conditionPositions,:)';
     %W = ones(size(W)); % don't weigh
+    W = bsxfun(@rdivide, posPerCondition*W, sum(W,2));
     
     nucTrace = cat(2,ttraceCat.nucLevelAvg);
     cytTrace = cat(2,ttraceCat.cytLevelAvg);
     bgTrace = cat(2,ttraceCat.background);
     
-    nucMean = nanmean(nucTrace(1:tmax,:).*W,2)./sum(W,2);
-    cytMean = nanmean(cytTrace(1:tmax,:).*W,2)./sum(W,2);
-    bgMean = nanmean(bgTrace(1:tmax,:).*W,2)./sum(W,2);
+    nucMean = nanmean(nucTrace(1:tmax,:).*W,2);
+    cytMean = nanmean(cytTrace(1:tmax,:).*W,2);
+    bgMean = nanmean(bgTrace(1:tmax,:).*W,2);
     
     ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
     %meanRatio = nanmean(ratio,1); % makes little difference
     baseline(wellnr) = mean(ratioMean(t < treatmentTime));
-        
+    
     % THIS SHOULD BE REARRANGED WITH ti ON THE INSIDE AND pi OUTSIDE
     
     for ti = 1%:positions(1).nTime
-        clf 
+        clf
         hold on
         ratio = zeros([numel(conditionPositions) tmax]);
-        for pi = conditionPositions
+        for i = 1:numel(conditionPositions)
 
+            pi = conditionPositions(i);
+            
             nucTrace = positions(pi).timeTraces.nucLevelAvg;
             bgTrace = positions(pi).timeTraces.background;
             cytTrace = positions(pi).timeTraces.cytLevelAvg;
@@ -150,11 +181,13 @@ for wellnr = 1:nWells
             R = (nucTrace - bgTrace)./(cytTrace - bgTrace);
             ratio(pi,:) = R(1:tmax)';
             ratio(pi, positions(pi).ncells < minNCells) = NaN;
-            plot(t,ratio(pi,:),'Color', 0.5*[1 0 0])
+            plot(t,ratio(pi,:),'Color', colors(i,:))
         end
         
         plot(t, ratioMean, graphfgc,'LineWidth',2)
         %plot(t, meanRatio, 'g','LineWidth',2)
+        
+        legend({'1','2','3','4','mean'});
         
         fs = 24;
         xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
@@ -209,7 +242,7 @@ cd(dataDir);
 saveResult = true;
 minNCells = 10; % minimal number of cells
 
-wellsWanted = [1 2 3];
+wellsWanted = 1:6;
 %wellsWanted = 4:8;
 colors = lines(numel(wellsWanted));
 
@@ -235,14 +268,15 @@ for wellidx = 1:numel(wellsWanted)
     W = cat(1,positions.ncells); 
     W = W(conditionPositions,:)';
     %W = ones(size(W)); % don't weigh
-    
+    W = bsxfun(@rdivide, posPerCondition*W, sum(W,2));
+
     nucTrace = cat(2,ttraceCat.nucLevelAvg);
     cytTrace = cat(2,ttraceCat.cytLevelAvg);
     bgTrace = cat(2,ttraceCat.background);
     
-    nucMean = nanmean(nucTrace(1:tmax,:).*W,2)./sum(W,2);
-    cytMean = nanmean(cytTrace(1:tmax,:).*W,2)./sum(W,2);
-    bgMean = nanmean(bgTrace(1:tmax,:).*W,2)./sum(W,2);
+    nucMean = nanmean(nucTrace(1:tmax,:).*W,2);
+    cytMean = nanmean(cytTrace(1:tmax,:).*W,2);
+    bgMean = nanmean(bgTrace(1:tmax,:).*W,2);
     
     ratioMean = (nucMean - bgMean)./(cytMean - bgMean);
     
@@ -251,6 +285,12 @@ for wellidx = 1:numel(wellsWanted)
 
     %ratioMean = ratioMean -  baseline(wellnr) + mean(baseline);
     plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
+    ylim([0.5, 2]);
+
+    %plot(t, bgMean,'LineWidth',2,'Color',colors(wellidx,:))
+    %plot(t, nucMean,'LineWidth',2,'Color',colors(wellidx,:))
+    %plot(t, cytMean,'LineWidth',2,'Color',colors(wellidx,:))
+    xlim([t(1), t(end)+50]);
 
     g0 = [0 1 0];
     if max(ratioMean) > 1
@@ -261,7 +301,6 @@ for wellidx = 1:numel(wellsWanted)
     xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold')
     ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold');
 
-    axis([t(1), t(end)+50, 0.6, 1.6]);
     set(gcf,'color','w');
     set(gca, 'LineWidth', 2);
     set(gca,'FontSize', fs)
@@ -270,7 +309,7 @@ end
 hold off
 %title('comparison');
 set(gca,'FontSize', 16)
-legend(conditions(wellsWanted));
+legend(meta.conditions(wellsWanted));
 if saveResult
     export_fig(['timeTrace_multipleConditions2.pdf'],'-native -m2');
 end

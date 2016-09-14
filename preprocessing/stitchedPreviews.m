@@ -22,7 +22,9 @@ for wellnr = 1:meta.nWells
         gridSize = [posPerCondition/2 2];
     end
     
-    for ci = 1
+    for ci = 1:meta.nChannels
+        
+        disp(['-------------processing channel ' num2str(ci) '--------']);
         
         imgs = {};
         tmax = meta.nTime;

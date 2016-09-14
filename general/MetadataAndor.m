@@ -60,10 +60,14 @@ classdef MetadataAndor < Metadata
             if isempty(listing)
                error(['no metadata file found in ' dataDir]);
             else
-                disp(['metadata file: ' listing(1).name]);
-            end
-            filename = fullfile(dataDir, listing(1).name);
-
+                filename = fullfile(dataDir, listing(1).name);
+                % exclude notes.txt file
+                if strfind(filename,'notes')
+                    filename = fullfile(dataDir, listing(2).name);
+                end
+                disp(['metadata file: ' filename]);
+            end            
+            
             fid = fopen(filename);
 
             if fid == -1
