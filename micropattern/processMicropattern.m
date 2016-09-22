@@ -3,8 +3,8 @@ clear all; close all;
 %addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
 
-dataDir = 'img798';
-%dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
+%dataDir = 'img798';
+dataDir = '/Volumes/IdseData/160318_micropattern_lefty/control';
 
 colDir = fullfile(dataDir,'colonies');
 
@@ -36,7 +36,7 @@ elseif exist('vsifile','var') && exist(vsifile,'file')
     
 % or pretty much enter it by hand
 else
-    meta = Metadata();
+    meta = MetadataMicropattern();
     h = Tiff(btfname);
     meta.ySize = h.getTag('ImageLength');
     meta.xSize = h.getTag('ImageWidth');
@@ -119,7 +119,7 @@ for n = 1:numel(yedge)-1
         yminprev = ceil(size(preview,1)*double(ymin)/meta.ySize);
         xmaxprev = ceil(size(preview,2)*double(xmax)/meta.xSize);
         xminprev = ceil(size(preview,2)*double(xmin)/meta.xSize);
-        
+
         img = zeros([chunkheight, chunkwidth, meta.nChannels],'uint16');
         for ci = 1:meta.nChannels
             tic

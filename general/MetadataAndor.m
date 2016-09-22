@@ -31,13 +31,18 @@ classdef MetadataAndor < Metadata
             
             rawMeta = struct();
 
-            % get the image filename formate
+            % get the image filename format
             if ~exist(dataDir, 'dir')
                 error(['data dir does not exist ' dataDir]);
             end
             
             listing = dir(fullfile(dataDir,'*.tif'));
-            filename = listing(1).name;
+            i = 1;
+            filename = listing(i).name;
+            while strcmp(filename(1),'.')
+                i = i + 1;
+                filename = filename(i).name;
+            end
             [s,matches] = strsplit(filename,{'_.[0-9]{4}'},...
                                    'DelimiterType','RegularExpression',...
                                    'CollapseDelimiters',false);
@@ -54,9 +59,15 @@ classdef MetadataAndor < Metadata
             listing = dir(fullfile(dataDir,'*.txt'));
             if isempty(listing)
                error(['no metadata file found in ' dataDir]);
-            end
-            filename = fullfile(dataDir, listing(1).name);
-
+            else
+                filename = fullfile(dataDir, listing(1).name);
+                % exclude notes.txt file
+                if strfind(filename,'notes')
+                    filename = fullfile(dataDir, listing(2).name);
+                end
+                disp(['metadata file: ' filename]);
+            end            
+            
             fid = fopen(filename);
 
             if fid == -1
@@ -233,6 +244,11 @@ classdef MetadataAndor < Metadata
                 else
                     % time points per file
                     this.tPerFile = numel(info)/this.nZslices;
+                    % for the case where wavelenghts were not exported
+                    % separately
+                    if isempty(strfind(this.filename,'_w'))
+                        this.tPerFile = this.tPerFile/this.nChannels;
+                    end
                 end
             else
                 this.tPerFile = 1;

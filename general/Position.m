@@ -42,7 +42,7 @@ classdef Position < handle
     properties (Dependent)
         
         bareFilename;       % filename without extension
-        data                % cell by cell data for colony
+        %data                % cell by cell data for colony
                             % data cols: x, y, area, -1, 
                             % (nuclear, cytoplasmic) mean for each channel
     end
@@ -97,17 +97,13 @@ classdef Position < handle
             %
             % img:      loaded image
 
-            if exist('time','var') && time > 1
-                error('todo : include reading for dynamic not Andor datasets');
-            end
-            
             if ~exist('channels','var')
                 channels = 1:this.nChannels;
             end
             fname = fullfile(dataDir, this.filename);
             [~,~,ext] = fileparts(this.filename);
             
-            if strcmp(ext,'.tif')
+            if strcmp(ext,'.tif') || strcmp(ext,'.btf')
 
                 info = imfinfo(fname);
                 w = info.Width;
@@ -117,10 +113,29 @@ classdef Position < handle
                 for cii = 1:numel(channels)
                     img(:,:,cii) = imread(fname, channels(cii));
                 end
-            else
-                img = readStack(fname);
-                img = img(:,:,channels); % yes this is very inefficient
-                                         % I will fix it up later 
+                
+                if exist('time','var') && time > 1
+                    error('todo : include reading for dynamic not Andor or epi');
+                end
+                
+            elseif strcmp(ext,'.vsi')
+                
+                r = bfGetReader(fname);
+                img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
+                for cii = 1:numel(channels)
+                    for zi = 1:r.getSizeZ()
+                        img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii),time-1));
+                    end
+                end
+                r.close();
+                img = squeeze(img);
+% OLD, probably obsolete (reads vsi, but can't deal with time)
+%             else
+%                 %img = readStack(fname);
+%                 xmin = []; ymin = []; xmax = []; ymax = [];
+%                 series = 1;
+%                 img_bf = bfopen_mod(fname,xmin,ymin,xmax-xmin+1,ymax-ymin+1,series,channels);
+%                 img = cat(3,img_bf{1}{:,1});
             end
             
             %disp(['loaded image ' fname]);
@@ -148,10 +163,20 @@ classdef Position < handle
                 error('please provide channel');
             end
             
-            s = strsplit(this.filename,'_.%\.4d|\.','DelimiterType','RegularExpression');            
-            barefname = s{1};
+            [~,~,ext] = fileparts(this.filename);
             
-             % for dynamic data the raw data will usually be a MIP
+            % just a convention, batchMIP_epi renames MIPs to Andor
+            % convention with barefname the dataDir name, which is 
+            % one level above /MIP
+            if strcmp(ext,'.vsi')
+                s = strsplit(dataDir,filesep);
+                barefname = sprintf([s{end-1}, '_MIP_p%.4d'], this.ID-1); 
+            else
+                s = strsplit(this.filename,'_.%\.4d|\.','DelimiterType','RegularExpression');            
+                barefname = s{1};
+            end
+            
+            % for dynamic data the raw data will usually be a MIP
             % this code tries both
             listing = dir(fullfile(dataDir,[barefname '*h5']));
             if isempty(listing)
@@ -166,9 +191,11 @@ classdef Position < handle
             seg = [];
             
             for i = 1:numel(listing)
+                % DON'T COMMENT THE IF STATEMENT BELOW, IT WILL LOAD THE WRONG
+                % CHANNEL
                 if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
                         || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
-                    
+
                     fname = fullfile(dataDir,listing(i).name);
                     seg = h5read(fname, '/exported_data');
                     % Probabilities
@@ -188,12 +215,11 @@ classdef Position < handle
             
             if isempty(seg)
                 warning(['segmentation not found in ' dataDir, ', may be naming convention problem']);
+            else
+                % Ilastik output data has xy transposed
+                seg = permute(seg, [2 1 3]);
+                disp(['loaded segmentation ' fname]);
             end
-            
-            % Ilastik output data has xy transposed
-            seg = permute(seg, [2 1 3]);
-            
-            %disp(['loaded segmentation ' fname]);
         end
         
         function MIPidx = loadMIPidx(this, dataDir, channel, time)
@@ -223,9 +249,14 @@ classdef Position < handle
             startIndex = regexp(fname,'_.[0-9]+');
             fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
 
-            % if the channels are split in Andor format, put it in
+            % if the channels were split in export, put in the channel index
             if ~isempty(regexp(fname,'_w%.4d','once'))
                 fname = sprintf(fname, channel-1);
+                
+            % otherwise they were still split by makeMIP so we should
+            % modify the filename
+            else
+                fname = [fname(1:end-4) sprintf('_w%.4d',channel-1) fname(end-3:end)];
             end
             
             fname = fullfile(dataDir, fname);
@@ -238,7 +269,7 @@ classdef Position < handle
             end
             
             if ~exist(fname,'file')
-                %warning(['MIPidx file does not exist: ' fname]);
+                error(['MIPidx file does not exist: ' fname]);
                 MIPidx = [];
             else
                 MIPidx = imread(fname,time);
@@ -250,30 +281,37 @@ classdef Position < handle
         % process data
         %---------------------------------
 
-        function extractData(this, dataDir, nuclearChannel, opts)
+        function debugInfo = extractData(this, dataDir, nuclearChannel, opts)
             % populate the data array
             %
             % extractData(dataDir, nuclearChannel)
-            % extractData(dataDir, nuclearChannel, dataChannels)
+            % extractData(dataDir, nuclearChannel, options)
             %
             % dataDir:              data directory
-            % nuclearChannel:       channel of nuclear segmentation
+            % nuclearChannel        channel of nuclear segmentation
             % options:              struct with fields
             %
             % -dataChannels         channels for which to extract data
             %                       default is all
             % -tMax                 maximal time, default nTime
-            %
+            % -------------------------------------------------------------
             % -cleanupOptions       options for cleanup
             % -nucShrinkage         number of pixels to shrink nuclear mask
             %                       by to get more accurate nuclear
             %                       readouts
             % -cytoplasmicLevels    extract approximate cytoplasmic levels
-            %
+            % -cytoSize             width of cytoplasmic annulus
+            % -fgChannel            channel whose inverse is used as a
+            %                       background mask
+            % -bgMargin             erosion size of the inverse fg 
+            % -imopenBGsub          open size for imopenBGsub (if using it)
+            % -------------------------------------------------------------
             % -MIPidxDir            directory of MIPidx files if desired
             % -segmentationDir      directory of segmentation, default
             %                       dataDir
-            % -imopenBGsub          open size for imopenBGsub
+            % -------------------------------------------------------------
+            % -nuclearSegmentation  binary stack with 3rd dim time for
+            %                       providing a segmentation by hand
 
             if nargin < 4
                 opts = struct();
@@ -281,6 +319,10 @@ classdef Position < handle
             if ~isfield(opts,'dataChannels')
                 opts.dataChannels = 1:this.nChannels;
             end
+            if ~isfield(opts, 'tMax')
+                opts.tMax = this.nTime;
+            end
+            % ----------------------------------------
             if ~isfield(opts, 'cleanupOptions')
                 opts.cleanupOptions = struct('separateFused', true,...
                     'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0);
@@ -291,29 +333,45 @@ classdef Position < handle
             if ~isfield(opts,'cytoplasmicLevels')
                 opts.cytoplasmicLevels = false;
             end
-            if ~isfield(opts, 'tMax')
-                opts.tMax = this.nTime;
+            if ~isfield(opts, 'cytoSize')
+                opts.cytoSize = 10;
             end
+            if ~isfield(opts, 'bgMargin')
+                opts.bgMargin = 2;
+            end
+            if ~isfield(opts, 'imopenBGsub')
+                opts.imopenBGsub = [];
+            end
+            % ----------------------------------------
             if ~isfield(opts, 'segmentationDir')
                 opts.segmentationDir = dataDir;
             end
             if ~isfield(opts, 'MIPidxDir')
                 opts.MIPidxDir = [];
             end
-            if ~isfield(opts, 'imopenBGsub')
-                opts.imopenBGsub = [];
-            end
             
             this.dataChannels = opts.dataChannels;
             
-            nucSeg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
-            
-            % for the purpose of the current background subtraction
-            seg = {};
-            for cii = 1:numel(opts.dataChannels)    
-                seg{cii} = this.loadSegmentation(opts.segmentationDir, opts.dataChannels(cii));
+            % pass nuclear segmentation manually or load Ilastik standard
+            seg = cell([1 4]);
+            if isfield(opts, 'nuclearSegmentation')            
+                nucSeg = opts.nuclearSegmentation;
+                if size(nucSeg,3) ~= this.nTime
+                    error('slice number of nuclear segmentation doesnt match number of time points');
+                end
+            else
+                nucSeg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
             end
-            
+            % for the purpose of the current background subtraction
+            % this may need some work, why am I creating a background
+            % mask for each channel separately?
+            if isfield(opts, 'fgChannel');
+                fgseg = this.loadSegmentation(opts.segmentationDir, opts.fgChannel);
+            else
+                bgmask = [];
+                fgmask = [];
+            end
+
             for ti = 1:opts.tMax
 
                 % progress indicator
@@ -322,33 +380,69 @@ classdef Position < handle
                     fprintf('\n');
                 end
                 
-                % make clean nuclear mask 
+                % get background mask
+                %--------------------------
+                if isfield(opts, 'fgChannel');
+                    fgmask = imclose(fgseg(:,:,ti),strel('disk',10));
+                    bgmask = imerode(~fgmask,strel('disk', opts.bgMargin));
+                    fgmask = imerode(fgmask,strel('disk', opts.bgMargin));
+                end
+                
+                % make clean nuclear mask
                 %--------------------------
             
                 nucmaskraw = nucSeg(:,:,ti);
-                %bgmask = ~seg{1}(:,:,ti); MAKES NO DIFFERENCE: LEAVE OUT
                 %nucmaskraw(bgmask) = false;
-
-                nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
+                if ~isfield(opts, 'nuclearSegmentation')  
+                    nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
+                else
+                    nucmask = nucmaskraw;
+                end
                 
                 % make cytoplasmic mask 
                 %----------------------
+% OLD                
+%                 if opts.cytoplasmicLevels
+% 
+%                     % watershedding inside the dilation
+%                     dilated = imdilate(nucmask, strel('disk',opts.cytoSize));
+%                     basin = imcomplement(bwdist(dilated));
+%                     basin = imimposemin(basin, nucmask);
+%                     L = watershed(basin);
+
+%                     stats = regionprops(L, 'PixelIdxList');
+%                     cytCC = struct('PixelIdxList', {cat(1,{stats.PixelIdxList})});
+% 
+%                     this.cellData(ti).cytLevel = zeros([numel(cytCC.PixelIdxList) numel(opts.dataChannels)]);
+%                     this.cellData(ti).cytLevelAvg = zeros([1 numel(opts.dataChannels)]);
+%                 end
                 
                 if opts.cytoplasmicLevels
 
                     % watershedding inside the dilation
-                    dilated = imdilate(nucmask, strel('disk',10));
+                    dilated = imdilate(nucmask, strel('disk',opts.cytoSize));
                     basin = imcomplement(bwdist(dilated));
                     basin = imimposemin(basin, nucmask);
                     L = watershed(basin);
-                    L(~dilated) = 0;    % exclude outside dilated nuclei
-                    L(nucmaskraw) = 0;  % exclude nuclei before cleanup
-                    %L(bgmask) = 0;      % exclude background 
+                    % OLD: can change number of CC and mess things up:
+                    % L(~dilated) = 0;    % exclude outside dilated nuclei
+                    % L(nucmaskraw) = 0;  % exclude nuclei before cleanup
+                    % L(~fgmask) = 0;      % exclude background 
                     stats = regionprops(L, 'PixelIdxList');
                     cytCC = struct('PixelIdxList', {cat(1,{stats.PixelIdxList})});
-
+                    
+                    % replacement of exclusions above
+                    for cci = 1:numel(cytCC.PixelIdxList)
+                        CCPIL = cytCC.PixelIdxList{cci};
+                        CCPIL = CCPIL(dilated(CCPIL));    % exclude outside dilated nuclei
+                        CCPIL = CCPIL(~nucmaskraw(CCPIL));% exclude nuclei before cleanup
+                        cytCC.PixelIdxList{cci} = CCPIL(fgmask(CCPIL));% exclude background 
+                    end
+                    
                     this.cellData(ti).cytLevel = zeros([numel(cytCC.PixelIdxList) numel(opts.dataChannels)]);
                     this.cellData(ti).cytLevelAvg = zeros([1 numel(opts.dataChannels)]);
+                else
+                    cytCC = {};
                 end
                 
                 % regionprops and indices from nuclear mask
@@ -410,8 +504,14 @@ classdef Position < handle
                     
                 for cii = 1:numel(opts.dataChannels)
                     
+                    %disp(['loading channel ' num2str(opts.dataChannels(cii))]);
                     imc = this.loadImage(dataDir, opts.dataChannels(cii), ti);
-
+                    %disp(['size: ' num2str(size(imc))]);
+                    
+                    if size(nucmask) ~= [size(imc,1) size(imc,2)]
+                        error(['nucmask size ' num2str(size(nucmask)) ' does not match image size ' num2str(size(imc))]);
+                    end
+                    
                     % if no MIPidx, just use MIP
                     if isempty(MIPidx)
                         imc = max(imc,[],3);
@@ -426,9 +526,8 @@ classdef Position < handle
                     %-------------------------------------------------
                     % mean value of segmented empty space in the image
                     % or otherwise just min of image
-                    if ~isempty(seg{cii})
-                        fgmask = seg{cii}(:,:,ti);
-                        bgmask = ~imdilate(imclose(fgmask,strel('disk',10)),strel('disk',5));
+                    if ~isempty(bgmask)
+                        % disp('bg seg bg sub');
                         % if the background area is too small to be
                         % reliable (I'm saying < ~1% of total area), then
                         % just go with the previous value
@@ -437,7 +536,11 @@ classdef Position < handle
                             imcZmed = imc(:,:,zmed);
                             this.cellData(ti).background(cii) = mean(imcZmed(bgmask));
                         else
-                            this.cellData(ti).background(cii) = this.cellData(ti-1).background(cii);
+                            if ti > 1
+                                this.cellData(ti).background(cii) = this.cellData(ti-1).background(cii);
+                            else
+                                this.cellData(ti).background(cii) = min(min(imc(:,:,zmed)));
+                            end
                         end
                     else
                         this.cellData(ti).background(cii) = min(min(imc(:,:,zmed)));
@@ -464,17 +567,24 @@ classdef Position < handle
                     
                     nL = this.cellData(ti).nucLevel(:,cii);
                     A = this.cellData(ti).area;
-                    this.cellData(ti).nucLevelAvg(cii) = mean(nL.*A)/mean(A);
                     if opts.cytoplasmicLevels
                         cL = this.cellData(ti).cytLevel(:,cii);
-                        this.cellData(ti).cytLevelAvg(cii) = mean(cL.*A)/mean(A);
+                        % cytoplasmic mask can be empty if a cell was tiny
+                        % or junk was defined as a nucleus
+                        idx = ~isnan(cL);
+                        this.cellData(ti).cytLevelAvg(cii) = mean(cL(idx).*A(idx))/mean(A(idx));
+                    else
+                        idx = 1:numel(A);
                     end
+                    this.cellData(ti).nucLevelAvg(cii) = mean(nL(idx).*A(idx))/mean(A(idx));
                 end
                 else
                     warning(['------------ NO CELLS AT T = ' num2str(ti) '------------']);
                 end
             end
             fprintf('\n');
+            
+            debugInfo = struct('bgmask', bgmask, 'nucmask', nucmask, 'cytCC', cytCC);
         end
         
         function makeTimeTraces(this)
@@ -488,7 +598,7 @@ classdef Position < handle
             cytLevelAvg = zeros([this.nTime numel(this.dataChannels)]);
             bg = zeros([this.nTime numel(this.dataChannels)]);
 
-            for ti = 1:this.nTime
+            for ti = 1:numel(this.cellData)
                 nucLevelAvg(ti, :) = this.cellData(ti).nucLevelAvg;
                 cytLevelAvg(ti, :) = this.cellData(ti).cytLevelAvg;
                 bg(ti) = this.cellData(ti).background;
@@ -508,45 +618,48 @@ classdef Position < handle
             barefname = this.filename(1:end-4);
         end
         
-        function data = get.data(this)
-            % output CellTracker style data array for first time point
-            % 
-            % data cols: x, y, area, -1, 
-            % then (nuclear, cytoplasmic) mean for each channel
-            
-            % this is just for old static stuff for now
-            % perhaps it can be removed alltogether
-            if this.nTime > 1
-                data = [];
-                return;
-            end
-            
-            cData = this.cellData(1);
-            if ~isempty(this.ncells)
-                ncells = this.ncells(1);
-            else
-                ncells = 0;
-            end
-            
-            if ~isfield(cData,'nucLevel') || isempty(cData.nucLevel)
-                data = [];
-                return;
-            end
-            
-            if isfield(cData,'cytLevel') && ~isempty(cData.cytLevel)
-                cytLevel = cData.cytLevel;
-            else
-                cytLevel = nan(size(cData.nucLevel));
-            end
-
-            data = [cData.XY, cData.area,...
-                -ones([ncells 1]), zeros([ncells 2*numel(this.dataChannels)])];
-            
-            for cii = 1:numel(this.dataChannels)
-                data(:,3 + 2*cii) = cData.nucLevel(:,this.dataChannels(cii));
-                data(:,4 + 2*cii) = cytLevel(:,this.dataChannels(cii));
-            end
-        end
+%         data was for compatibility with CellTracker, but is not used by
+%         me or anyone else afaik and is causing problems
+%
+%         function data = get.data(this)
+%             % output CellTracker style data array for first time point
+%             % 
+%             % data cols: x, y, area, -1, 
+%             % then (nuclear, cytoplasmic) mean for each channel
+%             
+%             % this is just for old static stuff for now
+%             % perhaps it can be removed alltogether
+%             if this.nTime > 1
+%                 data = [];
+%                 return;
+%             end
+%             
+%             cData = this.cellData(1);
+%             if ~isempty(this.ncells)
+%                 ncells = this.ncells(1);
+%             else
+%                 ncells = 0;
+%             end
+%             
+%             if ~isfield(cData,'nucLevel') || isempty(cData.nucLevel)
+%                 data = [];
+%                 return;
+%             end
+%             
+%             if isfield(cData,'cytLevel') && ~isempty(cData.cytLevel)
+%                 cytLevel = cData.cytLevel;
+%             else
+%                 cytLevel = nan(size(cData.nucLevel));
+%             end
+% 
+%             data = [cData.XY, cData.area,...
+%                 -ones([ncells 1]), zeros([ncells 2*numel(this.dataChannels)])];
+%             
+%             for cii = 1:numel(this.dataChannels)
+%                 data(:,3 + 2*cii) = cData.nucLevel(:,cii);%this.dataChannels(cii)
+%                 data(:,4 + 2*cii) = cytLevel(:,cii);%this.dataChannels(cii)
+%             end
+%         end
 
         % setters
         %---------------------------------

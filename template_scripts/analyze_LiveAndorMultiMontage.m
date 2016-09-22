@@ -21,6 +21,9 @@ nWells = 3;
 nucChannel = 2;
 S4Channel = 1;
 
+meta.montageGridSize = [3 3];
+meta.montageOverlap = 10;
+
 % visualize positions
 %---------------------
 
@@ -33,15 +36,21 @@ S4Channel = 1;
 %% read the MIPs from previous step at time 1 
 
 gridSize = meta.montageGridSize;
-pixelOverlap = round(1024*meta.montageOverlap/100);
+pixelOverlap = 60;%[];%round(1024*meta.montageOverlap/100);
 
 imgsNuc = {};
 imgsS4 = {};
 
-for wellnr = 1:nWells
-    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+for wellnr = 3%1:nWells
+    
+    for coli = 1:posPerCondition
+    
+	colnr = (wellnr-1)*posPerCondition + coli;
+        
+    posPerMontage = prod(meta.montageGridSize);
+    conditionPositions = posPerMontage*(colnr-1)+1:posPerMontage*colnr;
     if isempty(gridSize) 
-        gridSize = [posPerCondition/2 2];
+        gridSize = [posPerMontage/2 2];
     end
 
     tmax = meta.nTime;
@@ -63,7 +72,7 @@ for wellnr = 1:nWells
         end
 
         % stitch together
-        if ti == 1 && ~isempty(pixelOverlap)
+        if ~isempty(pixelOverlap) %&& ti == 1
             % get register positions of upper left corner
             upperleft = registerImageGrid(imgsNuc, pixelOverlap);
         elseif ti == 1 && isempty(pixelOverlap)
@@ -79,32 +88,40 @@ for wellnr = 1:nWells
         % make clean preview (not for quantitative analysis
         nucSmall = imfilter(nucStitched,[1 1]/2);
         nucSmall = nucSmall(1:2:end,1:2:end);
-        nucSmall = imadjust(mat2gray(nucSmall));
-        nucSmall = uint16((2^16-1)*nucSmall);
-
         S4Small = imfilter(S4Stitched,[1 1]/2);
         S4Small = S4Small(1:2:end,1:2:end);
-        S4Small = imadjust(mat2gray(medfilt2(S4Small,[3 3])));
-        S4Small = uint16((2^16-1)*S4Small);
 
         if ti == 1
+            
+            IlimNuc = stretchlim(nucSmall);
+            IlimS4 = stretchlim(S4Small);
+            
             previewS4 = zeros([size(nucSmall) tmax],'uint16');
             previewNuc = zeros([size(nucSmall) tmax],'uint16');
         end
-        previewNuc(:,:,ti) = nucSmall;
-        previewS4(:,:,ti) = S4Small;
+        
+        % adjust contrast 
+        nucSmall = imadjust(nucSmall, IlimNuc);
+        S4Small = imadjust(medfilt2(S4Small,[3 3]), IlimS4);
+
+        yidx = 1:min(size(previewNuc,1),size(nucSmall,1));
+        xidx = 1:min(size(previewNuc,2),size(nucSmall,2));
+        previewNuc(yidx,xidx,ti) = nucSmall(yidx,xidx);
+        previewS4(yidx,xidx,ti) = S4Small(yidx,xidx);
     end
 
-    fname = fullfile(dataDir, ['stichedPreviewNuclei_well' num2str(wellnr) '.tif']);
+    fname = fullfile(dataDir, ['stichedPreviewNuclei_well' num2str(wellnr) '_col' num2str(coli) '.tif']);
     imwrite(previewNuc(:,:,1), fname);
     for ti = 2:tmax
         imwrite(previewNuc(:,:,ti), fname,'WriteMode','Append');
     end
 
-    fname = fullfile(dataDir, ['stichedPreviewS4_well' num2str(wellnr) '.tif']);
+    fname = fullfile(dataDir, ['stichedPreviewS4_well' num2str(wellnr) '_col' num2str(coli) '.tif']);
     imwrite(previewS4(:,:,1), fname);
     for ti = 2:tmax
         imwrite(previewS4(:,:,ti), fname,'WriteMode','Append');
+    end
+
     end
 end
 % figure, imshow(cat(3,0*nucSmall,S4Small,0*S4Small));

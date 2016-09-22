@@ -9,6 +9,8 @@ classdef Metadata
 
         filename
         
+        %tPerFile
+        
         xres                % x-resolution
         yres                % y-resolution
         xSize
@@ -33,6 +35,11 @@ classdef Metadata
         XYZ                 % position coordinates
 
         raw                 % store unprocessed metadata if necessary
+        
+        % to keep track of multi-well experiments
+        nWells              % number of well
+        posPerCondition     % positions per well
+        conditions          % cell array of condition labels
     end
     
     methods
