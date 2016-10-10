@@ -46,12 +46,12 @@ opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
                     'MIPidxDir',        fullfile(dataDir,'MIP'),...
                     'tMax',             tmax,...
                     'nucShrinkage',     2,...
-                    'cytoSize',         5,...
-                    'bgMargin',         4);
+                    'cytoSize',         8,...
+                    'bgMargin',         10);
 
 opts.cleanupOptions = struct('separateFused', true,...
-    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',100);
-
+    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',1000);
+%%
 tic
 positions(meta.nPositions) = DynamicPositionAndor();
 
@@ -60,25 +60,23 @@ for pi = 1%:meta.nPositions
     positions(pi) = DynamicPositionAndor(meta, pi);
     positions(pi).extractData(dataDir, nucChannel, opts);
     positions(pi).makeTimeTraces();
+    save(fullfile(dataDir,'positions'), 'positions');
 end
 toc
 
-%save(fullfile(dataDir,'positions'), 'positions');
 %['positions_' datestr(now,'yymmdd')]
 
 %% finding the right options for extract data
 
 pi = 1;
 P = DynamicPositionAndor(meta, pi);
-time = 2;
+time = 1;
 opts.tMax = time;
 
 % try out the nuclear cleanup settings on some frame:
 % bla = nuclearCleanup(seg(:,:,time), opts.cleanupOptions);
 % imshow(bla)
 
-opts.cytoSize = 5;
-opts.nucShrinkage = 3;
 debugInfo = P.extractData(dataDir, nucChannel, opts);
 
 bgmask = debugInfo.bgmask;

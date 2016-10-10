@@ -185,7 +185,7 @@ classdef Position < handle
                 listing = dir(fullfile(dataDir,[barefname '_*h5']));
             end
             if isempty(listing)
-                error(['segmentation for channel ' num2str(channel) ' not found in ' dataDir]);
+                error(['segmentation ' [barefname '*h5'] ' for channel ' num2str(channel) ' not found in ' dataDir]);
             end
 
             seg = [];
@@ -353,7 +353,6 @@ classdef Position < handle
             this.dataChannels = opts.dataChannels;
             
             % pass nuclear segmentation manually or load Ilastik standard
-            seg = cell([1 4]);
             if isfield(opts, 'nuclearSegmentation')            
                 nucSeg = opts.nuclearSegmentation;
                 if size(nucSeg,3) ~= this.nTime
@@ -362,6 +361,10 @@ classdef Position < handle
             else
                 nucSeg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
             end
+            if isempty(nucSeg)
+                error('nuclear segmentation missing');
+            end
+            
             % for the purpose of the current background subtraction
             % this may need some work, why am I creating a background
             % mask for each channel separately?
@@ -386,6 +389,8 @@ classdef Position < handle
                     fgmask = imclose(fgseg(:,:,ti),strel('disk',10));
                     bgmask = imerode(~fgmask,strel('disk', opts.bgMargin));
                     fgmask = imerode(fgmask,strel('disk', opts.bgMargin));
+                else
+                    warning('not using background mask');
                 end
                 
                 % make clean nuclear mask
@@ -436,7 +441,9 @@ classdef Position < handle
                         CCPIL = cytCC.PixelIdxList{cci};
                         CCPIL = CCPIL(dilated(CCPIL));    % exclude outside dilated nuclei
                         CCPIL = CCPIL(~nucmaskraw(CCPIL));% exclude nuclei before cleanup
-                        cytCC.PixelIdxList{cci} = CCPIL(fgmask(CCPIL));% exclude background 
+                        if ~isempty(fgmask)
+                            cytCC.PixelIdxList{cci} = CCPIL(fgmask(CCPIL));% exclude background 
+                        end
                     end
                     
                     this.cellData(ti).cytLevel = zeros([numel(cytCC.PixelIdxList) numel(opts.dataChannels)]);

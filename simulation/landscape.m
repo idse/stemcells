@@ -28,7 +28,7 @@ legend('potential','force')
 % we assume we can place the initial condition in the middle of the
 % symmetric background landscape
 
-b = 0;
+b = -0.2;
 c = 1;
 Ncells = 100;
 dt = 0.01;
@@ -47,11 +47,18 @@ for ti = 2:timax
 end
 
 % visualize trajectories
-plot(x,V(x)+b.*x)
+plot(x,V(x)+b.*x, '-k','LineWidth',2)
 hold on
 plot(X',t)
 hold off
 xlim([x(1) x(end)])
+xlabel('space');
+ylabel('time');
+legend('landscape', 'Location', 'SouthWest')
+set(gcf,'color','w');
+set(gca, 'LineWidth', 2);
+set(gca,'FontSize', fs)
+set(gca,'FontWeight', 'bold')
 
 %% visualize final distribution
 

@@ -149,7 +149,7 @@ s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
 t = ((1:tmax) - treatmentTime)*dt;
-axislim = [t(1), t(end)+50, 0.5, 1.5];
+axislim = [t(1), t(end)+50, 0.5, 1.6];
 
 frame = {};
 cd(dataDir);
@@ -165,7 +165,7 @@ colors = hsv(posPerCondition); %0.5*[1 0 0]
 
 baseline = zeros([1 nWells]); % store baseline avg of each well
 
-for wellnr = 1%:nWells
+for wellnr = 1:nWells
 
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
 
@@ -191,9 +191,9 @@ for wellnr = 1%:nWells
     baseline(wellnr) = mean(ratioMean(t < treatmentTime));
     
     % THIS SHOULD BE REARRANGED WITH ti ON THE INSIDE AND pi OUTSIDE
-    
+    figure
     for ti = 1%:positions(1).nTime
-        clf
+        
         hold on
         ratio = zeros([numel(conditionPositions) tmax]);
         for i = 1:numel(conditionPositions)
@@ -220,6 +220,8 @@ for wellnr = 1%:nWells
         legendstr = [legendstr 'mean'];
         legend(legendstr);
         
+        title(meta.conditions{wellnr});
+        
         fs = 24;
         xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
         ylabel('nuclear : cytoplasmic Smad4', 'FontSize',fs,'FontWeight','Bold','Color',fgc);
@@ -237,14 +239,14 @@ for wellnr = 1%:nWells
             export_fig(['timeTrace_well' num2str(wellnr) '.pdf'],'-native -m2');
         end
 
-        if ~isnan(ratioMean(ti))
-            g0 = [0 1 0];
-            if max(ratioMean) > 1
-                g0 = g0/max(ratioMean);
-            end
-            plot(t(ti), ratioMean(ti),'o','LineWidth',3,'MarkerEdgeColor',g0,...
-                                    'MarkerSize',20,'MarkerFaceColor',ratioMean(ti)*g0)
-        end
+%         if ~isnan(ratioMean(ti))
+%             g0 = [0 1 0];
+%             if max(ratioMean) > 1
+%                 g0 = g0/max(ratioMean);
+%             end
+%             plot(t(ti), ratioMean(ti),'o','LineWidth',3,'MarkerEdgeColor',g0,...
+%                                     'MarkerSize',20,'MarkerFaceColor',ratioMean(ti)*g0)
+%         end
         hold off
 
         frame{ti} = export_fig(gcf,'-native -m2');

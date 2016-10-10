@@ -231,13 +231,14 @@ classdef MetadataAndor < Metadata
                 fileTmax = 0;
                 for i = 1:numel(listing)
                     k = strfind(listing(i).name,'_t');
-                    if ~isempty(k)
+                    if ~isempty(k) && ~strcmp(listing(i).name(1),'.')
                         fileTmax = max(fileTmax, str2double(listing(i).name(k+2:k+5)));
                         if isempty(info)
                             info = imfinfo(fullfile(pathstr,listing(i).name));
                         end
                     end
                 end
+                
                 % if files don't have a _t label nothing was found
                 if isempty(info)
                     this.tPerFile = this.nTime;
