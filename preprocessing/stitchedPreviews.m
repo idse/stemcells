@@ -19,7 +19,7 @@ for wellnr = 1:meta.nWells
     
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
     if isempty(gridSize) 
-        gridSize = [posPerCondition/2 2];
+        gridSize = [round(posPerCondition/2) 2];
     end
     
     for ci = 1:meta.nChannels
