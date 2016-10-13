@@ -39,9 +39,9 @@ classdef MetadataAndor < Metadata
             listing = dir(fullfile(dataDir,'*.tif'));
             i = 1;
             filename = listing(i).name;
-            while strcmp(filename(1),'.')
+            while strcmp(filename(1),'.') || ~isempty(strfind(filename,'Preview'))
                 i = i + 1;
-                filename = filename(i).name;
+                filename = listing(i).name;
             end
             [s,matches] = strsplit(filename,{'_.[0-9]{4}'},...
                                    'DelimiterType','RegularExpression',...
