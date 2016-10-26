@@ -214,7 +214,7 @@ classdef Position < handle
             end
             
             if isempty(seg)
-                warning(['segmentation not found in ' dataDir, ', may be naming convention problem']);
+                warning(['segmentation for channel ' num2str(channel) ' not found in ' dataDir, ', may be naming convention problem']);
             else
                 % Ilastik output data has xy transposed
                 seg = permute(seg, [2 1 3]);
@@ -281,7 +281,7 @@ classdef Position < handle
         % process data
         %---------------------------------
 
-        function debugInfo = extractData(this, dataDir, nuclearChannel, opts)
+        function debugInfo = extractData(this, dataDir, nucChannel, opts)
             % populate the data array
             %
             % extractData(dataDir, nuclearChannel)
@@ -351,28 +351,31 @@ classdef Position < handle
             end
             
             this.dataChannels = opts.dataChannels;
-            
-            % pass nuclear segmentation manually or load Ilastik standard
-            if isfield(opts, 'nuclearSegmentation')            
-                nucSeg = opts.nuclearSegmentation;
-                if size(nucSeg,3) ~= this.nTime
-                    error('slice number of nuclear segmentation doesnt match number of time points');
-                end
-            else
-                nucSeg = this.loadSegmentation(opts.segmentationDir, nuclearChannel);
-            end
-            if isempty(nucSeg)
-                error('nuclear segmentation missing');
-            end
-            
+            allChannels = unique([nucChannel opts.dataChannels]);
+
             % for the purpose of the current background subtraction
-            % this may need some work, why am I creating a background
-            % mask for each channel separately?
             if isfield(opts, 'fgChannel');
-                fgseg = this.loadSegmentation(opts.segmentationDir, opts.fgChannel);
+                allChannels = unique([allChannels opts.fgChannel]);
             else
                 bgmask = [];
                 fgmask = [];
+            end
+            
+            % load all available segmentations
+            seg = {};
+            for ci = allChannels
+                seg{ci} = this.loadSegmentation(opts.segmentationDir, ci);
+            end
+            
+            % pass nuclear segmentation manually or load Ilastik standard
+            if isfield(opts, 'nuclearSegmentation')            
+                seg{nucChannel} = opts.nuclearSegmentation;
+                if size(seg{nucChannel},3) ~= this.nTime
+                    error('slice number of nuclear segmentation doesnt match number of time points');
+                end
+            end
+            if isempty(seg{nucChannel})
+                error('nuclear segmentation missing');
             end
 
             for ti = 1:opts.tMax
@@ -386,7 +389,7 @@ classdef Position < handle
                 % get background mask
                 %--------------------------
                 if isfield(opts, 'fgChannel');
-                    fgmask = imclose(fgseg(:,:,ti),strel('disk',10));
+                    fgmask = imclose(seg{opts.fgChannel}(:,:,ti),strel('disk',10));
                     bgmask = imerode(~fgmask,strel('disk', opts.bgMargin));
                     fgmask = imerode(fgmask,strel('disk', opts.bgMargin));
                 else
@@ -396,7 +399,7 @@ classdef Position < handle
                 % make clean nuclear mask
                 %--------------------------
             
-                nucmaskraw = nucSeg(:,:,ti);
+                nucmaskraw = seg{nucChannel}(:,:,ti);
                 %nucmaskraw(bgmask) = false;
                 if ~isfield(opts, 'nuclearSegmentation')  
                     nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
@@ -429,10 +432,12 @@ classdef Position < handle
                     basin = imcomplement(bwdist(dilated));
                     basin = imimposemin(basin, nucmask);
                     L = watershed(basin);
+                    
                     % OLD: can change number of CC and mess things up:
                     % L(~dilated) = 0;    % exclude outside dilated nuclei
                     % L(nucmaskraw) = 0;  % exclude nuclei before cleanup
                     % L(~fgmask) = 0;      % exclude background 
+                    
                     stats = regionprops(L, 'PixelIdxList');
                     cytCC = struct('PixelIdxList', {cat(1,{stats.PixelIdxList})});
                     
@@ -483,7 +488,7 @@ classdef Position < handle
                 % taking the MIP of a single z-slice costs no time so
                 % this works for single images
                 if ~isempty(opts.MIPidxDir)
-                    MIPidx = this.loadMIPidx(opts.MIPidxDir, nuclearChannel, ti);
+                    MIPidx = this.loadMIPidx(opts.MIPidxDir, nucChannel, ti);
                 else
                     MIPidx = [];
                 end

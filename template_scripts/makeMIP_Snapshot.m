@@ -4,12 +4,13 @@ warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
 %dataDir = '/Users/idse/data_tmp/160901_smad2';
-dataDir = '/Volumes/IdseData3/161009_Smad2FISH';
+%dataDir = '/Volumes/IdseData3/161009_Smad2FISH';
+dataDir = '/Users/idse/data_tmp/161009_Smad2FISH';
 
-MIPchannels = [1 4];%1:2;%3:4;
+MIPchannels = [1 2 3 4];%1:2;%3:4;
 saveChunk = false;
 %saveidx = [true false]; 
-saveidx = [false true]; 
+saveidx = [false false false false]; 
 
 previewChannels = [];
 

@@ -13,6 +13,7 @@ plot(x,V(x));
 
 %% force
 % F = -dV/dx + b
+% b is landscape tilt: default bias + activin
 
 F = @(x,b) -x.^3 + a*x - b;
 
@@ -30,7 +31,7 @@ legend('potential','force')
 
 b = -0.2;
 c = 1;
-Ncells = 100;
+Ncells = 500;
 dt = 0.01;
 tmax = 5;
 timax = ceil(tmax/dt);
@@ -57,6 +58,7 @@ ylabel('time');
 legend('landscape', 'Location', 'SouthWest')
 set(gcf,'color','w');
 set(gca, 'LineWidth', 2);
+fs = 15;
 set(gca,'FontSize', fs)
 set(gca,'FontWeight', 'bold')
 
@@ -67,14 +69,15 @@ hist(X(:,end),50)
 sum(X(:,end)>0)
 sum(X(:,end)<0)
 
-%% fraction in right well vs b
+%% fraction in left well vs b
 
-N = 15;
+N = 25;
 bval = linspace(-1,1,N);
 Rfrac = zeros([1 N]);
 
 for bi = 1:N;
-
+    % run simulation for different b values and plot fracion in some well
+    
     b = bval(bi);
     
     x0 = zeros([Ncells 1]);
@@ -86,7 +89,15 @@ for bi = 1:N;
         X(:,ti) = X(:,ti-1) + c*F(X(:,ti-1),b)*dt + sqrt(2*D*dt)*noise(:,ti); 
     end
     
-    Rfrac(bi) = sum(X(:,end) > 0)/Ncells;
+    Rfrac(bi) = sum(X(:,end) < 0)/Ncells;
 end
 
 plot(bval,Rfrac)
+
+%% fit some data
+
+% roughly, just to get the principles right
+act = [0 0.5 1 5 10 50 100];
+endo = [0 0 3 32 38 82 88];
+
+figure, plot(act, endo)
