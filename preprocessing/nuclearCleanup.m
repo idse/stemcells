@@ -48,7 +48,6 @@ function newNuclearMask = nuclearCleanup(nuclearMask, options)
     
     nuclearMask = bwareaopen(nuclearMask, options.minArea/5);    
     nuclearMask = imopen(nuclearMask, strel('disk',options.openSize));
-    nuclearMask = imfill(nuclearMask,'holes');
     
     if options.separateFused && sum(nuclearMask(:))>0
         nuclearMask = separateFusedNuclei(nuclearMask,options);
@@ -57,7 +56,8 @@ function newNuclearMask = nuclearCleanup(nuclearMask, options)
         nuclearMask = imclearborder(nuclearMask);
     end
 
+    nuclearMask = imfill(nuclearMask,'holes');
     nuclearMask = bwareaopen(nuclearMask, options.minArea);
-    
+
     newNuclearMask = nuclearMask;
 end

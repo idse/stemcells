@@ -1,13 +1,14 @@
 clear all;
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 
-dataDir = '/Users/idse/data_tmp/';
-filename = fullfile(dataDir, 'IH_96wellTest.xyz');
+% dataDir = '/Users/idse/data_tmp/';
+% filename = fullfile(dataDir, 'IH_96wellTest.xyz');
 
 dataDir = '/Volumes/STORENGO';
-filename = fullfile(dataDir,'160428-RI96w_IH.xyz');
+filename = fullfile(dataDir,'160317_IH.xyz');
 
 resolution = 0.325; % 40x
+micropattern  = false;
 
 
 %% read positions from XYZ file
@@ -68,23 +69,38 @@ end
 % at 40x that is 868 micron so large enough for a 700 micron colony
 overlapPixel = 100; 
 
+gridSize = [5 5]; % ODD NUMBERS HERE FOR NOW
+nGridPositions = gridSize(1)*gridSize(2);
+
 gridXYZ = {};
 AF = {};
-nCols = size(XYZ,1)/2;
+if micropattern
+    nColonies = size(XYZ,1)/2;
+else
+    nColonies = size(XYZ,1);
+end
 
-for pi = 1:nCols
+for pi = 1:nColonies
 
-    x = mean(XYZ(2*pi-1:2*pi,:),1);
-    af = mean(autofocus(2*pi-1:2*pi));
-
+    if micropattern
+        x = mean(XYZ(2*pi-1:2*pi,:),1);
+        af = mean(autofocus(2*pi-1:2*pi));
+    else
+        x = XYZ(pi,:);
+        af = autofocus(pi);
+    end
+    
     spacing = (1024 - overlapPixel)*resolution;
 
-    gridXYZ{pi} = zeros([9 3]);
-    AF{pi} = zeros([9 1]);
+    gridXYZ{pi} = zeros([nGridPositions 3]);
+    AF{pi} = zeros([nGridPositions 1]);
 
+    nmax = (gridSize(1)-1)/2;
+    mmax = (gridSize(2)-1)/2;
+    
     i = 1;
-    for n = -1:1
-        for m = -1:1
+    for n = -nmax:nmax
+        for m = -mmax:mmax
             gridXYZ{pi}(i,:) = [x(1) + m*spacing, x(2) + n*spacing, x(3)];
             AF{pi}(i) = af;
             i = i+1;
@@ -112,10 +128,11 @@ newPositions.AutofocusPositions = newAF;
 
 %% check
 
-scatter(XYZ(:,1),XYZ(:,2),'r');
-hold on
 scatter(gridXYZcombined(:,1), gridXYZcombined(:,2),'g');
+hold on
+scatter(XYZ(:,1),XYZ(:,2),'r');
 hold off
+axis equal
 
 %% write back to file
 

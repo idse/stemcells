@@ -31,13 +31,18 @@ classdef MetadataAndor < Metadata
             
             rawMeta = struct();
 
-            % get the image filename formate
+            % get the image filename format
             if ~exist(dataDir, 'dir')
                 error(['data dir does not exist ' dataDir]);
             end
             
             listing = dir(fullfile(dataDir,'*.tif'));
-            filename = listing(1).name;
+            i = 1;
+            filename = listing(i).name;
+            while strcmp(filename(1),'.') || ~isempty(strfind(filename,'Preview'))
+                i = i + 1;
+                filename = listing(i).name;
+            end
             [s,matches] = strsplit(filename,{'_.[0-9]{4}'},...
                                    'DelimiterType','RegularExpression',...
                                    'CollapseDelimiters',false);
@@ -54,9 +59,15 @@ classdef MetadataAndor < Metadata
             listing = dir(fullfile(dataDir,'*.txt'));
             if isempty(listing)
                error(['no metadata file found in ' dataDir]);
-            end
-            filename = fullfile(dataDir, listing(1).name);
-
+            else
+                filename = fullfile(dataDir, listing(1).name);
+                % exclude notes.txt file
+                if strfind(filename,'notes')
+                    filename = fullfile(dataDir, listing(2).name);
+                end
+                disp(['metadata file: ' filename]);
+            end            
+            
             fid = fopen(filename);
 
             if fid == -1
@@ -220,19 +231,25 @@ classdef MetadataAndor < Metadata
                 fileTmax = 0;
                 for i = 1:numel(listing)
                     k = strfind(listing(i).name,'_t');
-                    if ~isempty(k)
+                    if ~isempty(k) && ~strcmp(listing(i).name(1),'.')
                         fileTmax = max(fileTmax, str2double(listing(i).name(k+2:k+5)));
                         if isempty(info)
                             info = imfinfo(fullfile(pathstr,listing(i).name));
                         end
                     end
                 end
+                
                 % if files don't have a _t label nothing was found
                 if isempty(info)
                     this.tPerFile = this.nTime;
                 else
                     % time points per file
                     this.tPerFile = numel(info)/this.nZslices;
+                    % for the case where wavelenghts were not exported
+                    % separately
+                    if isempty(strfind(this.filename,'_w'))
+                        this.tPerFile = this.tPerFile/this.nChannels;
+                    end
                 end
             else
                 this.tPerFile = 1;

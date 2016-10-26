@@ -29,7 +29,12 @@ classdef DynamicPositionAndor < Position
             this.cellData = struct();
             
             this.nTime = meta.nTime;
-            this.tPerFile = meta.tPerFile;
+            if isempty(meta.tPerFile) %~isfield(struct(meta),'tPerFile') || 
+                this.tPerFile = this.nTime;
+                warning('tPerFile not in meta, assuming tPerFile=nTime');
+            else
+                this.tPerFile = meta.tPerFile;
+            end
             this.ID = ID;
             
             % this is a clunky way to only put the actual position in the
@@ -66,29 +71,59 @@ classdef DynamicPositionAndor < Position
             warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffErrorAsWarning');
 
             nFiles = ceil(this.nTime/this.tPerFile);
-
             fti = ceil(time/this.tPerFile) - 1;
             subti = rem(time-1,this.tPerFile) + 1;
-            % there is no _t part if all timepoints fit in a single file
-            if this.nTime > this.tPerFile
-                fname = fullfile(dataDir, sprintf(this.filename,fti,channel-1));
-            else
-                fname = fullfile(dataDir, sprintf(this.filename,channel-1));
-            end
             
-            info = imfinfo(fname);
-            w = info.Width;
-            h = info.Height;
-            if fti + 1 < nFiles || this.nTime==this.tPerFile
-                nZslices = numel(info)/this.tPerFile;
+            % if channels were separated
+            if strfind(this.filename,'_w')
+
+                % there is no _t part if all timepoints fit in a single file
+                if this.nTime > this.tPerFile
+                    fname = fullfile(dataDir, sprintf(this.filename,fti,channel-1));
+                else
+                    fname = fullfile(dataDir, sprintf(this.filename,channel-1));
+                end
+
+                info = imfinfo(fname);
+                w = info.Width;
+                h = info.Height;
+                if fti + 1 < nFiles || this.nTime==this.tPerFile
+                    nZslices = numel(info)/this.tPerFile;
+                else
+                    nZslices = numel(info)/rem(this.nTime,this.tPerFile);
+                end
+
+                ioffset = (subti-1)*nZslices;
+                img = zeros([h w nZslices],'uint16');
+                for i = 1:nZslices
+                    img(:,:,i) = imread(fname, ioffset + i);
+                end
+                
+            % if channels were not separated
             else
-                nZslices = numel(info)/(this.nTime - this.tPerFile);
-            end
-            
-            ioffset = (subti-1)*nZslices;
-            img = zeros([h w nZslices],'uint16');
-            for i = 1:nZslices
-                img(:,:,i) = imread(fname, ioffset + i);
+                
+                % there is no _t part if all timepoints fit in a single file
+                if this.nTime > this.tPerFile
+                    fname = fullfile(dataDir, sprintf(this.filename,fti));
+                else
+                    fname = fullfile(dataDir, sprintf(this.filename));
+                end
+                
+                info = imfinfo(fname);
+                w = info.Width;
+                h = info.Height;
+                if fti + 1 < nFiles || this.nTime==this.tPerFile
+                    nZslices = numel(info)/(this.nChannels*this.tPerFile);
+                else
+                    nZslices = numel(info)/(this.nChannels*rem(this.nTime,this.tPerFile));
+                end
+
+                % order in unseparated Andor files is czt
+                ioffset = (subti-1)*nZslices*this.nChannels;
+                img = zeros([h w nZslices],'uint16');
+                for i = 1:nZslices
+                    img(:,:,i) = imread(fname, ioffset + this.nChannels*(i-1) + channel);
+                end
             end
             
             %disp(['loaded image ' fname]);

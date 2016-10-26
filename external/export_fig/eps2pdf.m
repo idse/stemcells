@@ -104,7 +104,7 @@ if status
     if isempty(message)
         error('Unable to generate pdf. Check destination directory is writable.');
     else
-        error(message);
+        %error(message);
     end
 end
 return

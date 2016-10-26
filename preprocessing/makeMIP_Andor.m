@@ -1,4 +1,4 @@
-function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, outputdir, saveidx)
+function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, outputdir, saveidx, tmax)
 
     % turn off annoying BF warning
     warning('off','BF:lowJavaMemory');
@@ -6,7 +6,10 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     % read metadata
     meta = MetadataAndor(inputdir);
     filenameFormat = meta.filename;
-    s = strsplit(meta.filename,'_');
+    s = strsplit(meta.filename,'_f');
+    if numel(s) < 2
+        s = strsplit(meta.filename,'_p');
+    end
     barefname = s{1};
     
     % some input checking
@@ -19,39 +22,64 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     if ~exist(outputdir,'dir')
         mkdir(outputdir);
     end
+    if isempty(strfind(filenameFormat,'_w'))
+        warning('this will go twice as fast if you export channels separately');
+    end
     ci = channel;
     if ci+1 > meta.nChannels 
         error('channel exceeds number of channels');
-    end
-    if isempty(strfind(filenameFormat,'_w'))
-        error('export files with wavelength separated');
     end
     pi = position;
     if pi+1 > meta.nPositions
         error('position exceeds number of positions');
     end
- 
+    
+    if ~exist('tmax','var')
+        tmax = Inf;
+    end
+
     MIP = {};
     MIPidx = {};
 
     fileTmax = ceil(meta.nTime/meta.tPerFile) - 1;
     for ti = 0:fileTmax
 
-        % read the data 
-        % (if all time points are in one file there is no _t part)
-        if fileTmax > 0 
-            fname = sprintf(filenameFormat, pi, ti, ci);
-        else
-            fname = sprintf(filenameFormat, pi, ci);
-        end
-        tic
-        stack = readStack(fullfile(inputdir,fname));
-        toc
+        if ti*meta.tPerFile < tmax
+            
+            if (ti + 1)*meta.tPerFile > tmax
+                tmaxinfile = tmax - ti*meta.tPerFile;
+            else
+                tmaxinfile = meta.tPerFile;
+            end
 
-        % make MIP
-        [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,:,:),[],3);
-        MIPidx{ti+1} = uint16(MIPidx{ti+1});
-        clear stack;
+            % read the data 
+            % (if all time points are in one file there is no _t part)
+            if ~isempty(strfind(filenameFormat,'_w'))
+                if fileTmax > 0 
+                    fname = sprintf(filenameFormat, pi, ti, ci);
+                else
+                    fname = sprintf(filenameFormat, pi, ci);
+                end
+            else
+                if fileTmax > 0 
+                    fname = sprintf(filenameFormat, pi, ti);
+                else
+                    fname = sprintf(filenameFormat, pi);
+                end
+            end
+            tic
+            stack = readStack(fullfile(inputdir,fname));
+            toc
+
+            % make MIP
+            if ~isempty(strfind(filenameFormat,'_w'))
+                [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,1,1:tmaxinfile),[],3);
+            else
+                [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,channel+1,1:tmaxinfile),[],3);
+            end
+            MIPidx{ti+1} = uint16(MIPidx{ti+1});
+            clear stack; 
+        end
     end
 
     % combine time series from different files
