@@ -51,26 +51,13 @@ opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
 
 opts.cleanupOptions = struct('separateFused', true,...
     'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',1000);
-%%
-tic
-positions(meta.nPositions) = DynamicPositionAndor();
 
-for pi = 1%:meta.nPositions
 
-    positions(pi) = DynamicPositionAndor(meta, pi);
-    positions(pi).extractData(dataDir, nucChannel, opts);
-    positions(pi).makeTimeTraces();
-    save(fullfile(dataDir,'positions'), 'positions');
-end
-toc
+%% check that the options are set right
 
-%['positions_' datestr(now,'yymmdd')]
-
-%% finding the right options for extract data
-
-pi = 1;
+pi = 11;
 P = DynamicPositionAndor(meta, pi);
-time = 1;
+time = 34;
 opts.tMax = time;
 
 % try out the nuclear cleanup settings on some frame:
@@ -95,7 +82,26 @@ A = imadjust(mat2gray(MIP));
 s = 0.4;
 imshow(cat(3, A + 0*bgmask, A + s*nucmask, A + s*cytmask));
 
-%%
+opts.tMax = tmax;
+
+%% run the analysis on all time points
+
+tic
+positions(meta.nPositions) = DynamicPositionAndor();
+
+for pi = 1:meta.nPositions
+
+    positions(pi) = DynamicPositionAndor(meta, pi);
+    positions(pi).extractData(dataDir, nucChannel, opts);
+    positions(pi).makeTimeTraces();
+    save(fullfile(dataDir,'positions'), 'positions');
+end
+toc
+
+%['positions_' datestr(now,'yymmdd')]
+
+%% load results if above block was run previously
+
 load(fullfile(dataDir,'positions'));
 
 % positions_before = load(fullfile(dataDir,'positions_before'));
@@ -223,7 +229,7 @@ for wellnr = 3%:nWells
 %         open(v)
 %         for ti = 1:positions(1).nTime
 %             writeVideo(v,frame{ti})
-%         end
+%         endd
 %         close(v);
 %     end
 end
@@ -311,3 +317,96 @@ legend(meta.conditions(wellsWanted));
 if saveResult
     export_fig(['timeTrace_multipleConditions2.pdf'],'-native -m2');
 end
+
+%% combine ratio statistics of positions in each well
+
+pi = 1;
+ti = 1;
+wellsWanted = 1:meta.nWells;
+cellDataWells = cell([numel(wellsWanted) meta.nTime]);
+
+for wellidx = 1:numel(wellsWanted)
+    
+    wellnr = wellsWanted(wellidx);
+    conditionPositions = meta.posPerCondition*(wellnr-1)+1:meta.posPerCondition*wellnr;
+    
+    for i = 1:numel(conditionPositions)
+
+        for ti = 1:meta.nTime
+            pi = conditionPositions(i);    
+            CD = positions(pi).cellData(ti);
+            ratio = (CD.nucLevel - CD.background)./(CD.cytLevel - CD.background); 
+            cellDataWells{wellidx, ti} = cat(1,cellDataWells{wellidx,ti}, ratio);
+        end
+    end
+end
+
+%% time evolution of distribution in some well
+
+wi = 1;
+
+rmin = 0;
+rmax = 3;
+bins = linspace(rmin,rmax,50);
+clf 
+tidx = 1:4:80;
+colors = hsv(numel(tidx));
+hold on
+for ti = 1:numel(tidx)
+    n=histc(cellDataWells{wi,tidx(ti)}, bins);
+    plot(bins,n,'Color',colors(ti,:));
+end
+hold off
+xlim([rmin rmax]);
+
+%% compare late time distribution in different wells
+
+figure,
+ti = 1;
+
+rmin = 0;
+rmax = 3;
+bins = linspace(rmin,rmax,50);
+
+colors = [0 0 1; 0 0.5 0; 1 0 0; 1 0 0; 0 0.5 0; 0 0 1];
+clf 
+hold on
+
+for wi = 1:meta.nWells
+
+    n=histc(cellDataWells{wi,ti}, bins);
+    n = n./sum(n);
+    n = cumsum(n);
+    plot(bins,n,'Color', colors(wi,:));
+end
+hold off
+xlim([rmin rmax]);
+ylim([0 1]);
+
+legend(meta.conditions);
+
+%% integrals
+
+treatmentTime = 10;
+t = ((1:tmax) - treatmentTime)*dt;
+
+lateT = treatmentTime + 420/dt;
+
+F = ratioMean - min(ratioMean);
+I = cumsum(F*dt);
+
+Ipulse = I;
+Ipulse(lateT:end) = Ipulse(lateT);
+Ibase = mean(F(lateT:end))*t;
+
+thr = t/60;
+plot(thr,I)
+hold on
+plot(thr,Ibase,'r')
+plot(thr,Ipulse,'g')
+hold off
+xlim([thr(1) thr(end)]);
+xlabel('time (hours)');
+
+legend({'adaptive response','pulse','baseline'},'Location','SouthEast');
+title('integrated signal');

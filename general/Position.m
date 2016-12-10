@@ -608,16 +608,37 @@ classdef Position < handle
            
             nucLevelAvg = zeros([this.nTime numel(this.dataChannels)]);
             cytLevelAvg = zeros([this.nTime numel(this.dataChannels)]);
+            
+            nucLevelMed = zeros([this.nTime numel(this.dataChannels)]);
+            cytLevelMed = zeros([this.nTime numel(this.dataChannels)]);
+            
             bg = zeros([this.nTime numel(this.dataChannels)]);
 
             for ti = 1:numel(this.cellData)
+                
+                nucLevel = this.cellData(ti).nucLevel;
+                cytLevel = this.cellData(ti).cytLevel;
+                
                 nucLevelAvg(ti, :) = this.cellData(ti).nucLevelAvg;
                 cytLevelAvg(ti, :) = this.cellData(ti).cytLevelAvg;
+                
+                idx = ~isnan(nucLevel) & ~isnan(cytLevel);
+                A = this.cellData(ti).area;
+                nucLevelAvg(ti, :) = mean(nucLevel(idx).*A(idx))/mean(A(idx));
+                cytLevelAvg(ti, :) = mean(cytLevel(idx).*A(idx))/mean(A(idx));
+                
+                nucLevelMed(ti, :) = median(nucLevel(idx).*A(idx))/mean(A(idx));
+                cytLevelMed(ti, :) = median(cytLevel(idx).*A(idx))/mean(A(idx));
+                
                 bg(ti) = this.cellData(ti).background;
             end
             
             this.timeTraces.nucLevelAvg = nucLevelAvg;
             this.timeTraces.cytLevelAvg = cytLevelAvg;
+            
+            this.timeTraces.nucLevelMed = nucLevelMed;
+            this.timeTraces.cytLevelMed = cytLevelMed;
+            
             this.timeTraces.background = bg;
         end
         

@@ -1,7 +1,11 @@
-function stitchedPreviews(dataDir, meta)
+function stitchedPreviews(dataDir, meta, type)
 
+if ~exist('type', 'var')
+	type = 'MIP';
+end
+    
 MIPfiles = dir(fullfile(dataDir,'MIP','*tif'));
-s = strsplit(MIPfiles(1).name,'_MIP');
+s = strsplit(MIPfiles(1).name,['_' type]);
 barefname = s{1};
 
 gridSize = meta.montageGridSize;
@@ -22,7 +26,9 @@ for wellnr = 1:meta.nWells
         gridSize = [round(posPerCondition/2) 2];
     end
     
-    for ci = 1:meta.nChannels
+    nChannels = numel(MIPfiles)/(meta.nWells*posPerCondition);
+    
+    for ci = 1:nChannels
         
         disp(['-------------processing channel ' num2str(ci) '--------']);
         
@@ -30,7 +36,7 @@ for wellnr = 1:meta.nWells
         tmax = meta.nTime;
         
         for ti = 1:tmax
-
+            
             disp(['processing time ' num2str(ti)]);
 
             for pi = conditionPositions
@@ -39,7 +45,7 @@ for wellnr = 1:meta.nWells
                 % gridSize 1 and 2 may be swapped, I have no way of knowing right now
                 [i,j] = ind2sub(gridSize, pi - conditionPositions(1) + 1);
 
-                fname = fullfile(dataDir,'MIP',[barefname sprintf('_MIP_p%.4d_w%.4d.tif',pi-1,ci-1)]);
+                fname = fullfile(dataDir,'MIP',[barefname sprintf(['_' type '_p%.4d_w%.4d.tif'],pi-1,ci-1)]);
                 imgs{j,i} = double(imread(fname,ti));
             end
 
@@ -61,7 +67,12 @@ for wellnr = 1:meta.nWells
             % make clean preview (not for quantitative analysis)
             small = imfilter(stitched,ones(ss)/ss^2);
             small = small(1:ss:end,1:ss:end);
-            small = imadjust(mat2gray(small));
+            if ti == 1
+                Ilim = stretchlim(small);
+                Imin = double(min(small(small>0)));
+                Imax = round(Ilim(2)*(2^16-1));
+            end
+            small = mat2gray(small, [Imin Imax]);
             small = uint16((2^16-1)*small);
 
             if ti == 1
