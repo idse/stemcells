@@ -4,7 +4,7 @@ if ~exist('type', 'var')
 	type = 'MIP';
 end
     
-MIPfiles = dir(fullfile(dataDir,'MIP','*tif'));
+MIPfiles = dir(fullfile(dataDir,'MIP_','*tif'));
 s = strsplit(MIPfiles(1).name,['_' type]);
 barefname = s{1};
 
