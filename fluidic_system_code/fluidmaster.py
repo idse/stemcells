@@ -165,7 +165,8 @@ def pulse2(wait,bmedia,numpulses,pulse,blank,
         spd1 is the speed of m1 microliters/second
         vol2 is the volume of m2 microliters
         spd2 is the speed of m2 in microliters/second
-        """
+    
+    """
     # SET UP LOGS
     global transferLog
     global timeLog
@@ -251,8 +252,8 @@ def pulse3wash(wait,pulse,blank,wash,numpulses,numwashes,bmedia,
           ' Waste:',wVOL*(numpulses + (numpulses-1)*(numwashes+1) + 1),
           ' Ligand:',lVOL*numpulses)
 
-# SET UP LOGS
-global transferLog
+    # SET UP LOGS
+    global transferLog
     global timeLog
     transferLog = "transferLog.txt"
     timeLog = datetime.datetime.fromtimestamp(time.time()).strftime('%y%m%d_%H%M%S') + "_timeLog.txt"
@@ -349,8 +350,8 @@ def pulse3flow(wait,pulse,blank,wash,numpulses,numwashes,bmedia,
           ' Waste:',wVOL*(2*numpulses-1) + bmedia + washVOL*(numpulses-1)*numwashes,
           ' Ligand:',lVOL*numpulses)
 
-# SET UP LOGS
-global transferLog
+    # SET UP LOGS
+    global transferLog
     global timeLog
     transferLog = "transferLog.txt"
     timeLog = datetime.datetime.fromtimestamp(time.time()).strftime('%y%m%d_%H%M%S') + "_timeLog.txt"
@@ -476,17 +477,12 @@ class StartPage(tk.Frame):
         label = tk.Label(self, text=" ")
         label.pack()
         
-        button1 = tk.Button(self, text="TWO SYRINGE PUMPS", font=SMALL_FONT,
-                            command=lambda: controller.show_frame(pulse2Page))
-                            button1.pack()
-                            
-                            button2 = tk.Button(self, text="THREE SYRINGE PUMPS W/ EXCHANGE WASH", font=SMALL_FONT,
-                                                command=lambda: controller.show_frame(pulse3washPage))
-                            button2.pack()
-                            
-                            button3 = tk.Button(self, text="THREE SYRINGE PUMPS W/ FLOW WASH", font=SMALL_FONT,
-                                                command=lambda: controller.show_frame(pulse3flowPage))
-                            button3.pack()
+        button1 = tk.Button(self, text="TWO SYRINGE PUMPS", font=SMALL_FONT, command=lambda: controller.show_frame(pulse2Page))
+        button1.pack()           
+        button2 = tk.Button(self, text="THREE SYRINGE PUMPS W/ EXCHANGE WASH", font=SMALL_FONT, command=lambda: controller.show_frame(pulse3washPage))
+        button2.pack()            
+        button3 = tk.Button(self, text="THREE SYRINGE PUMPS W/ FLOW WASH", font=SMALL_FONT, command=lambda: controller.show_frame(pulse3flowPage))
+        button3.pack()
 
 
 class pulse2Page(tk.Frame):
@@ -500,21 +496,14 @@ class pulse2Page(tk.Frame):
         #self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
         
-        button1 = tk.Button(self, text="Back", font=SMALL_FONT,
-                            command=lambda: controller.show_frame(StartPage))
-                            button1.grid(row=2,column=0,pady=0,padx=10,)
-                            
-                            ## The fields:
-                            fields = (
-                                      'Initial wait (s)','Initial blank media (mcl)','Number of pulses',
-                                      'Pulse length (s)','Blank length (s)',
-                                      'Syringe 1 transfer volume (mcl)','Syringe 1 transfer speed(mcl/s)',
-                                      'Syringe 2 transfer volume (mcl)','Syringe 2 transfer speed(mcl/s)')
-                            self.entries = controller.createentries(self, fields)
-                            
-                            button2 = tk.Button(self, text="Run", font=SMALL_FONT,
-                                                command=lambda : self.runfunc(controller))
-                            button2.grid(row=(3+len(fields)),column=3,pady=10,padx=10,)
+        button1 = tk.Button(self, text="Back", font=SMALL_FONT,command=lambda: controller.show_frame(StartPage))
+        button1.grid(row=2,column=0,pady=0,padx=10,)
+
+        ## The fields:
+        fields = ('Initial wait (s)','Initial blank media (mcl)','Number of pulses','Pulse length (s)','Blank length (s)','Syringe 1 transfer volume (mcl)','Syringe 1 transfer speed(mcl/s)','Syringe 2 transfer volume (mcl)','Syringe 2 transfer speed(mcl/s)')
+        self.entries = controller.createentries(self, fields)
+        button2 = tk.Button(self, text="Run", font=SMALL_FONT, command=lambda : self.runfunc(controller))
+        button2.grid(row=(3+len(fields)),column=3,pady=10,padx=10,)
     
     def runfunc(self, controller):
         params = controller.getparams(self.entries)
@@ -531,21 +520,14 @@ class pulse3washPage(tk.Frame):
         #self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
         
-        button1 = tk.Button(self, text="Back", font=SMALL_FONT,
-                            command=lambda: controller.show_frame(StartPage))
-                            button1.grid(row=2,column=0,pady=0,padx=10,)
+        button1 = tk.Button(self, text="Back", font=SMALL_FONT,command=lambda: controller.show_frame(StartPage))
+        button1.grid(row=2,column=0,pady=0,padx=10,)
                             
-                            ## The fields:
-                            fields = (
-                                      'Initial wait (s)','Pulse length (s)','Blank length (s)','Wash interval (s)',
-                                      'Number of pulses','Number of washes','Initial blank media (mcl)',
-                                      'Blank transfer volume (mcl)','Waste transfer volume (mcl)','Ligand transfer volume (mcl)',
-                                      'Blank transfer speed (mcl/s)','Waste transfer speed (mcl/s)','Ligand transfer speed (mcl/s)')
-                            self.entries = controller.createentries(self, fields)
-                            
-                            button2 = tk.Button(self, text="Run", font=SMALL_FONT,
-                                                command=lambda : self.runfunc(controller))
-                            button2.grid(row=(3+len(fields)),column=3,pady=10,padx=10,)
+        ## The fields:
+        fields = ('Initial wait (s)','Pulse length (s)','Blank length (s)','Wash interval (s)','Number of pulses','Number of washes','Initial blank media (mcl)','Blank transfer volume (mcl)','Waste transfer volume (mcl)','Ligand transfer volume (mcl)','Blank transfer speed (mcl/s)','Waste transfer speed (mcl/s)','Ligand transfer speed (mcl/s)')
+        self.entries = controller.createentries(self, fields)
+        button2 = tk.Button(self, text="Run", font=SMALL_FONT,command=lambda : self.runfunc(controller))
+        button2.grid(row=(3+len(fields)),column=3,pady=10,padx=10,)
     
     def runfunc(self, controller):
         params = controller.getparams(self.entries)
@@ -561,23 +543,13 @@ class pulse3flowPage(tk.Frame):
         label.grid(row=1,column=0,columnspan=4)
         #self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
-        
-        button1 = tk.Button(self, text="Back", font=SMALL_FONT,
-                            command=lambda: controller.show_frame(StartPage))
-                            button1.grid(row=2,column=0,pady=0,padx=10,)
-                            
-                            ## The fields:
-                            fields = (
-                                      'Initial wait (s)','Pulse length (s)','Blank length (s)','Wash interval (s)',
-                                      'Number of pulses','Number of washes','Initial blank media (mcl)',
-                                      'Wash transfer volume (mcl)','Wash transfer speed (mcl/s)',
-                                      'Blank transfer volume (mcl)','Waste transfer volume (mcl)','Ligand transfer volume (mcl)',
-                                      'Blank transfer speed (mcl/s)','Waste transfer speed (mcl/s)','Ligand transfer speed (mcl/s)')
-                            self.entries = controller.createentries(self, fields)
-                            
-                            button2 = tk.Button(self, text="Run", font=SMALL_FONT,
-                                                command=lambda : self.runfunc(controller))
-                            button2.grid(row=(3+len(fields)),column=3,pady=10,padx=10,)
+        button1 = tk.Button(self, text="Back", font=SMALL_FONT,command=lambda: controller.show_frame(StartPage))
+        button1.grid(row=2,column=0,pady=0,padx=10,)
+        ## The fields:
+        fields = ('Initial wait (s)','Pulse length (s)','Blank length (s)','Wash interval (s)','Number of pulses','Number of washes','Initial blank media (mcl)','Wash transfer volume (mcl)','Wash transfer speed (mcl/s)','Blank transfer volume (mcl)','Waste transfer volume (mcl)','Ligand transfer volume (mcl)','Blank transfer speed (mcl/s)','Waste transfer speed (mcl/s)','Ligand transfer speed (mcl/s)')
+        self.entries = controller.createentries(self, fields)                 
+        button2 = tk.Button(self, text="Run", font=SMALL_FONT, command=lambda : self.runfunc(controller))
+        button2.grid(row=(3+len(fields)),column=3,pady=10,padx=10,)
     
     def runfunc(self, controller):
         params = controller.getparams(self.entries)
