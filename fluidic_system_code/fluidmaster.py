@@ -18,7 +18,7 @@ import drive
 import tkinter as tk
 
 ## Set up the serial connection
-drive.setup("/dev/cu.usbmodem1411",9600) # (COM port number,baud rate)
+drive.setup("/dev/cu.usbmodem1411",9600) # (port number,baud rate)
 
 
 def wash(volume, inspd, outspd):
