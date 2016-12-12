@@ -21,7 +21,8 @@ def setup(port,br):
     """
     import serial        # the PySerial package
     global ser           # so other functions can access
-    ser = serial.Serial('COM'+str(port),br) # open serial connection
+
+    ser = serial.Serial(str(port),br) # open serial connection
     connected = False    # set up Boolean indicating connection status
     ## Because the serial connection is not immediate, we want to
     ## wait until it is available before sending commands:
