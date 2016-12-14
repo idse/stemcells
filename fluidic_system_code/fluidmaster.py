@@ -58,11 +58,11 @@ def ramp_step_setup(duration, initial_volume, steps, final_concentration, testin
         print ("total_vol " + str(total_volume))
         print ("================")
         #pump ligand
-        #drive.m3(1,int(lig_vol), 20)
-        #time.sleep(5)
+        drive.m3(1,int(lig_vol), 20)
+        time.sleep(5)
         #pump media
-        #drive.m1(1,MEDIA_VOL, 500)
-        #time.sleep(5)
+        drive.m1(1,MEDIA_VOL, 500)
+        time.sleep(5)
         #sleep
         print("Sleeping for "+str(int(duration/steps)) + " seconds")
         time.sleep(int(duration/steps))
