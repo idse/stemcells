@@ -39,6 +39,42 @@ def swish(times, volume, spd):
     drive.m2(0,volume, spd)
     drive.m2(1,volume, spd)
 
+def ramp_step_setup(duration, initial_volume, steps, final_concentration, testing=60):
+    MEDIA_OUT_SPD = 500
+    LIGAND_OUT_SPD = 50
+    MEDIA_VOL = 50
+
+    #---------------------
+    total_volume = initial_volume
+    past_lig = 0
+    for i in range(steps):
+        print ("Step "+str(i+1))
+        partial_concentration = (final_concentration/steps)*(i+1)
+        print(partial_concentration)
+        lig_vol = (partial_concentration*(total_volume+50)-past_lig)/(1-partial_concentration)
+        past_lig+=lig_vol
+        total_volume += (lig_vol+MEDIA_VOL)
+        print ("lig_vol " + str(lig_vol))
+        print ("total_vol " + str(total_volume))
+        print ("================")
+        #pump ligand
+        drive.m3(1,int(lig_vol), 20)
+        time.sleep(5)
+        #pump media
+        drive.m1(1,MEDIA_VOL, 500)
+        time.sleep(5)
+        #sleep
+        print("Sleeping for "+str(int(duration/steps)) + " seconds")
+        time.sleep(int(duration/steps))
+    print ("p= "+str(past_lig))
+
+
+        
+
+        
+
+
+
 
 def ramp_setup(iterations, duration, volume, testing=60):
     
