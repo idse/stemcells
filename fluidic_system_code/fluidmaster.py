@@ -116,9 +116,9 @@ def alt_pulsesetup(pulses, testing = 60):
     
     
     OUT_SPD = 50
-    IN_SPD = 500
-    LIG_VOL = 50
-    MEDIA_VOL = 500
+    IN_SPD = 100
+    LIG_VOL = 60
+    MEDIA_VOL = 600
     
     
     #Do not edit below this line

@@ -38,21 +38,27 @@ classdef MetadataAndor < Metadata
             
             listing = dir(fullfile(dataDir,'*.tif'));
             i = 1;
-            filename = listing(i).name;
-            while strcmp(filename(1),'.') || ~isempty(strfind(filename,'Preview'))
-                i = i + 1;
+            
+            if ~isempty(listing)
                 filename = listing(i).name;
-            end
-            [s,matches] = strsplit(filename,{'_.[0-9]{4}'},...
-                                   'DelimiterType','RegularExpression',...
-                                   'CollapseDelimiters',false);
-            for i = 1:numel(matches)
-                matches{i} = [matches{i}(1:2) '%.4d'];
-            end
-            if numel(s) > 1
-                this.filename = [s{1} matches{:} s{end}];
+                while ( strcmp(filename(1),'.') || ~isempty(strfind(filename,'Preview')) )...
+                        && i < numel(listing)
+                    i = i + 1;
+                    filename = listing(i).name;
+                end
+                [s,matches] = strsplit(filename,{'_.[0-9]{4}'},...
+                                       'DelimiterType','RegularExpression',...
+                                       'CollapseDelimiters',false);
+                for i = 1:numel(matches)
+                    matches{i} = [matches{i}(1:2) '%.4d'];
+                end
+                if numel(s) > 1
+                    this.filename = [s{1} matches{:} s{end}];
+                else
+                    this.filename = filename;
+                end
             else
-                this.filename = filename;
+                warning('Could not find image files');
             end
 
             % open the meta data file

@@ -17,6 +17,9 @@ meta.posPerCondition = 4;
 meta.conditions = {'ctrl','siSmad4', 'siSkiSnoN', 'siSkiSnoN',...
               'siSmad4','ctrl'};
 
+% SET THIS TO TRUE IF MAKING AN '8-well' LOOP THROUGH A 4-WELL
+loop4well = true;
+
 nucChannel = 2;
 S4Channel = 1;
 tmax = meta.nTime;
@@ -127,7 +130,7 @@ s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
 t = ((1:tmax) - treatmentTime)*dt;
-axislim = [t(1), t(end)+50, 0.5, 2];
+axislim = [t(1), t(end)+50, 0.3, 1.3];
 
 frame = {};
 cd(dataDir);
@@ -139,14 +142,20 @@ graphbgc = 1*[1 1 1];
 graphfgc = 'r';
 %w, k, 0.5, w
 
-colors = hsv(4); %0.5*[1 0 0]
+colors = hsv(posPerCondition); %0.5*[1 0 0]
 
 baseline = zeros([1 nWells]); % store baseline avg of each well
 
-for wellnr = 3%:nWells
+for wellnr = 4%:nWells
 
-    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
-
+    if loop4well
+        flipwell = 9-wellnr;
+        conditionPositions = [(posPerCondition/2)*(wellnr-1)+1:(posPerCondition/2)*wellnr...
+                              (posPerCondition/2)*(flipwell-1)+1:(posPerCondition/2)*flipwell];
+    else
+        conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+    end
+    
     ttraceCat = cat(1,positions.timeTraces);
     ttraceCat = ttraceCat(conditionPositions);
 
@@ -191,7 +200,7 @@ for wellnr = 3%:nWells
         plot(t, ratioMean, graphfgc,'LineWidth',2)
         %plot(t, meanRatio, 'g','LineWidth',2)
         
-        legend({'1','2','3','4','mean'});
+        %legend({'1','2','3','4','mean'});
         
         fs = 24;
         xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
@@ -207,7 +216,7 @@ for wellnr = 3%:nWells
         set(gca,'Color',graphbgc);
         
         if saveResult
-            export_fig(['timeTrace_well' num2str(wellnr) '.pdf'],'-native -m2');
+            export_fig(['timeTrace_well' num2str(wellnr) '.png'],'-native -m2');
         end
 
         if ~isnan(ratioMean(ti))
@@ -229,13 +238,13 @@ for wellnr = 3%:nWells
 %         open(v)
 %         for ti = 1:positions(1).nTime
 %             writeVideo(v,frame{ti})
-%         endd
+%         end
 %         close(v);
 %     end
 end
 
 %% make a combined plot of several conditions
-
+figure,
 s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
@@ -246,7 +255,7 @@ cd(dataDir);
 saveResult = true;
 minNCells = 10; % minimal number of cells
 
-wellsWanted = 1:6;
+wellsWanted = 1:4;
 %wellsWanted = 4:8;
 colors = lines(numel(wellsWanted));
 
@@ -262,8 +271,13 @@ for wellidx = 1:numel(wellsWanted)
 %     else
 %         conditionPositions = 4*(wellnr-1)+1:4*wellnr;
 %     end
-
-    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+    if loop4well
+        flipwell = 9-wellnr;
+        conditionPositions = [(posPerCondition/2)*(wellnr-1)+1:(posPerCondition/2)*wellnr...
+                              (posPerCondition/2)*(flipwell-1)+1:(posPerCondition/2)*flipwell];
+    else
+        conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+    end
     
     ttraceCat = cat(1,positions.timeTraces);
     ttraceCat = ttraceCat(conditionPositions);
@@ -289,7 +303,7 @@ for wellidx = 1:numel(wellsWanted)
 
     %ratioMean = ratioMean -  baseline(wellnr) + mean(baseline);
     plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
-    ylim([0.5, 2]);
+    ylim([0.3, 1.3]);
 
     %plot(t, bgMean,'LineWidth',2,'Color',colors(wellidx,:))
     %plot(t, nucMean,'LineWidth',2,'Color',colors(wellidx,:))
@@ -311,11 +325,12 @@ for wellidx = 1:numel(wellsWanted)
     set(gca,'FontWeight', 'bold')
 end
 hold off
-%title('comparison');
+title('washing protocols for A10 pulses');
 set(gca,'FontSize', 16)
 legend(meta.conditions(wellsWanted));
 if saveResult
-    export_fig(['timeTrace_multipleConditions2.pdf'],'-native -m2');
+    export_fig(['timeTrace_multipleConditions.pdf'],'-native -m2');
+    saveas(gcf,'timeTrace_multipleConditions.fig');
 end
 
 %% combine ratio statistics of positions in each well
