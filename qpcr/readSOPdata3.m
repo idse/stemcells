@@ -40,14 +40,26 @@ function data = readSOPdata3(filename)
     CTmean = zeros([Nsamples Ntargets]);
     CTstd = zeros([Nsamples Ntargets]);
 
-    for si = 1:Nsamples
+	for si = 1:Nsamples
         for ti = 1:Ntargets
 
             ind = strcmp(rawdata(:,Scoli), samples{si}) & strcmp(rawdata(:,Tcoli), targets{ti});
             if any(ind)
                 %disp([samples{si} '; ' targets{ti}]);
-                CTmean(si,ti) = str2double(rawdata{find(ind,1),Ccoli(2)});
-                CTstd(si,ti) = str2double(rawdata{find(ind,1),Ccoli(3)});
+                CT = str2double(rawdata(ind,Ccoli(1)));
+                CTstd(si,ti) = std(CT);
+                if CTstd(si,ti) < 0.5
+                    CTmean(si,ti) = mean(CT);
+                else
+                    M = distmat(CT);
+                    good = ~all(M == 0 | M > 0.5);
+                    if ~any(good)
+                        disp(['std too high for: ' samples{si} ', ' targets{ti}]);
+                    else
+                        disp(['excluding outlier for: ' samples{si} ', ' targets{ti}]);
+                        CTmean(si,ti) = mean(CT(good));
+                    end
+                end
             end
         end
     end
