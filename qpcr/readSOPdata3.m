@@ -29,8 +29,8 @@ function data = readSOPdata3(filename)
     Tcoli = find(~cellfun(@isempty,strfind(rawdata(1,:),'Target Name')),3,'first');
     Ccoli = find(~cellfun(@isempty,strfind(rawdata(1,:),'C')),3,'first');
 
-    samples = unique(rawdata(2:end,Scoli));
-    targets = unique(rawdata(2:end,Tcoli));
+    samples = unique(rawdata(2:end,Scoli),'stable');
+    targets = unique(rawdata(2:end,Tcoli),'stable');
 
     Nsamples = numel(samples);
     Ntargets = numel(targets);
