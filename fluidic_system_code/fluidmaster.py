@@ -17,7 +17,7 @@ import datetime
 import drive
 import tkinter as tk
 
-## Set up the serial connection
+# Set up the serial connection
 drive.setup("/dev/cu.usbmodem1411",9600) # (port number,baud rate)
 
 
@@ -41,8 +41,9 @@ def swish(times, volume, spd):
 
 def ramp_step_setup(duration, initial_volume, steps, final_concentration, testing=60):
     MEDIA_OUT_SPD = 500
-    LIGAND_OUT_SPD = 50
-    MEDIA_VOL = 50
+    LIGAND_OUT_SPD = 20
+    MEDIA_VOL = 80
+    SWISH_SPD = 200
 
     #---------------------
     total_volume = initial_volume
@@ -51,18 +52,23 @@ def ramp_step_setup(duration, initial_volume, steps, final_concentration, testin
         print ("Step "+str(i+1))
         partial_concentration = (final_concentration/steps)*(i+1)
         print(partial_concentration)
-        lig_vol = (partial_concentration*(total_volume+50)-past_lig)/(1-partial_concentration)
+        lig_vol = (partial_concentration*(total_volume+MEDIA_VOL)-past_lig)/(1-partial_concentration)
         past_lig+=lig_vol
         total_volume += (lig_vol+MEDIA_VOL)
         print ("lig_vol " + str(lig_vol))
         print ("total_vol " + str(total_volume))
         print ("================")
         #pump ligand
-        drive.m3(1,int(lig_vol), 20)
+        drive.m3(1,int(lig_vol), LIGAND_OUT_SPD)
         time.sleep(5)
-        #pump media
-        drive.m1(1,MEDIA_VOL, 500)
+        # #pump media
+        drive.m1(1,MEDIA_VOL, MEDIA_OUT_SPD)
+        time.sleep(2)
+        #swish
+        drive.m2(0,int(total_volume),SWISH_SPD)
         time.sleep(5)
+        #800 is the estimated tube volume so 600 to be safe
+        drive.m2(1,int(total_volume)+600/steps, SWISH_SPD)
         #sleep
         print("Sleeping for "+str(int(duration/steps)) + " seconds")
         time.sleep(int(duration/steps))
