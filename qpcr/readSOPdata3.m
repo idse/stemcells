@@ -55,6 +55,7 @@ function data = readSOPdata3(filename)
                     good = ~all(M == 0 | M > 0.5);
                     if ~any(good)
                         disp(['std too high for: ' samples{si} ', ' targets{ti}]);
+                        CTmean(si,ti) = NaN;
                     else
                         disp(['excluding outlier for: ' samples{si} ', ' targets{ti}]);
                         CTmean(si,ti) = mean(CT(good));

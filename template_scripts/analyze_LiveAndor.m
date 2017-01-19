@@ -53,14 +53,14 @@ opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
                     'bgMargin',         10);
 
 opts.cleanupOptions = struct('separateFused', true,...
-    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',1000);
+    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',500);
 
 
 %% check that the options are set right
 
-pi = 11;
+pi = 1;
 P = DynamicPositionAndor(meta, pi);
-time = 34;
+time = 1;
 opts.tMax = time;
 
 % try out the nuclear cleanup settings on some frame:

@@ -581,9 +581,16 @@ classdef Position < handle
                     A = this.cellData(ti).area;
                     if opts.cytoplasmicLevels
                         cL = this.cellData(ti).cytLevel(:,cii);
+                        
+                        % calculate individual nuc/cyt ratio to exclude garbage
+                        bg = this.cellData(ti).background(cii);
+                        WCL = cL.*A/mean(A); % weighted cytoplasmic levels
+                        WNL = nL .*A/mean(A);
+                        NCR = (WNL-bg)./(WCL-bg); % nuc/cyt ratio
+                        
                         % cytoplasmic mask can be empty if a cell was tiny
                         % or junk was defined as a nucleus
-                        idx = ~isnan(cL);
+                        idx = NCR < 2 & ~isnan(cL);
                         this.cellData(ti).cytLevelAvg(cii) = mean(cL(idx).*A(idx))/mean(A(idx));
                     else
                         idx = 1:numel(A);
@@ -605,20 +612,20 @@ classdef Position < handle
             % makeTimeTraces()
             % 
             % populates Position.timeTraces
-           
+
             nucLevelAvg = zeros([this.nTime numel(this.dataChannels)]);
             cytLevelAvg = zeros([this.nTime numel(this.dataChannels)]);
-            
+
             nucLevelMed = zeros([this.nTime numel(this.dataChannels)]);
             cytLevelMed = zeros([this.nTime numel(this.dataChannels)]);
-            
+
             bg = zeros([this.nTime numel(this.dataChannels)]);
 
             for ti = 1:numel(this.cellData)
-                
+
                 nucLevel = this.cellData(ti).nucLevel;
                 cytLevel = this.cellData(ti).cytLevel;
-                
+
                 nucLevelAvg(ti, :) = this.cellData(ti).nucLevelAvg;
                 cytLevelAvg(ti, :) = this.cellData(ti).cytLevelAvg;
                 

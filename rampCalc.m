@@ -1,7 +1,7 @@
 Vinitial = 200;
 Vfinal = 300;
-Cfinal = 3;
-Nsteps = 10;
+Cfinal = 10;
+Nsteps = 5;
 %Cstock = 50*10^3;
 
 %------------
