@@ -583,14 +583,14 @@ classdef Position < handle
                         cL = this.cellData(ti).cytLevel(:,cii);
                         
                         % calculate individual nuc/cyt ratio to exclude garbage
+                        % (e.g. really bright spot on top of nuc can give
+                        % ratios >> 2, which cannot be real
                         bg = this.cellData(ti).background(cii);
-                        WCL = cL.*A/mean(A); % weighted cytoplasmic levels
-                        WNL = nL .*A/mean(A);
-                        NCR = (WNL-bg)./(WCL-bg); % nuc/cyt ratio
+                        NCR = (nL-bg)./(cL-bg); % nuc/cyt ratio
                         
                         % cytoplasmic mask can be empty if a cell was tiny
                         % or junk was defined as a nucleus
-                        idx = NCR < 2 & ~isnan(cL);
+                        idx = NCR < 3 & ~isnan(cL);
                         this.cellData(ti).cytLevelAvg(cii) = mean(cL(idx).*A(idx))/mean(A(idx));
                     else
                         idx = 1:numel(A);
