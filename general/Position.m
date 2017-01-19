@@ -626,14 +626,12 @@ classdef Position < handle
                 nucLevel = this.cellData(ti).nucLevel;
                 cytLevel = this.cellData(ti).cytLevel;
 
+                % averages computed in extractData excluding outliers
                 nucLevelAvg(ti, :) = this.cellData(ti).nucLevelAvg;
                 cytLevelAvg(ti, :) = this.cellData(ti).cytLevelAvg;
                 
                 idx = ~isnan(nucLevel) & ~isnan(cytLevel);
                 A = this.cellData(ti).area;
-                nucLevelAvg(ti, :) = mean(nucLevel(idx).*A(idx))/mean(A(idx));
-                cytLevelAvg(ti, :) = mean(cytLevel(idx).*A(idx))/mean(A(idx));
-                
                 nucLevelMed(ti, :) = median(nucLevel(idx).*A(idx))/mean(A(idx));
                 cytLevelMed(ti, :) = median(cytLevel(idx).*A(idx))/mean(A(idx));
                 
