@@ -639,7 +639,7 @@ classdef Position < handle
                     cytLevelMed(ti, ci) = median(cytLevel(idx).*A(idx))/mean(A(idx));
                 end
                 
-                bg(ti) = this.cellData(ti).background;
+                bg(ti,:) = this.cellData(ti).background;
             end
             
             this.timeTraces.nucLevelAvg = nucLevelAvg;
