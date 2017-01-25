@@ -630,10 +630,14 @@ classdef Position < handle
                 nucLevelAvg(ti, :) = this.cellData(ti).nucLevelAvg;
                 cytLevelAvg(ti, :) = this.cellData(ti).cytLevelAvg;
                 
-                idx = ~isnan(nucLevel) & ~isnan(cytLevel);
                 A = this.cellData(ti).area;
-                nucLevelMed(ti, :) = median(nucLevel(idx).*A(idx))/mean(A(idx));
-                cytLevelMed(ti, :) = median(cytLevel(idx).*A(idx))/mean(A(idx));
+                
+                for ci = 1:numel(this.dataChannels)
+                
+                    idx = ~isnan(nucLevel(:,ci)) & ~isnan(cytLevel(:,ci));
+                    nucLevelMed(ti, ci) = median(nucLevel(idx).*A(idx))/mean(A(idx));
+                    cytLevelMed(ti, ci) = median(cytLevel(idx).*A(idx))/mean(A(idx));
+                end
                 
                 bg(ti) = this.cellData(ti).background;
             end
