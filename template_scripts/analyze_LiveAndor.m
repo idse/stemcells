@@ -1,7 +1,7 @@
 clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
-dataDir = '/Users/idse/data_tmp/160812_C2C12siRNASki+Skil';
+dataDir = '/Users/idse/data_tmp/170120_cyclohexRep';
 
 meta = MetadataAndor(dataDir);
 
@@ -14,8 +14,7 @@ treatmentTime = 4;
 
 meta.nWells = 6;
 meta.posPerCondition = 4;
-meta.conditions = {'ctrl','siSmad4', 'siSkiSnoN', 'siSkiSnoN',...
-              'siSmad4','ctrl'};
+meta.conditions = {'SB+M','A+M+C','A','Nog+M','A+M','A+C-1hr-SB','A+C','M'};
 
 % SET THIS TO TRUE IF MAKING AN '8-well' LOOP THROUGH A 4-WELL
 loop4well = true;
@@ -42,15 +41,17 @@ stitchedPreviews(dataDir, meta);
 % externally I will have all indices starting at 1
 % the Andor offset to start at 0 will be internal
 
-opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
-                    'dataChannels',     S4Channel,...
+opts = struct(...
+                    'dataChannels',     [S4Channel nucChannel],...
                     'fgChannel',        S4Channel,...
+                    'cytoplasmicLevels',true,... 
                     'segmentationDir',  fullfile(dataDir,'MIP'),...
                     'MIPidxDir',        fullfile(dataDir,'MIP'),...
-                    'tMax',             tmax,...
+                    'tMax',             5,...
                     'nucShrinkage',     2,...
                     'cytoSize',         8,...
-                    'bgMargin',         10);
+                    'bgMargin',         10,...
+                    'NCRcutoff',        [3 Inf]);
 
 opts.cleanupOptions = struct('separateFused', true,...
     'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',500);
@@ -100,8 +101,6 @@ for pi = 1:meta.nPositions
     save(fullfile(dataDir,'positions'), 'positions');
 end
 toc
-
-%['positions_' datestr(now,'yymmdd')]
 
 %% load results if above block was run previously
 
@@ -250,6 +249,8 @@ dt = str2double(s{1});
 unit = s{2};
 t = ((1:tmax) - treatmentTime)*dt;
 
+posPerCondition = meta.posPerCondition;
+
 frame = {};
 cd(dataDir);
 saveResult = true;
@@ -303,7 +304,7 @@ for wellidx = 1:numel(wellsWanted)
 
     %ratioMean = ratioMean -  baseline(wellnr) + mean(baseline);
     plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
-    ylim([0.3, 1.3]);
+    ylim([0.3, 1.8]);
 
     %plot(t, bgMean,'LineWidth',2,'Color',colors(wellidx,:))
     %plot(t, nucMean,'LineWidth',2,'Color',colors(wellidx,:))

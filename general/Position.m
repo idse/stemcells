@@ -322,6 +322,9 @@ classdef Position < handle
             if ~isfield(opts, 'tMax')
                 opts.tMax = this.nTime;
             end
+            if ~isfield(opts, 'NCRcutoff')
+                opts.NCRcutoff = Inf*ones([1 numel(opts.dataChannels)]);
+            end
             % ----------------------------------------
             if ~isfield(opts, 'cleanupOptions')
                 opts.cleanupOptions = struct('separateFused', true,...
@@ -409,21 +412,6 @@ classdef Position < handle
                 
                 % make cytoplasmic mask 
                 %----------------------
-% OLD                
-%                 if opts.cytoplasmicLevels
-% 
-%                     % watershedding inside the dilation
-%                     dilated = imdilate(nucmask, strel('disk',opts.cytoSize));
-%                     basin = imcomplement(bwdist(dilated));
-%                     basin = imimposemin(basin, nucmask);
-%                     L = watershed(basin);
-
-%                     stats = regionprops(L, 'PixelIdxList');
-%                     cytCC = struct('PixelIdxList', {cat(1,{stats.PixelIdxList})});
-% 
-%                     this.cellData(ti).cytLevel = zeros([numel(cytCC.PixelIdxList) numel(opts.dataChannels)]);
-%                     this.cellData(ti).cytLevelAvg = zeros([1 numel(opts.dataChannels)]);
-%                 end
                 
                 if opts.cytoplasmicLevels
 
@@ -590,7 +578,7 @@ classdef Position < handle
                         
                         % cytoplasmic mask can be empty if a cell was tiny
                         % or junk was defined as a nucleus
-                        idx = NCR < 3 & ~isnan(cL);
+                        idx = NCR < opts.NCRcutoff(cii) & ~isnan(cL);
                         this.cellData(ti).cytLevelAvg(cii) = mean(cL(idx).*A(idx))/mean(A(idx));
                     else
                         idx = 1:numel(A);
