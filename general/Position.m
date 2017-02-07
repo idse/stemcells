@@ -124,7 +124,7 @@ classdef Position < handle
                 img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
                 for cii = 1:numel(channels)
                     for zi = 1:r.getSizeZ()
-                        img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii),time-1));
+                        img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,time-1)+1);
                     end
                 end
                 r.close();
