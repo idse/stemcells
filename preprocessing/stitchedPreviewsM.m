@@ -47,7 +47,7 @@ for wellnr = 1:meta.nWells
 
                 disp(['processing time ' num2str(ti)]);
 
-                for pi = 1%conditionPositions
+                for pi = conditionPositions
 
                     disp(['reading MIP ' num2str(pi)]);
                     % gridSize 1 and 2 may be swapped, I have no way of knowing right now
