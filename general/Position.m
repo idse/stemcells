@@ -623,8 +623,10 @@ classdef Position < handle
                 for ci = 1:numel(this.dataChannels)
                 
                     idx = ~isnan(nucLevel(:,ci)) & ~isnan(cytLevel(:,ci));
-                    nucLevelMed(ti, ci) = median(nucLevel(idx).*A(idx))/mean(A(idx));
-                    cytLevelMed(ti, ci) = median(cytLevel(idx).*A(idx))/mean(A(idx));
+                    if ~isempty(idx)
+                        nucLevelMed(ti, ci) = median(nucLevel(idx).*A(idx))/mean(A(idx));
+                        cytLevelMed(ti, ci) = median(cytLevel(idx).*A(idx))/mean(A(idx));
+                    end
                 end
                 
                 bg(ti,:) = this.cellData(ti).background;
