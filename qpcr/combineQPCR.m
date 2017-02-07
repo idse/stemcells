@@ -1,4 +1,4 @@
-function dataCombined = combineQPCR(dataDir, filenames)
+function dataCombined = combineQPCR(dataDir, filenames, tolerance)
 
     % SOP : StepOne Plus
     data = {};
@@ -7,7 +7,7 @@ function dataCombined = combineQPCR(dataDir, filenames)
     
     for i = 1:numel(filenames)
         
-        data{i} = readSOPdata3(fullfile(dataDir,filenames{i}));
+        data{i} = readSOPdata3(fullfile(dataDir,filenames{i}), tolerance);
         
         targetsComb = unique(cat(1,targetsComb,data{i}.targets),'stable');
         samplesComb = unique(cat(1,samplesComb,data{i}.samples),'stable');

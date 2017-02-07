@@ -78,7 +78,7 @@ cytmask(cat(1,debugInfo.cytCC.PixelIdxList{:}))=true;
 bg = P.cellData(time).background
 nucl = P.cellData(time).nucLevelAvg
 cytl = P.cellData(time).cytLevelAvg
-(nucl-bg)/(cytl - bg)
+(nucl-bg)./(cytl - bg)
 
 im = P.loadImage(dataDir, S4Channel, time);
 MIP = max(im,[],3);

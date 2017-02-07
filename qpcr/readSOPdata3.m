@@ -1,4 +1,4 @@
-function data = readSOPdata3(filename)
+function data = readSOPdata3(filename, tolerance)
 
     fid = fopen(filename,'r','n','UTF-8');
 
@@ -52,13 +52,17 @@ function data = readSOPdata3(filename)
                     CTmean(si,ti) = mean(CT);
                 else
                     M = distmat(CT);
-                    good = ~all(M == 0 | M > 0.5);
+                    good = ~all(M == 0 | M > tolerance);
                     if ~any(good)
                         disp(['std too high for: ' samples{si} ', ' targets{ti}]);
-                        CTmean(si,ti) = NaN;
+                        %CTmean(si,ti) = NaN;
+                        CTmean(si,ti) = mean(CT);
+                        %[si ti]
                     else
                         disp(['excluding outlier for: ' samples{si} ', ' targets{ti}]);
                         CTmean(si,ti) = mean(CT(good));
+                        CTstd(si,ti) = std(CT(good));
+                        [si ti]
                     end
                 end
             end
