@@ -1,10 +1,9 @@
 clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
-dataDir = '/Users/idse/data_tmp/qpcr/1701_qpcrActivinResponse3rdTry';
+dataDir = '/Users/idse/data_tmp/qpcr/1702_qpcrS4Aseries';
 
-filenames = {'170106_KB new time series ATP5O Lefty Nodal Smad7_data.txt',...
-     '170106_KB new time series ATP5O Lefty Nodal Smad7 2_data.txt'};
+filenames = {'170213 Smad4 ATP5O CER LHX1_data.txt'};
 
 % filenames = {'170115 A New TimeSeries Mixl1 Pai1 Snai1 Skil_data.txt',...
 %             '170115 A New TimeSeries Mixl1 Pai1 Snai1Skil B_data.txt'};
@@ -16,12 +15,14 @@ normName = 'ATP5O';
 
 %% read data
 
-data = combineQPCR(dataDir, filenames);
+tolerance = 1;
+data = combineQPCR(dataDir, filenames, tolerance);
 
 Ntargets = data.Ntargets;
 Nsamples = data.Nsamples;
 targets = data.targets;
 CTmean = data.CTmean;
+CTstd = data.CTstd;
 
 % normalization
 refIdx = find(strcmp(targets,normName));
@@ -49,12 +50,12 @@ end
 %% raw value
 
 Atimes = [0 1 2 4 6 9 12 24];
-Btimes = [0 12 24];
+Btimes = [0 24];
 SBtimes = 12;
 
-Aidx = 1:numel(Atimes);
-Bidx = [1 9 11];
-SBidx = 10;
+Aidx = [1 3:5 7:10];
+Bidx = [1 2];
+SBidx = 6;
 
 clf 
 bar(Atimes, CTmean(Aidx,:))
@@ -77,17 +78,11 @@ saveas(gcf, fullfile(dataDir,['CTraw_B_' barefname '.png']));
 
 %% normalized
 
-exclude = {'Smad4 2', 'Smad4 3'};
-excludeIdx = [];
-for i = 1:numel(exclude)
-    excludeIdx = [excludeIdx find(strcmp(targets,exclude{i}))];
-end
-
 % bar(times, CTnorm(:,2:end))
 % legend(D.targets(2:end))
 figure,
 
-targeti = setdiff(1:Ntargets, [refIdx excludeIdx]);
+targeti = setdiff(1:Ntargets, refIdx);
 
 clf
 color = lines(numel(targeti));
@@ -95,23 +90,28 @@ hold on
 for i = 1:numel(targeti)
     plot(Atimes, CTnorm(Aidx,targeti(i)),...
        '-x','Color',color(i,:),'LineWidth',2);
-    %errorbar(times, CTnorm(:,targeti(i)), CTstd(:,targeti(i)),...
-    %    '-x','Color',color(i,:),'LineWidth',2);
 end
+
+legend(targets(targeti),'location','SouthEast')
+
 for i = 1:numel(targeti)
     plot(Btimes, CTnorm(Bidx,targeti(i)),...
        '--x','Color',color(i,:),'LineWidth',2);
-    %errorbar(times, CTnorm(:,targeti(i)), CTstd(:,targeti(i)),...
-    %    '-x','Color',color(i,:),'LineWidth',2);
-end
-for i = 1:numel(targeti)
     plot(SBtimes, CTnorm(SBidx,targeti(i)),...
        'o','Color',color(i,:),'LineWidth',2);
+
+    errorbar(Atimes, CTnorm(Aidx,targeti(i)), CTstd(Aidx,targeti(i)),...
+        '-x','Color',color(i,:),'LineWidth',2);
+    errorbar(Btimes, CTnorm(Bidx,targeti(i)), CTstd(Bidx,targeti(i)),...
+        '-x','Color',color(i,:),'LineWidth',2);
+    errorbar(SBtimes, CTnorm(SBidx,targeti(i)), CTstd(SBidx,targeti(i)),...
+        '-x','Color',color(i,:),'LineWidth',2);
 end
+
 hold off
 xlim([0 24]);
 %ylim([-0.5 5.5]);
-legend(targets(targeti),'location','SouthEast')
+
 
 fs = 15;
 xlabel('time (hrs)', 'FontSize',fs, 'FontWeight','Bold');
@@ -126,23 +126,41 @@ saveas(gcf, fullfile(dataDir, ['CTnorm_' barefname '.png']));
 
 %% normalized exponential
 
-clf
+figure,
+
 targeti = setdiff(1:Ntargets, refIdx);
+
+clf
 color = lines(numel(targeti));
 hold on
 for i = 1:numel(targeti)
-    X = CTnorm(:,targeti(i));
-    plot(times, 2.^X,'-x','Color',color(i,:),'LineWidth',2)
+    plot(Atimes, 2.^CTnorm(Aidx,targeti(i)),...
+       '-x','Color',color(i,:),'LineWidth',2);
 end
+
+legend(targets(targeti),'location','NorthEast')
+
+for i = 1:numel(targeti)
+    plot(Btimes, 2.^CTnorm(Bidx,targeti(i)),...
+       '--x','Color',color(i,:),'LineWidth',2);
+    plot(SBtimes, 2.^CTnorm(SBidx,targeti(i)),...
+       'o','Color',color(i,:),'LineWidth',2);
+end
+
 hold off
-legend(targets(targeti))
+xlim([0 24]);
+%ylim([-0.5 5.5]);
 
 
 fs = 15;
-xlabel('time (hrs)', 'FontSize',fs,'FontWeight','Bold');
-ylabel('normalized level', 'FontSize',fs, 'FontWeight','Bold');
+xlabel('time (hrs)', 'FontSize',fs, 'FontWeight','Bold');
+ylabel('2.\^(C_T - C_{T,ATP5O})', 'FontSize',fs, 'FontWeight','Bold');
 set(gcf,'color','w');
 set(gca, 'LineWidth', 2);
 set(gca,'FontSize', fs)
 set(gca,'FontWeight', 'bold')
+
+saveas(gcf, fullfile(dataDir, ['expnorm_' barefname]));
+saveas(gcf, fullfile(dataDir, ['expnorm_' barefname '.png']));
+
     

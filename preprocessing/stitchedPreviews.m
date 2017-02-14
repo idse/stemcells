@@ -26,7 +26,8 @@ for wellnr = 1:meta.nWells
         gridSize = [round(posPerCondition/2) 2];
     end
     
-    nChannels = numel(MIPfiles)/(meta.nWells*posPerCondition);
+    %nChannels = numel(MIPfiles)/(meta.nWells*posPerCondition);
+    nChannels = meta.nChannels;
     
     for ci = 1:nChannels
         

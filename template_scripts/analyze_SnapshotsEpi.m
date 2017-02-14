@@ -2,151 +2,311 @@ clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-% THIS IS THE FIXED 8-WELL
-dataDir = '/Volumes/IdseData/160416-EndDIff-Sox17nS4cells-epi';
+% dataDir = '/Users/idse/data_tmp/160901_smad2';
 
-btfname = fullfile(dataDir, 'endo_w1.btf');
-vsifile = fullfile(dataDir,'Image750.vsi');
+mainDataDir = '/Users/idse/data_tmp/170207_hESCsmad2series/170207_siS4A/';
+dataDirs = fullfile(mainDataDir, {...
+    'A1','A2','A4','A6','A9','A12','A24','SB','X12','X24',...
+    });
+dataDir = dataDirs{1};
 
-% size limit of data chunks read in
-maxMemoryGB = 4;
+MIPdirs = fullfile(dataDirs,'MIP');
 
-% TODO : local normalization by DAPI
-% TODO : background subtraction by large scale Fourier transform or
-% TODO : make objects save as struct to make sure we don't lose data       
+list = dir(fullfile(dataDirs{1},'*vsi'));
+vsifile = fullfile(dataDirs{1},list(1).name);
 
-%%
-% metadata
-%----------------
+meta = Metadata(vsifile);
+%filenameFormat = meta.filename;
 
-metaDataFile = fullfile(dataDir,'metaData.mat');
+% determine process numbers of vsi files
+processnrs = {};
 
-% read metadata
-if exist(metaDataFile,'file')
-    disp('loading previously stored metadata');
-    load(metaDataFile);
-elseif exist('vsifile','var') && exist(vsifile,'file')
-    disp('extracting metadata from vsi file');
-    meta = Metadata(vsifile);
-    
-% or pretty much enter it by hand
-else
-    meta = Metadata();
-    h = Tiff(btfname);
-    meta.ySize = h.getTag('ImageLength');
-    meta.xSize = h.getTag('ImageWidth');
-    h.close;
-    meta.nChannels = 4;
-    meta.channelNames = {'DAPI','GFP','RFP','CY5'};
-    meta.xres = 0.650/2;
-    meta.yres = meta.xres;
+for di = 1:numel(dataDirs)
+    vsifiles = dir(fullfile(dataDirs{di},'*.vsi'));
+    processNumbers = zeros([numel(vsifiles) 1],'uint16');
+    for i = 1:numel(vsifiles)
+        s = strsplit(vsifiles(i).name,{'_','.'});
+        processNumbers(i) = uint16(str2double(s{2}));
+    end
+    processnrs{di} = processNumbers;
 end
 
-% manually entered metadata
-%------------------------------
+% manual metadata
+%-------------------
 
-meta.channelLabel = {'Sox17ab','H2B', 'Sox17', 'eomes'};
-%meta.channelLabel = {'Bra','H2B', 'Smad4', 'Sox17'};
-nucChannel = 2;
+meta.posPerCondition = 4;
+meta.nWells = 10;
+meta.nPositions = meta.nWells*meta.posPerCondition;
 
-save(fullfile(dataDir,'metaData'),'meta');
+nucChannel = 1;
+S2Channel = 2;
+S4Channel = 3;
 
-%% load data for parameter check
+meta.channelLabel = {'H2B','Smad2','Smad4'};
 
-p = Position(meta.nChannels, btfname, 1);
-sox17ab =  p.loadImage(dataDir, 1);
-eomes =  p.loadImage(dataDir, 4);
-sox17 =  p.loadImage(dataDir, 3);
-seg = p.loadSegmentation(dataDir, nucChannel);
-nuc = p.loadImage(dataDir, nucChannel);
+%% extract prefixes for different conditions
 
-%% check for good clean up parameters
+% convention is conditionName_p0000.tif etc
+% this extracts all the unique condition names in the dataDir
 
-idx = 2048:3*2048;
-s17piece = sox17(idx,idx);
-s17abpiece = sox17ab(idx,idx);
-eomespiece = eomes(idx,idx);
-nucpiece = nuc(idx,idx);
-segpiece = seg(idx,idx);
+conditions = {};
+for di = 1:numel(MIPdirs)
+    
+    listing = dir(fullfile(MIPdirs{di},'*tif'));
+    
+    for i = 1:numel(listing)
 
-cleanupOptions = struct('separateFused', true,...
-                    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0,...
-                    'openSize', 3,'minArea',50);
+        filename = listing(i).name;
+        [~, barefname] = fileparts(filename);
+        s = strsplit(barefname,'_MIP');
+        conditions = [conditions s{1}];
+    end
+end
+
+meta.conditions = unique(conditions,'stable');
+
+% %% previews
+% 
+% for di = 1:meta.nWells
+%     
+%     metatmp = meta;
+%     metatmp.nWells = 1;
+% 
+%     stitchedPreviews(dataDirs{di}, metatmp);
+% end
+
+%% extract nuclear and cytoplasmic levels
+
+% externally I will have all indices starting at 1
+% the Andor offset to start at 0 will be internal
+
+opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
+                    'dataChannels',     1:meta.nChannels,... 
+                    'fgChannel',        S4Channel,...
+                    'tMax',             meta.nTime,...
+                    'nucShrinkage',     2,...
+                    'cytoSize',         5,...
+                    'cytoMargin',       5,...
+                    'bgMargin',         4);
                 
-nucmask = nuclearCleanup(segpiece, cleanupOptions);
-maskedge = imdilate(nucmask,strel('disk',1))-segpiece;
+opts.cleanupOptions = struct('separateFused', true,'openSize',8,...
+    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',800);
 
-figure, imshow(cat(3,imadjust(mat2gray(nucpiece)),maskedge,imadjust(mat2gray(s17piece))),[])
+%% finding the right options for extract data
 
-%% process data
+di = 1;
+dataDir = dataDirs{di};
+opts.segmentationDir = fullfile(dataDir,'MIP');
 
-options = struct('cleanupOptions', cleanupOptions,'imopenBGsub',50);
-p = Position(meta.nChannels, btfname, 1);
-p.extractData(dataDir,nucChannel,options)
+pi = 1;
+vsifile = fullfile(dataDir,['Process_' num2str(processnrs{di}(pi)) '.vsi']);
+P = Position(meta.nChannels, vsifile, meta.nTime);
+P.setID(pi);
+seg = P.loadSegmentation(fullfile(dataDir,'MIP'), nucChannel);
 
-% save
-[~,barefname,~] = fileparts(btfname);
-save(fullfile(dataDir, [barefname '2.mat']),'p');
-
-%% load processed data
-
-[~,barefname,~] = fileparts(btfname);
-load(fullfile(dataDir, [barefname '2.mat']));
-p.cellData 
-
-%% scatter cell locations on top of image
-
-s17bg = imopen(s17piece,strel('disk',50));
-
-h2b = imadjust(mat2gray(nucpiece));
-s17 = imadjust(mat2gray(s17piece - s17bg));
-s17ab = imadjust(mat2gray(s17abpiece  - imopen(s17abpiece,strel('disk',50))));
-eom = imadjust(mat2gray(eomespiece - imopen(eomespiece,strel('disk',50))));
-
-figure, imshow(cat(3,h2b,maskedge,s17),[])
+% try out the nuclear cleanup settings on some frame:
+time = 1;
+bla = nuclearCleanup(seg(:,:,time), opts.cleanupOptions);
+figure, imshow(cat(3,mat2gray(bla),seg(:,:,time),seg(:,:,time)))
 
 %%
 
-figure, imshow(cat(3,h2b,maskedge,s17),[])
+debugInfo = P.extractData(dataDir, nucChannel, opts);
 
-cidx = p.cellData.XY(:,1) > idx(1) & p.cellData.XY(:,1) < idx(end)...
-            & p.cellData.XY(:,2) > idx(1) & p.cellData.XY(:,2) < idx(end);
+%bgmask = debugInfo.bgmask;
+nucmask = debugInfo.nucmask;
+cytmask = false(size(nucmask));
+cytmask(cat(1,debugInfo.cytCC.PixelIdxList{:}))=true;
+
+bg = P.cellData(time).background;
+nucl = P.cellData(time).nucLevelAvg;
+cytl = P.cellData(time).cytLevelAvg;
+(nucl-bg)/(cytl - bg)
+
+im = P.loadImage(dataDir, S4Channel, time);
+%im2 = P.loadImage(dataDir, nucChannel, time);
+
+MIP = max(im,[],3);
+A = imadjust(mat2gray(MIP));
+s = 0.4;
+imshow(cat(3, A + seg(:,:,time), A + s*nucmask, A + s*cytmask));
+
+%%
+tic
+positions(meta.nPositions) = Position();
+pi = 1;
+for di = 1:meta.nWells
+    for wpi = 1:meta.posPerCondition
+    
+        opts.segmentationDir = fullfile(dataDirs{di},'MIP');
+        vsifile = fullfile(dataDirs{di},['Process_' num2str(processnrs{di}(wpi)) '.vsi']);
+
+        positions(pi) = Position(meta.nChannels, vsifile, meta.nTime);
+        positions(pi).setID(wpi);
+        positions(pi).extractData(dataDirs{di}, nucChannel, opts);
         
-% color by normalize sox17-rfp
-C = mat2gray(p.cellData.nucLevel(cidx,3)./p.cellData.nucLevel(cidx,2));
-
-hold on
-scatter(p.cellData.XY(cidx,1)-idx(1),p.cellData.XY(cidx,2)-idx(1),100,C,'.')
-hold off
-
-%% scatter plot of sox17 staining vs sox17-rfp
-
-h2bLevels = p.cellData.nucLevel(:,nucChannel) - double(min(nuc(:)));
-s17Levels = p.cellData.nucLevel(:,3) - double(min(sox17(:)));
-s17abLevels = p.cellData.nucLevel(:,1) - double(min(sox17ab(:)));
-
-scatter(s17abLevels./h2bLevels, s17Levels./h2bLevels);
-axis([0 0.5 0 4])
-
-%% single histogram
-
-bright = s17Levels./h2bLevels > 0.15;
-figure, hist(p.cellData.nucLevel(bright,3)./p.cellData.nucLevel(bright,2),50)
+        pi = pi + 1;
+        
+        save(fullfile(dataDir,'positions'), 'positions');
+    end
+end
+toc
 
 %%
+load(fullfile(dataDir,'positions'));
 
-figure, imshow(cat(3,s17ab,eom + 0*maskedge,s17),[])
-%C = mat2gray(p.cellData.nucLevel(cidx,3)./p.cellData.nucLevel(cidx,2));
-%bright = cidx & mat2gray(p.cellData.nucLevel(:,3)./p.cellData.nucLevel(:,2)) > 0.05;
-%bright = cidx & mat2gray(p.cellData.nucLevel(:,3)) > 0.03;
-%bright = cidx & p.cellData.nucLevel(:,3) - min(p.cellData.nucLevel(:,3)) > 100;
-bright = cidx & s17Levels > mean(s17Levels);
+%% plot smad2 vs time
 
+figure,
+
+ratioWellMeans = {};
+ratioWell = {};
+
+channels = 2:3;
+normalize = false;
+tocyt = false;
+
+if tocyt
+    ylabelstr = 'nuclear : cytoplasmic intensity';
+else
+    ylabelstr = 'nuclear intensity';
+end    
+if normalize
+    ylabelstr = ['normalized ' ylabelstr];
+end
+
+for ci = channels
+    
+    pi = 1;
+    ratioWellMeans{ci} = zeros([1 meta.nWells]);
+
+    for wi = 1:meta.nWells
+
+        ratioWell{ci,wi} = zeros([1 meta.posPerCondition]);
+
+        for wpi = 1:meta.posPerCondition
+
+            nucl = positions(pi).cellData.nucLevelAvg(ci);
+            cytl = positions(pi).cellData.cytLevelAvg(ci);
+            bg = positions(pi).cellData.background(ci);
+            ratio = (nucl-bg);%/(cytl - bg);
+            if tocyt
+                ratio = ratio/(cytl - bg);
+            end
+
+            ratioWell{ci,wi}(wpi) = ratio;
+
+            pi = pi + 1;
+        end
+
+        ratioWellMeans{ci}(wi) = mean(ratioWell{ci,wi});
+    end
+end
+
+clf
 hold on
-scatter(p.cellData.XY(bright,1)-idx(1),p.cellData.XY(bright,2)-idx(1),100,'.c')
+colors = {'b','r'};
+lw = 2;
+labels = meta.channelLabel(opts.dataChannels);
+times = [1 2 4 6 9 12 24 -1 -0.5 0];
+
+for ci = 1:numel(channels)
+    [~,order] = sort(times);
+    ordertimes = times(order);
+    
+    rwm = ratioWellMeans{channels(ci)}(order);
+    
+    baseline = ratioWellMeans{channels(ci)}(times == -1);
+    amplitude = max(rwm) - baseline;
+    
+    if normalize
+        rwm = (rwm - baseline)./amplitude;
+    end
+    plot(ordertimes(2:end), rwm(2:end), '-', 'Color',colors{ci}, 'LineWidth',lw);
+end
+
+legend(labels(channels));
+
+for ci = 1:numel(channels)
+    for wi = 1:meta.nWells
+        for wpi = 1:meta.posPerCondition
+            rw = ratioWell{channels(ci),wi};
+            
+            baseline = ratioWellMeans{channels(ci)}(times == -1);
+            amplitude = max(ratioWellMeans{channels(ci)}) - baseline;
+            
+            if normalize
+                rw = (rw - baseline)./amplitude;
+            end
+            plot(times(wi), rw, '.', 'MarkerSize',10,...
+                'Color',colors{ci}, 'LineWidth',lw);
+        end
+    end
+end
+
+fs = 15;
+xlabel('time (hours)', 'FontSize',fs,'FontWeight','Bold');
+ylabel(ylabelstr, 'FontSize',fs, 'FontWeight','Bold');
+set(gcf,'color','w');
+set(gca, 'LineWidth', 2);
+set(gca,'FontSize', fs)
+set(gca,'FontWeight', 'bold')
+    
 hold off
 
-hold on
-scatter(p.cellData.XY(cidx & ~bright,1)-idx(1),p.cellData.XY(cidx & ~bright,2)-idx(1),100,'.r')
-hold off
+%export_fig(fullfile(dataDir,[ylabelstr '.pdf']),'-native -m2');
+saveas(gcf, fullfile(dataDir,[ylabelstr '.png']));
+saveas(gcf, fullfile(dataDir,[ylabelstr '.fig']));
 
+%% distributions at each time
+
+channels = 1:2;
+
+for ci = channels
+    
+    pi = 1;
+
+    for wi = 1:meta.nWells
+
+        ratioWell{ci,wi} = [];
+
+        for wpi = 1:meta.posPerCondition
+
+            nucl = positions(pi).cellData.nucLevel(:,ci);
+            cytl = positions(pi).cellData.cytLevel(:,ci);
+            bg = positions(pi).cellData.background(ci);
+            ratio = (nucl-bg)./(cytl - bg);
+
+            ratioWell{ci,wi} = cat(1,ratioWell{ci,wi}, ratio);
+
+            pi = pi + 1;
+        end
+    end
+end
+
+%%
+ci = 2;
+%x = 0.2:0.1:2.5;   % Smad4
+x = 0.2:0.2:8;      % Smad2
+colors = jet(meta.nWells);
+lw = 2;
+clf 
+hold on
+for wi = 1:meta.nWells
+    n = hist(ratioWell{ci,order(wi)}, x);
+    n = n./sum(n);
+    plot(x,n,'Color',colors(wi,:),'LineWidth',lw)   
+end
+hold on
+legend(meta.conditions(order))
+xlim([x(1) x(end)]);
+
+fs = 15;
+xlabel(['nuclear : cytoplasmic ' labels{ci}], 'FontSize',fs,'FontWeight','Bold');
+ylabel('frequency', 'FontSize',fs, 'FontWeight','Bold');
+set(gcf,'color','w');
+set(gca, 'LineWidth', 2);
+set(gca,'FontSize', fs)
+set(gca,'FontWeight', 'bold')
+
+export_fig(fullfile(dataDir,'Smad2distributions.pdf'),'-native -m2');

@@ -24,7 +24,7 @@ drive.setup("/dev/cu.usbmodem1411",9600) # (port number,baud rate)
 def wash(volume, inspd, outspd):
     drive.m2(0,volume,int(outspd))
     print("wash-sleeping")
-    time.sleep(30)
+    time.sleep(12)
     print("wash-done-sleeping")
     drive.m1(1,volume,int(inspd))
 
@@ -118,8 +118,6 @@ def ramp_setup(iterations, duration, volume, testing=60):
 #4 well setup
 def alt_pulsesetup(pulses, testing = 60):
     
-    
-    
     OUT_SPD = 50
     IN_SPD = 100
     LIG_VOL = 60
@@ -130,8 +128,8 @@ def alt_pulsesetup(pulses, testing = 60):
     #----------------------------
     for i in range(pulses):
         #initial drain
-        drive.m2(0,MEDIA_VOL+100, OUT_SPD)
-        time.sleep(30)
+        drive.m2(0,MEDIA_VOL+50, OUT_SPD)
+        time.sleep(12)
         
         print ("\nPulse "+str(i))
         drive.m3(1,LIG_VOL,OUT_SPD)
@@ -142,16 +140,16 @@ def alt_pulsesetup(pulses, testing = 60):
         #initial wash for double wash
         # swish(3,250,250)
         wash(MEDIA_VOL,IN_SPD, OUT_SPD)
-        time.sleep(30)
+        time.sleep(12)
         #washes
-        for k in range(6):
+        for k in range(5):
             print ("\nSwish/Wash" + str(k))
             # swish(3,500,250)
             wash(MEDIA_VOL,IN_SPD, OUT_SPD)
             for t in range(testing*10):
                 print (str(testing*10-t)+" Sec Remaining", end = "\r")
                 time.sleep(1)
-        for k in range (testing*testing*5):
+        for t in range (testing*testing*5):
             print (str(testing*testing*5-t)+" Sec Remaining", end = "\r")
             time.sleep(1)
         print ("PULSE " + str(pulses) + " COMPLETE")

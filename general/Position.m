@@ -339,6 +339,9 @@ classdef Position < handle
             if ~isfield(opts, 'cytoSize')
                 opts.cytoSize = 10;
             end
+            if ~isfield(opts, 'cytoMargin')
+                opts.cytoMargin = 0;
+            end
             if ~isfield(opts, 'bgMargin')
                 opts.bgMargin = 2;
             end
@@ -415,8 +418,10 @@ classdef Position < handle
                 
                 if opts.cytoplasmicLevels
 
+                    nucmaskmarg = imdilate(nucmask,strel('disk',opts.cytoMargin));
+                    
                     % watershedding inside the dilation
-                    dilated = imdilate(nucmask, strel('disk',opts.cytoSize));
+                    dilated = imdilate(nucmask, strel('disk',opts.cytoSize + opts.cytoMargin));
                     basin = imcomplement(bwdist(dilated));
                     basin = imimposemin(basin, nucmask);
                     L = watershed(basin);
@@ -434,6 +439,9 @@ classdef Position < handle
                         CCPIL = cytCC.PixelIdxList{cci};
                         CCPIL = CCPIL(dilated(CCPIL));    % exclude outside dilated nuclei
                         CCPIL = CCPIL(~nucmaskraw(CCPIL));% exclude nuclei before cleanup
+                        if opts.cytoMargin > 0
+                            CCPIL = CCPIL(~nucmaskmarg(CCPIL)); % exclude margin around nuclei
+                        end
                         if ~isempty(fgmask)
                             cytCC.PixelIdxList{cci} = CCPIL(fgmask(CCPIL));% exclude background 
                         end
