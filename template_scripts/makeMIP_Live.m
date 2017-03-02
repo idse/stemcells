@@ -1,8 +1,7 @@
 clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/')); 
-dataDir = '/Users/idse/data_tmp/160812_C2C12siRNASki+Skil';
-dataDir = '/Volumes/IdseData3/161004_hESCmanualQuickWash';
+dataDir = '/Users/idse/data_tmp/161107_NODALcrispr';
 
 nucChannel = 1;
 S4Channel = 0;
@@ -29,6 +28,9 @@ elseif ~isempty(dir(fullfile(dataDir, '*.txt')))
     
     outputdir = fullfile(dataDir, 'MIP');
     batchMIP_Andor(inputdir, outputdir, channels, saveidx);
-    %meta = MetadataAndor(dataDir);
-    %batchMIP_Andor(inputdir, outputdir, channels, saveidx, meta.nTime, 10:32);
+%     
+%     meta = MetadataAndor(dataDir);
+%     type = 'SIP';
+%     batchMIP_Andor(inputdir, outputdir, channels, saveidx,...
+%         meta.nTime, 1:meta.nPositions, type);
 end

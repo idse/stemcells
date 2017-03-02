@@ -1,4 +1,4 @@
-function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, outputdir, saveidx, tmax)
+function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, outputdir, saveidx, tmax, type)
 
     % turn off annoying BF warning
     warning('off','BF:lowJavaMemory');
@@ -72,12 +72,25 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
             toc
 
             % make MIP
-            if ~isempty(strfind(filenameFormat,'_w'))
-                [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,1,1:tmaxinfile),[],3);
-            else
-                [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,channel+1,1:tmaxinfile),[],3);
+            if strcmp(type,'MIP')
+                
+                if ~isempty(strfind(filenameFormat,'_w'))
+                    [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,1,1:tmaxinfile),[],3);
+                else
+                    [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,channel+1,1:tmaxinfile),[],3);
+                end
+                MIPidx{ti+1} = uint16(MIPidx{ti+1});
+                
+            % or SIP
+            elseif strcmp(type,'SIP')
+                
+                if ~isempty(strfind(filenameFormat,'_w'))
+                    MIP{ti+1} = uint16(sum(stack(:,:,:,1,1:tmaxinfile),3));
+                else
+                    MIP{ti+1} = uint16(sum(stack(:,:,:,channel+1,1:tmaxinfile),3));
+                end
+                warning('SIP cast to uint16 bc imwrite doesnt take uint32, should fix this'); 
             end
-            MIPidx{ti+1} = uint16(MIPidx{ti+1});
             clear stack; 
         end
     end
@@ -90,8 +103,8 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     % save result
     %-------------
 
-    % MIP
-    fname = fullfile(outputdir, sprintf([barefname '_MIP_p%.4d_w%.4d.tif'],pi,ci));
+    % MIP/SIP
+    fname = fullfile(outputdir, sprintf([barefname '_' type '_p%.4d_w%.4d.tif'],pi,ci));
     if exist(fname,'file')
         delete(fname);
     end

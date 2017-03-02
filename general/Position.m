@@ -124,7 +124,7 @@ classdef Position < handle
                 img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
                 for cii = 1:numel(channels)
                     for zi = 1:r.getSizeZ()
-                        img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii),time-1));
+                        img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,time-1)+1);
                     end
                 end
                 r.close();
@@ -322,6 +322,9 @@ classdef Position < handle
             if ~isfield(opts, 'tMax')
                 opts.tMax = this.nTime;
             end
+            if ~isfield(opts, 'NCRcutoff')
+                opts.NCRcutoff = Inf*ones([1 numel(opts.dataChannels)]);
+            end
             % ----------------------------------------
             if ~isfield(opts, 'cleanupOptions')
                 opts.cleanupOptions = struct('separateFused', true,...
@@ -335,6 +338,9 @@ classdef Position < handle
             end
             if ~isfield(opts, 'cytoSize')
                 opts.cytoSize = 10;
+            end
+            if ~isfield(opts, 'cytoMargin')
+                opts.cytoMargin = 0;
             end
             if ~isfield(opts, 'bgMargin')
                 opts.bgMargin = 2;
@@ -409,26 +415,13 @@ classdef Position < handle
                 
                 % make cytoplasmic mask 
                 %----------------------
-% OLD                
-%                 if opts.cytoplasmicLevels
-% 
-%                     % watershedding inside the dilation
-%                     dilated = imdilate(nucmask, strel('disk',opts.cytoSize));
-%                     basin = imcomplement(bwdist(dilated));
-%                     basin = imimposemin(basin, nucmask);
-%                     L = watershed(basin);
-
-%                     stats = regionprops(L, 'PixelIdxList');
-%                     cytCC = struct('PixelIdxList', {cat(1,{stats.PixelIdxList})});
-% 
-%                     this.cellData(ti).cytLevel = zeros([numel(cytCC.PixelIdxList) numel(opts.dataChannels)]);
-%                     this.cellData(ti).cytLevelAvg = zeros([1 numel(opts.dataChannels)]);
-%                 end
                 
                 if opts.cytoplasmicLevels
 
+                    nucmaskmarg = imdilate(nucmask,strel('disk',opts.cytoMargin));
+                    
                     % watershedding inside the dilation
-                    dilated = imdilate(nucmask, strel('disk',opts.cytoSize));
+                    dilated = imdilate(nucmask, strel('disk',opts.cytoSize + opts.cytoMargin));
                     basin = imcomplement(bwdist(dilated));
                     basin = imimposemin(basin, nucmask);
                     L = watershed(basin);
@@ -446,6 +439,9 @@ classdef Position < handle
                         CCPIL = cytCC.PixelIdxList{cci};
                         CCPIL = CCPIL(dilated(CCPIL));    % exclude outside dilated nuclei
                         CCPIL = CCPIL(~nucmaskraw(CCPIL));% exclude nuclei before cleanup
+                        if opts.cytoMargin > 0
+                            CCPIL = CCPIL(~nucmaskmarg(CCPIL)); % exclude margin around nuclei
+                        end
                         if ~isempty(fgmask)
                             cytCC.PixelIdxList{cci} = CCPIL(fgmask(CCPIL));% exclude background 
                         end
@@ -581,9 +577,16 @@ classdef Position < handle
                     A = this.cellData(ti).area;
                     if opts.cytoplasmicLevels
                         cL = this.cellData(ti).cytLevel(:,cii);
+                        
+                        % calculate individual nuc/cyt ratio to exclude garbage
+                        % (e.g. really bright spot on top of nuc can give
+                        % ratios >> 2, which cannot be real
+                        bg = this.cellData(ti).background(cii);
+                        NCR = (nL-bg)./(cL-bg); % nuc/cyt ratio
+                        
                         % cytoplasmic mask can be empty if a cell was tiny
                         % or junk was defined as a nucleus
-                        idx = ~isnan(cL);
+                        idx = NCR < opts.NCRcutoff(cii) & ~isnan(cL);
                         this.cellData(ti).cytLevelAvg(cii) = mean(cL(idx).*A(idx))/mean(A(idx));
                     else
                         idx = 1:numel(A);
@@ -605,19 +608,44 @@ classdef Position < handle
             % makeTimeTraces()
             % 
             % populates Position.timeTraces
-           
+
             nucLevelAvg = zeros([this.nTime numel(this.dataChannels)]);
             cytLevelAvg = zeros([this.nTime numel(this.dataChannels)]);
+
+            nucLevelMed = zeros([this.nTime numel(this.dataChannels)]);
+            cytLevelMed = zeros([this.nTime numel(this.dataChannels)]);
+
             bg = zeros([this.nTime numel(this.dataChannels)]);
 
             for ti = 1:numel(this.cellData)
+
+                nucLevel = this.cellData(ti).nucLevel;
+                cytLevel = this.cellData(ti).cytLevel;
+
+                % averages computed in extractData excluding outliers
                 nucLevelAvg(ti, :) = this.cellData(ti).nucLevelAvg;
                 cytLevelAvg(ti, :) = this.cellData(ti).cytLevelAvg;
-                bg(ti) = this.cellData(ti).background;
+                
+                A = this.cellData(ti).area;
+                
+                for ci = 1:numel(this.dataChannels)
+                
+                    idx = ~isnan(nucLevel(:,ci)) & ~isnan(cytLevel(:,ci));
+                    if ~isempty(idx)
+                        nucLevelMed(ti, ci) = median(nucLevel(idx).*A(idx))/mean(A(idx));
+                        cytLevelMed(ti, ci) = median(cytLevel(idx).*A(idx))/mean(A(idx));
+                    end
+                end
+                
+                bg(ti,:) = this.cellData(ti).background;
             end
             
             this.timeTraces.nucLevelAvg = nucLevelAvg;
             this.timeTraces.cytLevelAvg = cytLevelAvg;
+            
+            this.timeTraces.nucLevelMed = nucLevelMed;
+            this.timeTraces.cytLevelMed = cytLevelMed;
+            
             this.timeTraces.background = bg;
         end
         

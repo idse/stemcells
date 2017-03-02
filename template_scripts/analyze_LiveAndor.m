@@ -1,7 +1,7 @@
 clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
-dataDir = '/Users/idse/data_tmp/160812_C2C12siRNASki+Skil';
+dataDir = '/Users/idse/data_tmp/170120_cyclohexRep';
 
 meta = MetadataAndor(dataDir);
 
@@ -14,8 +14,10 @@ treatmentTime = 4;
 
 meta.nWells = 6;
 meta.posPerCondition = 4;
-meta.conditions = {'ctrl','siSmad4', 'siSkiSnoN', 'siSkiSnoN',...
-              'siSmad4','ctrl'};
+meta.conditions = {'SB+M','A+M+C','A','Nog+M','A+M','A+C-1hr-SB','A+C','M'};
+
+% SET THIS TO TRUE IF MAKING AN '8-well' LOOP THROUGH A 4-WELL
+loop4well = true;
 
 nucChannel = 2;
 S4Channel = 1;
@@ -39,34 +41,23 @@ stitchedPreviews(dataDir, meta);
 % externally I will have all indices starting at 1
 % the Andor offset to start at 0 will be internal
 
-opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
-                    'dataChannels',     S4Channel,...
+opts = struct(...
+                    'dataChannels',     [S4Channel nucChannel],...
                     'fgChannel',        S4Channel,...
+                    'cytoplasmicLevels',true,... 
                     'segmentationDir',  fullfile(dataDir,'MIP'),...
                     'MIPidxDir',        fullfile(dataDir,'MIP'),...
-                    'tMax',             tmax,...
+                    'tMax',             5,...
                     'nucShrinkage',     2,...
                     'cytoSize',         8,...
-                    'bgMargin',         10);
+                    'bgMargin',         10,...
+                    'NCRcutoff',        [3 Inf]);
 
 opts.cleanupOptions = struct('separateFused', true,...
-    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',1000);
-%%
-tic
-positions(meta.nPositions) = DynamicPositionAndor();
+    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',500);
 
-for pi = 1%:meta.nPositions
 
-    positions(pi) = DynamicPositionAndor(meta, pi);
-    positions(pi).extractData(dataDir, nucChannel, opts);
-    positions(pi).makeTimeTraces();
-    save(fullfile(dataDir,'positions'), 'positions');
-end
-toc
-
-%['positions_' datestr(now,'yymmdd')]
-
-%% finding the right options for extract data
+%% check that the options are set right
 
 pi = 1;
 P = DynamicPositionAndor(meta, pi);
@@ -87,7 +78,7 @@ cytmask(cat(1,debugInfo.cytCC.PixelIdxList{:}))=true;
 bg = P.cellData(time).background
 nucl = P.cellData(time).nucLevelAvg
 cytl = P.cellData(time).cytLevelAvg
-(nucl-bg)/(cytl - bg)
+(nucl-bg)./(cytl - bg)
 
 im = P.loadImage(dataDir, S4Channel, time);
 MIP = max(im,[],3);
@@ -95,7 +86,24 @@ A = imadjust(mat2gray(MIP));
 s = 0.4;
 imshow(cat(3, A + 0*bgmask, A + s*nucmask, A + s*cytmask));
 
-%%
+opts.tMax = tmax;
+
+%% run the analysis on all time points
+
+tic
+positions(meta.nPositions) = DynamicPositionAndor();
+
+for pi = 1:meta.nPositions
+
+    positions(pi) = DynamicPositionAndor(meta, pi);
+    positions(pi).extractData(dataDir, nucChannel, opts);
+    positions(pi).makeTimeTraces();
+    save(fullfile(dataDir,'positions'), 'positions');
+end
+toc
+
+%% load results if above block was run previously
+
 load(fullfile(dataDir,'positions'));
 
 % positions_before = load(fullfile(dataDir,'positions_before'));
@@ -121,7 +129,7 @@ s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
 t = ((1:tmax) - treatmentTime)*dt;
-axislim = [t(1), t(end)+50, 0.5, 2];
+axislim = [t(1), t(end)+50, 0.3, 1.3];
 
 frame = {};
 cd(dataDir);
@@ -133,14 +141,20 @@ graphbgc = 1*[1 1 1];
 graphfgc = 'r';
 %w, k, 0.5, w
 
-colors = hsv(4); %0.5*[1 0 0]
+colors = hsv(posPerCondition); %0.5*[1 0 0]
 
 baseline = zeros([1 nWells]); % store baseline avg of each well
 
-for wellnr = 3%:nWells
+for wellnr = 4%:nWells
 
-    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
-
+    if loop4well
+        flipwell = 9-wellnr;
+        conditionPositions = [(posPerCondition/2)*(wellnr-1)+1:(posPerCondition/2)*wellnr...
+                              (posPerCondition/2)*(flipwell-1)+1:(posPerCondition/2)*flipwell];
+    else
+        conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+    end
+    
     ttraceCat = cat(1,positions.timeTraces);
     ttraceCat = ttraceCat(conditionPositions);
 
@@ -185,7 +199,7 @@ for wellnr = 3%:nWells
         plot(t, ratioMean, graphfgc,'LineWidth',2)
         %plot(t, meanRatio, 'g','LineWidth',2)
         
-        legend({'1','2','3','4','mean'});
+        %legend({'1','2','3','4','mean'});
         
         fs = 24;
         xlabel(['time (' unit ')'], 'FontSize',fs,'FontWeight','Bold','Color',fgc)
@@ -201,7 +215,7 @@ for wellnr = 3%:nWells
         set(gca,'Color',graphbgc);
         
         if saveResult
-            export_fig(['timeTrace_well' num2str(wellnr) '.pdf'],'-native -m2');
+            export_fig(['timeTrace_well' num2str(wellnr) '.png'],'-native -m2');
         end
 
         if ~isnan(ratioMean(ti))
@@ -229,18 +243,20 @@ for wellnr = 3%:nWells
 end
 
 %% make a combined plot of several conditions
-
+figure,
 s = strsplit(meta.timeInterval,' ');
 dt = str2double(s{1});
 unit = s{2};
 t = ((1:tmax) - treatmentTime)*dt;
+
+posPerCondition = meta.posPerCondition;
 
 frame = {};
 cd(dataDir);
 saveResult = true;
 minNCells = 10; % minimal number of cells
 
-wellsWanted = 1:6;
+wellsWanted = 1:4;
 %wellsWanted = 4:8;
 colors = lines(numel(wellsWanted));
 
@@ -256,8 +272,13 @@ for wellidx = 1:numel(wellsWanted)
 %     else
 %         conditionPositions = 4*(wellnr-1)+1:4*wellnr;
 %     end
-
-    conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+    if loop4well
+        flipwell = 9-wellnr;
+        conditionPositions = [(posPerCondition/2)*(wellnr-1)+1:(posPerCondition/2)*wellnr...
+                              (posPerCondition/2)*(flipwell-1)+1:(posPerCondition/2)*flipwell];
+    else
+        conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
+    end
     
     ttraceCat = cat(1,positions.timeTraces);
     ttraceCat = ttraceCat(conditionPositions);
@@ -283,7 +304,7 @@ for wellidx = 1:numel(wellsWanted)
 
     %ratioMean = ratioMean -  baseline(wellnr) + mean(baseline);
     plot(t, ratioMean,'LineWidth',2,'Color',colors(wellidx,:))
-    ylim([0.5, 2]);
+    ylim([0.3, 1.8]);
 
     %plot(t, bgMean,'LineWidth',2,'Color',colors(wellidx,:))
     %plot(t, nucMean,'LineWidth',2,'Color',colors(wellidx,:))
@@ -305,9 +326,103 @@ for wellidx = 1:numel(wellsWanted)
     set(gca,'FontWeight', 'bold')
 end
 hold off
-%title('comparison');
+title('washing protocols for A10 pulses');
 set(gca,'FontSize', 16)
 legend(meta.conditions(wellsWanted));
 if saveResult
-    export_fig(['timeTrace_multipleConditions2.pdf'],'-native -m2');
+    export_fig(['timeTrace_multipleConditions.pdf'],'-native -m2');
+    saveas(gcf,'timeTrace_multipleConditions.fig');
 end
+
+%% combine ratio statistics of positions in each well
+
+pi = 1;
+ti = 1;
+wellsWanted = 1:meta.nWells;
+cellDataWells = cell([numel(wellsWanted) meta.nTime]);
+
+for wellidx = 1:numel(wellsWanted)
+    
+    wellnr = wellsWanted(wellidx);
+    conditionPositions = meta.posPerCondition*(wellnr-1)+1:meta.posPerCondition*wellnr;
+    
+    for i = 1:numel(conditionPositions)
+
+        for ti = 1:meta.nTime
+            pi = conditionPositions(i);    
+            CD = positions(pi).cellData(ti);
+            ratio = (CD.nucLevel - CD.background)./(CD.cytLevel - CD.background); 
+            cellDataWells{wellidx, ti} = cat(1,cellDataWells{wellidx,ti}, ratio);
+        end
+    end
+end
+
+%% time evolution of distribution in some well
+
+wi = 1;
+
+rmin = 0;
+rmax = 3;
+bins = linspace(rmin,rmax,50);
+clf 
+tidx = 1:4:80;
+colors = hsv(numel(tidx));
+hold on
+for ti = 1:numel(tidx)
+    n=histc(cellDataWells{wi,tidx(ti)}, bins);
+    plot(bins,n,'Color',colors(ti,:));
+end
+hold off
+xlim([rmin rmax]);
+
+%% compare late time distribution in different wells
+
+figure,
+ti = 1;
+
+rmin = 0;
+rmax = 3;
+bins = linspace(rmin,rmax,50);
+
+colors = [0 0 1; 0 0.5 0; 1 0 0; 1 0 0; 0 0.5 0; 0 0 1];
+clf 
+hold on
+
+for wi = 1:meta.nWells
+
+    n=histc(cellDataWells{wi,ti}, bins);
+    n = n./sum(n);
+    n = cumsum(n);
+    plot(bins,n,'Color', colors(wi,:));
+end
+hold off
+xlim([rmin rmax]);
+ylim([0 1]);
+
+legend(meta.conditions);
+
+%% integrals
+
+treatmentTime = 10;
+t = ((1:tmax) - treatmentTime)*dt;
+
+lateT = treatmentTime + 420/dt;
+
+F = ratioMean - min(ratioMean);
+I = cumsum(F*dt);
+
+Ipulse = I;
+Ipulse(lateT:end) = Ipulse(lateT);
+Ibase = mean(F(lateT:end))*t;
+
+thr = t/60;
+plot(thr,I)
+hold on
+plot(thr,Ibase,'r')
+plot(thr,Ipulse,'g')
+hold off
+xlim([thr(1) thr(end)]);
+xlabel('time (hours)');
+
+legend({'adaptive response','pulse','baseline'},'Location','SouthEast');
+title('integrated signal');
