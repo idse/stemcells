@@ -1,6 +1,6 @@
 Vinitial = 500;
 Vfinal = 1000;
-Cfinal = 3;
+Cfinal = 1;
 Nsteps = 10;
 %Cstock = 50*10^3;
 

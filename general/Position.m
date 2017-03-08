@@ -180,7 +180,7 @@ classdef Position < handle
             % this code tries both
             listing = dir(fullfile(dataDir,[barefname '*h5']));
             if isempty(listing)
-                s = strsplit(this.filename,'_.[0-9]+','DelimiterType','RegularExpression');
+                s = strsplit(this.filename,'_[fwptm][0-9]+','DelimiterType','RegularExpression');
                 barefname = sprintf([s{1} '_MIP_p%.4d'], this.ID-1);
                 listing = dir(fullfile(dataDir,[barefname '_*h5']));
             end
