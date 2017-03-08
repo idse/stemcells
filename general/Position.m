@@ -246,7 +246,7 @@ classdef Position < handle
             end
             
             % MIPidx is supposed to be single file for all times
-            startIndex = regexp(fname,'_.[0-9]+');
+            startIndex = regexp(fname,'_[fwptm][0-9]+');
             fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
 
             % if the channels were split in export, put in the channel index
