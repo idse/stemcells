@@ -3,7 +3,7 @@ warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
  
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-dataDir = '/Users/idse/data_tmp/170304_siSmad4Smad2';
+dataDir = '/Users/idse/data_tmp/170311_Smad2Dose';
 %dataDir = '/Users/idse/data_tmp/160901_smad2';
 %dataDir = '/Volumes/IdseData3/161009_Smad2FISH';
 %dataDir = '/Users/idse/data_tmp/161009_Smad2FISH';

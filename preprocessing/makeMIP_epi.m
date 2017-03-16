@@ -27,13 +27,14 @@ function [MIP, MIPidxtot] = makeMIP_epi(vsifile, position, channel, outputdir, s
     end
 
     MIP = zeros([r.getSizeY() r.getSizeX() tmax], 'uint16');
+    MIPidx = zeros([r.getSizeY() r.getSizeX() tmax], 'uint16');
     for ti = 1:tmax
         if r.getSizeZ() > 1
             im = zeros([r.getSizeY() r.getSizeX() r.getSizeZ()]);
             for zi = 1:r.getSizeZ()
-                im(:,:,zi) = bfGetPlane(r, r.getIndex(zi-1,ci,ti-1));
+                im(:,:,zi) = bfGetPlane(r, r.getIndex(zi-1,ci,ti-1)+1);
             end
-            MIP(:,:,ti) = max(im,[],3);
+            [MIP(:,:,ti), MIPidx(:,:,ti)] = max(im,[],3);
         else
             MIP(:,:,ti) = bfGetPlane(r, r.getIndex(0,ci,ti-1)+1);
         end
