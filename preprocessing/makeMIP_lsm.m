@@ -27,12 +27,15 @@ function [MIP, MIPidxtot] = makeMIP_lsm(inputdir, position, channel, outputdir, 
     pi = position;
 
     files = dir(fullfile(inputdir, tracks(pi+1).name, '*oif'));
+    s = strsplit(files(1).name,'_');
+    barefname = s{1};
+    
     MIP = zeros([meta.ySize meta.xSize tmax], 'uint16');
     MIPidxtot = zeros([meta.ySize meta.xSize tmax], 'uint16');
 
     for ti = 1:tmax
 
-        fname = fullfile(inputdir, tracks(pi+1).name, files(ti).name);
+        fname = fullfile(inputdir, tracks(pi+1).name, sprintf([barefname '_%.2d.oif'], ti));
         r = bfGetReader(fname);
 
         if r.getSizeZ() > 1

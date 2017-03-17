@@ -100,9 +100,20 @@ classdef Position < handle
             if ~exist('channels','var')
                 channels = 1:this.nChannels;
             end
-            fname = fullfile(dataDir, this.filename);
+            
             [~,~,ext] = fileparts(this.filename);
             
+            % the LSM stores each position in a subdirectory and each time
+            % in a separate file
+            if strcmp(ext, '.oif')
+                dataDir = fullfile(dataDir, sprintf('Track%.4d',this.ID));
+                s = strsplit(this.filename,'_');
+                this.filename = sprintf([s{1} '_%.2d.oif'], time);
+                time = 1;
+            end
+
+            fname = fullfile(dataDir, this.filename);
+
             if strcmp(ext,'.tif') || strcmp(ext,'.btf')
 
                 info = imfinfo(fname);
@@ -118,7 +129,7 @@ classdef Position < handle
                     error('todo : include reading for dynamic not Andor or epi');
                 end
                 
-            elseif strcmp(ext,'.vsi')
+            elseif strcmp(ext,'.vsi') || strcmp(ext, '.oif')
                 
                 r = bfGetReader(fname);
                 img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
@@ -129,13 +140,6 @@ classdef Position < handle
                 end
                 r.close();
                 img = squeeze(img);
-% OLD, probably obsolete (reads vsi, but can't deal with time)
-%             else
-%                 %img = readStack(fname);
-%                 xmin = []; ymin = []; xmax = []; ymax = [];
-%                 series = 1;
-%                 img_bf = bfopen_mod(fname,xmin,ymin,xmax-xmin+1,ymax-ymin+1,series,channels);
-%                 img = cat(3,img_bf{1}{:,1});
             end
             
             %disp(['loaded image ' fname]);
@@ -168,7 +172,7 @@ classdef Position < handle
             % just a convention, batchMIP_epi renames MIPs to Andor
             % convention with barefname the dataDir name, which is 
             % one level above /MIP
-            if strcmp(ext,'.vsi')
+            if strcmp(ext,'.vsi') || strcmp(ext,'.oif')
                 s = strsplit(dataDir,filesep);
                 barefname = sprintf([s{end-1}, '_MIP_p%.4d'], this.ID-1); 
             else
@@ -237,17 +241,24 @@ classdef Position < handle
                 time = 1;
             end
             
-            fname = this.filename;
-
-            % remove time part of filename:
-            [startIndex,endIndex]  = regexp(this.filename,'_t([0-9]+|%.4d)');
-            if ~isempty(startIndex)
-                fname = fname([1:startIndex-1 endIndex+1:end]);
-            end
+            [~,~,ext] = fileparts(this.filename);
             
-            % MIPidx is supposed to be single file for all times
-            startIndex = regexp(fname,'_[fwptm][0-9]+');
-            fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
+            if strcmp(ext,'.vsi') || strcmp(ext,'.oif')
+                
+                s = strsplit(dataDir,filesep);
+                fname = sprintf([s{end-1}, '_MIPidx_p%.4d.tif'], this.ID-1); 
+            else                
+                % remove time part of filename:
+                fname = this.filename;
+                [startIndex,endIndex]  = regexp(this.filename,'_t([0-9]+|%.4d)');
+                if ~isempty(startIndex)
+                    fname = fname([1:startIndex-1 endIndex+1:end]);
+                end
+
+                % MIPidx is supposed to be single file for all times
+                startIndex = regexp(fname,'_[fwptm][0-9]+');
+                fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
+            end
 
             % if the channels were split in export, put in the channel index
             if ~isempty(regexp(fname,'_w%.4d','once'))
