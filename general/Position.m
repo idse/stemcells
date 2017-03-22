@@ -174,7 +174,7 @@ classdef Position < handle
             % one level above /MIP
             if strcmp(ext,'.vsi') || strcmp(ext,'.oif')
                 s = strsplit(dataDir,filesep);
-                barefname = sprintf([s{end-1}, '_MIP_p%.4d'], this.ID-1); 
+                barefname = sprintf([s{end-1}, '_MIP_p%.4d'], this.ID-1)
             else
                 s = strsplit(this.filename,'_.%\.4d|\.','DelimiterType','RegularExpression');            
                 barefname = s{1};

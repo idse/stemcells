@@ -12,6 +12,8 @@ function dataCombined = combineQPCR(dataDir, filenames, tolerance)
         
         targetsComb = unique(cat(1,targetsComb,data{i}.targets),'stable');
         samplesComb = unique(cat(1,samplesComb,data{i}.samples),'stable');
+        
+        data{i}
     end
 
     %data{1}.targets{3} = 'NANOG';
