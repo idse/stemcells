@@ -145,7 +145,7 @@ classdef Position < handle
             %disp(['loaded image ' fname]);
         end
 
-        function seg = loadSegmentation(this, dataDir, channel)
+        function seg = loadSegmentation(this, dataDir, channel, segfileformat)
             % load segmentation
             %
             % seg = loadSegmentation(dataDir, channel)
@@ -166,60 +166,109 @@ classdef Position < handle
             if ~exist('channel','var')
                 error('please provide channel');
             end
-            
+
             [~,~,ext] = fileparts(this.filename);
             
-            % just a convention, batchMIP_epi renames MIPs to Andor
-            % convention with barefname the dataDir name, which is 
-            % one level above /MIP
-            if strcmp(ext,'.vsi') || strcmp(ext,'.oif')
-                s = strsplit(dataDir,filesep);
-                barefname = sprintf([s{end-1}, '_MIP_p%.4d'], this.ID-1)
+            if exist('segfileformat','var')
+                
+                fname = sprintf(segfilenameformat, channel-1);
             else
+                % guessing filename based on conventions
+                %------------------------------------------
+                
+%                 % convention, batchMIP_epi renames MIPs to Andor
+%                 % convention with barefname the dataDir name, which is 
+%                 % one level above /MIP
+%                 if strcmp(ext,'.vsi') || strcmp(ext,'.oif')
+%                     s = strsplit(dataDir,filesep);
+%                     barefname = sprintf([s{end-1}, '_MIP_p%.4d'], this.ID-1);
+%                 else
+%                     s = strsplit(this.filename,'_.%\.4d|\.','DelimiterType','RegularExpression');            
+%                     barefname = s{1};
+%                 end
+% 
+%                 % for dynamic data the raw data will usually be a MIP
+%                 % this code tries both
+%                 listing = dir(fullfile(dataDir,[barefname '*h5']));
+%                 if isempty(listing)
+%                     s = strsplit(this.filename,'_[fwptm][0-9]+','DelimiterType','RegularExpression');
+%                     barefname = sprintf([s{1} '_MIP_p%.4d'], this.ID-1);
+%                     listing = dir(fullfile(dataDir,[barefname '_*h5']));
+%                 end
+%                 if isempty(listing)
+%                     error(['segmentation ' [barefname '*h5'] ' for channel ' num2str(channel) ' not found in ' dataDir]);
+%                 end
+% 
+%                 fname = [];
+%                 for i = 1:numel(listing)
+%                     % DON'T COMMENT THE IF STATEMENT BELOW, IT WILL LOAD THE WRONG
+%                     % CHANNEL
+%                     if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
+%                             || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
+% 
+%                         fname = fullfile(dataDir,listing(i).name);
+%                     end
+%                 end
+  
+                barefname = {};
+                
+                % convention, batchMIP_epi renames MIPs to Andor
+                % convention with barefname the dataDir name, which is 
+                % one level above /MIP
+                s = strsplit(dataDir,filesep);
+                barefname{1} = sprintf([s{1}  '_MIP_p%.4d'], this.ID-1);
+
                 s = strsplit(this.filename,'_.%\.4d|\.','DelimiterType','RegularExpression');            
-                barefname = s{1};
-            end
-            
-            % for dynamic data the raw data will usually be a MIP
-            % this code tries both
-            listing = dir(fullfile(dataDir,[barefname '*h5']));
-            if isempty(listing)
+                barefname{2} = s{1};
+                
                 s = strsplit(this.filename,'_[fwptm][0-9]+','DelimiterType','RegularExpression');
-                barefname = sprintf([s{1} '_MIP_p%.4d'], this.ID-1);
-                listing = dir(fullfile(dataDir,[barefname '_*h5']));
-            end
-            if isempty(listing)
-                error(['segmentation ' [barefname '*h5'] ' for channel ' num2str(channel) ' not found in ' dataDir]);
-            end
+                barefname{3} = sprintf([s{1}  '_MIP_p%.4d'], this.ID-1);
 
-            seg = [];
-            
-            for i = 1:numel(listing)
-                % DON'T COMMENT THE IF STATEMENT BELOW, IT WILL LOAD THE WRONG
-                % CHANNEL
-                if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
-                        || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
+                % find the first barefname for which there is an h5 file
+                i = 0;
+                listing = [];
+                while(isempty(listing))
+                    i = i+1;
+                    if i > numel(barefname)
+                        error(['segmentation ' [barefname '*h5'] ' for channel ' num2str(channel) ' not found in ' dataDir]);
+                    else
+                        listing = dir(fullfile(dataDir,[barefname{i} '*h5']));    
+                    end
+                end
 
-                    fname = fullfile(dataDir,listing(i).name);
-                    seg = h5read(fname, '/exported_data');
-                    % Probabilities
-                    if size(seg,1) > 1 
-                        ssegsize = size(seg);
-                        ssegsize(1) = 1;
-                        simpleseg = false(ssegsize);
-                        simpleseg(seg(2,:,:,:) >= 0.5) = true;
-                        seg = squeeze(simpleseg);
-                        
-                    % Simple Segmentation
-                    else                
-                        seg = squeeze(seg == 2);
+                fname = [];
+                for i = 1:numel(listing)
+                    % DON'T COMMENT THE IF STATEMENT BELOW, IT WILL LOAD THE WRONG
+                    % CHANNEL
+                    if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
+                            || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
+
+                        fname = fullfile(dataDir,listing(i).name);
                     end
                 end
             end
             
-            if isempty(seg)
+            % actually reading the file
+            %----------------------------
+            
+            if ~exist(fname,'file')
+                
                 warning(['segmentation for channel ' num2str(channel) ' not found in ' dataDir, ', may be naming convention problem']);
+                seg = [];
+                
             else
+                seg = h5read(fname, '/exported_data');
+                % Probabilities
+                if size(seg,1) > 1 
+                    ssegsize = size(seg);
+                    ssegsize(1) = 1;
+                    simpleseg = false(ssegsize);
+                    simpleseg(seg(2,:,:,:) >= 0.5) = true;
+                    seg = squeeze(simpleseg);
+                % Simple Segmentation
+                else                
+                    seg = squeeze(seg == 2);
+                end
                 % Ilastik output data has xy transposed
                 seg = permute(seg, [2 1 3]);
                 disp(['loaded segmentation ' fname]);
