@@ -97,9 +97,11 @@ def pulsesetup(numpulses, pulselength, waitlength, numwashes = 5, washinterval =
         countdown(pulselength*MINUTE)
 
         print ("Pulse done, starting washes")
+        
         #initial quick wash after pulse
         wash(MEDIA_VOL, IN_SPD, OUT_SPD)
         time.sleep(DRAINWAIT)
+        
         #slower washes
         for k in range(numwashes):
 

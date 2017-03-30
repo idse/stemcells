@@ -8,6 +8,11 @@ filelist = {'Process_1918.vsi','Process_1919.vsi','Process_1920.vsi','Process_19
 vsifile = fullfile(dataDir,filelist{1});
 [~,barefname,~] = fileparts(vsifile);
 
+resultsDir = fullfile(dataDir,'results');
+if ~exist(resultsDir,'dir')
+    mkdir(resultsDir);
+end
+
 % TODO : local normalization by DAPI
 
 % metadata
@@ -31,6 +36,10 @@ Ilim = {[100 2^16-1],[100 1500],[100 2000],[100 500]};
 
 %% load data for parameter check
 
+fi = 1;
+vsifile = fullfile(dataDir,filelist{fi});
+[~,barefname,~] = fileparts(vsifile);
+
 n = 1;
 m = 2;
 ymin = n*2048;
@@ -48,14 +57,14 @@ for ci = 1:numel(dataChannels)
     preview{ci} = img_bf{1}{dataChannels(ci),1};                    
     preview8bit{ci} = uint8((2^8-1)*mat2gray(preview{ci}, Ilim{dataChannels(ci)}));
 end
-filename = fullfile(dataDir, 'preview', [barefname '_RGBpreview.tif']);
-imwrite(cat(3,preview8bit{:}), filename);
 
-imshow(cat(3,preview8bit{:}))
+previewChannels = 1:3;
+filename = fullfile(dataDir, 'preview', [barefname '_RGBpreview.tif']);
+imwrite(cat(3,preview8bit{previewChannels}), filename);
+imshow(cat(3,preview8bit{previewChannels}))
 
 %% load segmentation to test parameters
 
-fi = 1;
 vsifile = fullfile(dataDir, filelist{fi});
 P = Position(meta.nChannels, vsifile, meta.nTime);
 P.setID(pi);
@@ -67,7 +76,7 @@ segpart = seg(xmin:xmax, ymin:ymax);
 % externally I will have all indices starting at 1
 % the Andor offset to start at 0 will be internal
 
-opts = struct(  'cytoplasmicLevels',    true,... 
+opts = struct(  'cytoplasmicLevels',    false,... 
                     'dataChannels',     1:meta.nChannels,... 
                     'tMax',             meta.nTime,...
                     'segmentationDir',  fullfile(dataDir,'MIP'),...
@@ -85,21 +94,25 @@ segpartclean = nuclearCleanup(segpart, opts.cleanupOptions);
 % visualize
 s = 0.2;
 nucim = mat2gray(preview8bit{dataChannels==nucChannel});
-figure, imshow(cat(3,   nucim + s*mat2gray(segpartclean),...
+
+RGBsegCheck = cat(3,   nucim + s*mat2gray(segpartclean),...
                         nucim,...
-                        nucim + s*segpart(:,:,time)))
+                        nucim + s*segpart);
+figure, imshow(RGBsegCheck)
+
+filename = fullfile(resultsDir, [barefname 'segCheck.tif']);
+imwrite(RGBsegCheck, filename);
 
 %% process data for first image
-
 debugInfo = P.extractData(dataDir, nucChannel, opts);
 
 nucmaskpart = debugInfo.nucmask(xmin:xmax, ymin:ymax);
 figure, imshow(cat(3,   nucim + s*nucmaskpart,...
                         nucim,...
-                        nucim + s*segpart(:,:,time)))
+                        nucim + s*segpart))
                     
 % save
-save(fullfile(dataDir, [barefname '_positions.mat']),'P');
+save(fullfile(resultsDir, [barefname '_positions.mat']),'P');
 
 %% scatter cell locations on top of part of preview to check result
 
@@ -111,12 +124,12 @@ XY = XY(inpreview,:);
 
 imshow(nucim,[])
 hold on
-scatter(XY(:,1) - xmin,XY(:,2) - ymin, '.r');
+scatter(XY(:,1) - xmin,XY(:,2) - ymin, 200, '.r');
 hold off
 
 %% process the other images
 
-for fi = 1:numel(filelist)
+for fi = 2:numel(filelist)
     
     vsifile = fullfile(dataDir, filelist{fi});
     [~,barefname,~] = fileparts(vsifile);
@@ -125,93 +138,157 @@ for fi = 1:numel(filelist)
     P.setID(pi);
     P.extractData(dataDir, nucChannel, opts);
 
-    save(fullfile(dataDir, [barefname '_positions.mat']),'P');
+    save(fullfile(resultsDir, [barefname '_positions.mat']),'P');
 end
 
-%% load processed data for all files in the file list
+%% make distributions
 
-allData = {};
-nucLevelAll = [];
+% make distributions out of processed data
+stats = getStats(dataDir, filelist); % not normalized
+% stats = getStats(dataDir, filelist, nucChannel); % normalized
+stats.channelLabel = meta.channelLabel;
+stats.conditions = meta.conditions;
 
-for i = 1:numel(filelist)
+%% plot distributions
 
-    vsifile = fullfile(dataDir,filelist{i});
-    [~,barefname,~] = fileparts(vsifile);
+% overlay of the distribution of different conditions
+for channelIndex = markerChannels
 
-    load(fullfile(dataDir, [barefname '_positions.mat']));
-    allData{i} = P;
+    plotDistribution(stats, channelIndex)
+
+    filename = fullfile(resultsDir,...
+            ['distOverlay_' meta.channelLabel{channelIndex}]);
+    saveas(gcf, filename);
+    saveas(gcf, [filename '.png']);
     
-    N = P.cellData.nucLevel(:,nucChannel);
-    nucLevel = bsxfun(@rdivide, P.cellData.nucLevel, N);
-    nucLevelAll = cat(1, nucLevelAll, nucLevel);
-end
+    cumulative = true;
+    plotDistribution(stats, channelIndex, cumulative)
 
-% determine limits for displaying intensities
-tol = 0.001;
-lim = {};
-for i = 1:meta.nChannels
-    A = nucLevelAll(:,i);
-    lim{i} = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
-end
-
-%% histogram of different channels
-% for w2_E6-CHIR-Act.vsi we see low nanog levels but many saturating sox17 cells
-
-for fi = 1:numel(filelist)
-    
-    vsifile = fullfile(dataDir,filelist{fi});
-    [~,barefname,~] = fileparts(vsifile);
-    
-    p = allData{fi};    
-    N = p.cellData.nucLevel(:,nucChannel);
-    nucLevel = bsxfun(@rdivide, p.cellData.nucLevel, N);
-
-    for channelIndex = markerChannels
-
-        bins = linspace(0,lim{channelIndex}(2),40);
-        n = histc(nucLevel(:,channelIndex), bins);
-        bar(bins,n)
-        axis([bins(1) bins(end) 0 max(n)]);
-
-    %    hist(p.cellData.nucLevel(:,channelIndex), 40)
-        title(meta.channelLabel{channelIndex})
-        filename = fullfile(dataDir, [barefname '_distribution_' meta.channelLabel{channelIndex}]);
-        saveas(gcf, filename);
-        saveas(gcf, [filename '.png']);
-    end
+    filename = fullfile(resultsDir,...
+            ['cumdistOverlay_' meta.channelLabel{channelIndex}]);
+    saveas(gcf, filename);
+    saveas(gcf, [filename '.png']);
 end
 
 %% scatter plots of markers against each other
 
 %markerChannels = setdiff(dataChannels, nucChannel);
+fs = 15;
 
 for fi = 1:numel(filelist)
+    
+    for ci1 = 1:numel(markerChannels);
+        for ci2 = ci1+1:numel(markerChannels)
 
-    vsifile = fullfile(dataDir,filelist{fi});
-    [~,barefname,~] = fileparts(vsifile);
-
-    p = allData{fi};
-
-    for channelIdx1 = 2:4;
-        for channelIdx2 = channelIdx1+1:4
-
-            N = p.cellData.nucLevel(:,nucChannel);
-            A = p.cellData.nucLevel(:,channelIdx1)./N;
-            B = p.cellData.nucLevel(:,channelIdx2)./N;
-
-            scatter(A, B,'.');
-            xlabel(meta.channelLabel{channelIdx1})
-            ylabel(meta.channelLabel{channelIdx2})
-            title(filelist{fi},'Interpreter','none');
+            c1 = markerChannels(ci1);
+            c2 = markerChannels(ci2);
             
-            axis([0 lim{channelIdx1}(2) 0 lim{channelIdx2}(2)]);
+            A = stats.nucLevel{fi}(:,c1);
+            B = stats.nucLevel{fi}(:,c2);
 
-            filename = fullfile(dataDir, [barefname '_scatter_' meta.channelLabel{channelIdx1} '_' meta.channelLabel{channelIdx2}]);
+            scatter(A, B,1,'.');
+            xlabel(meta.channelLabel{c1}, 'FontSize',fs, 'FontWeight','Bold');
+            ylabel(meta.channelLabel{c2}, 'FontSize',fs, 'FontWeight','Bold');
+            title([meta.conditions{fi} '      (' filelist{fi} ')'],...
+                'Interpreter','none', 'FontSize',fs, 'FontWeight','Bold');
+            
+            axis([stats.lim{c1}' stats.lim{c2}']);
+
+            set(gcf,'color','w');
+            set(gca, 'LineWidth', 2);
+            set(gca,'FontSize', fs)
+            set(gca,'FontWeight', 'bold')
+
+            filename = fullfile(resultsDir, ['scatter_' meta.channelLabel{c1} '_' meta.channelLabel{c2} '_' barefname]);
             saveas(gcf, filename);
             saveas(gcf, [filename '.png']);
         end
     end
 end
+
+
+%% try clustering in 2D
+
+k = 2;
+fi = 1;
+c1 = 1; c2 = 4;
+X = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
+for fi = 2:4
+    X = cat(1,X,[stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)]);
+end
+
+% % % kmeans -> doesn't work well
+% seeds = kseeds(X',k);
+% y = kmeans(X',seeds);
+
+% % Gaussian mixture
+%N = 5000;
+%idx = round((length(X)-1)*rand([N 1])+1);
+%X = X(idx,:);
+
+[y,model,llh] = mixGaussEm(X',k);
+%kmax = 3;
+%[y, model, L] = mixGaussVb(X',kmax);
+scatter(X(:,1), X(:,2), 1, y,'.');
+axis([stats.lim{c1}' stats.lim{c2}']);
+hold on
+scatter(model.mu(1,:),model.mu(2,:),100,'.g');
+%scatter(bla.mu(1,:),bla.mu(2,:),100,'.c');
+hold off
+
+%% conditional prob based on cluster
+
+fi = 2;
+ci = 2;
+X = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
+y = mixGaussPred(X',model);
+% scatter(X(:,1), X(:,2), 1, y,'.');
+% axis([stats.lim{c1}' stats.lim{c2}']);
+
+bins = linspace(stats.lim{c2}(1),stats.lim{c2}(2),50);
+[n,bins] = hist(X(:,ci),bins);
+[n1,bins] = hist(X(y==1,ci),bins);
+n2 = hist(X(y==2,ci),bins);
+n1 = n1./(sum(n1)+sum(n2));
+n2 = n2./(sum(n1)+sum(n2));
+n = n./sum(n);
+plot(bins, n)
+hold on
+plot(bins, n1,'g')
+plot(bins, n2,'r')
+hold off
+
+%% conditional probabilities
+
+fi = 1;
+ci = 1;
+n = stats.histograms{fi, ci};
+bins = stats.bins{fi,ci};
+dist = n./sum(n);
+cumdist = cumsum(n./sum(n));
+i = find(cumdist > 0.99, 1, 'first');
+thresh = bins(i);
+
+%%
+fi = 1;
+ci = 2;
+
+X = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
+y = 1 + (X(:,1) > thresh);
+
+bins = linspace(stats.lim{c2}(1),stats.lim{c2}(2),50);
+[n,bins] = hist(X(:,ci),bins);
+
+[n1,bins] = hist(X(y==1,ci),bins);
+n2 = hist(X(y==2,ci),bins);
+n1 = n1./(sum(n1)+sum(n2));
+n2 = n2./(sum(n1)+sum(n2));
+n = n./sum(n);
+plot(bins, n)
+hold on
+plot(bins, n1,'g')
+plot(bins, n2,'r')
+hold off
 
 %% determine fraction of sox17+ etc
 

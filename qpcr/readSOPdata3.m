@@ -39,7 +39,12 @@ function data = readSOPdata3(filename, tolerance)
 
     CTmean = zeros([Nsamples Ntargets]);
     CTstd = zeros([Nsamples Ntargets]);
-
+    
+    outliers = false([Nsamples Ntargets]);
+    highstd = false([Nsamples Ntargets]);
+    CTmeanRaw = zeros([Nsamples Ntargets]);
+    CTstdRaw = zeros([Nsamples Ntargets]);
+    
 	for si = 1:Nsamples
         for ti = 1:Ntargets
 
@@ -48,21 +53,29 @@ function data = readSOPdata3(filename, tolerance)
                 %disp([samples{si} '; ' targets{ti}]);
                 CT = str2double(rawdata(ind,Ccoli(1)));
                 CTstd(si,ti) = std(CT);
-                if CTstd(si,ti) < 0.5
+                if CTstd(si,ti) < tolerance
                     CTmean(si,ti) = mean(CT);
                 else
                     M = distmat(CT);
-                    good = ~all(M == 0 | M > tolerance);
+                    good = ~all(M == 0 | M > tolerance | isnan(M));
                     if ~any(good)
                         disp(['std too high for: ' samples{si} ', ' targets{ti}]);
-                        %CTmean(si,ti) = NaN;
-                        CTmean(si,ti) = mean(CT);
-                        %[si ti]
+                        disp(['CT: ' num2str(CT',3)]);
+                        
+                        CTmean(si,ti) = nanmean(CT);
+                        CTstd(si,ti) = nanstd(CT);
+                        highstd(si,ti) = true;
+                        
                     else
                         disp(['excluding outlier for: ' samples{si} ', ' targets{ti}]);
+                        disp(['CT: ' num2str(CT',3)]);
+                        
                         CTmean(si,ti) = mean(CT(good));
                         CTstd(si,ti) = std(CT(good));
-                        [si ti]
+                        
+                        outliers(si, ti) = true;
+                        CTmeanRaw(si,ti) = nanmean(CT);
+                        CTstdRaw(si,ti) = nanstd(CT);
                     end
                 end
             end
@@ -70,6 +83,8 @@ function data = readSOPdata3(filename, tolerance)
     end
 
     data = struct('rawdata',{rawdata},...
-        'targets',{targets},'samples',{samples},'CT',CTmean,'CTstd',CTstd,...
-        'Nsamples', Nsamples, 'Ntargets', Ntargets);
+        'targets',{targets},'samples',{samples},'CTmean',CTmean,'CTstd',CTstd,...
+        'Nsamples', Nsamples, 'Ntargets', Ntargets,...
+        'outliers', outliers, 'highstd', highstd,...
+        'CTmeanRaw', CTmeanRaw, 'CTstdRaw', CTstdRaw);
 end
