@@ -40,7 +40,7 @@ function img = readStack(fullfname, channels)
 
     if strcmp(ext,'.tif') || strcmp(ext,'.btf')
 
-        info = imfinfo(fname);
+        info = imfinfo(fullfname);
         w = info.Width;
         h = info.Height;
 

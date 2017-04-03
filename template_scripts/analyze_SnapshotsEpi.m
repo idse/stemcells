@@ -211,40 +211,65 @@ end
 %% try clustering in 2D
 
 k = 2;
-fi = 3;
+fi = 1;
 c1 = 1; c2 = 4;
 X = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
 for fi = 2:4
     X = cat(1,X,[stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)]);
 end
 X(X(:,2) > stats.lim{c1}(1),:) = [];
-scatter(X(:,1), X(:,2), 1, '.');
+%scatter(X(:,1), X(:,2), 1, '.');
 
-%%
+Xnorm = X;
 for i = 1:2
-    X(:,i) = X(:,i)./max(X(:,i));
+    Xnorm(:,i) = Xnorm(:,i)./max(Xnorm(:,i));
 end
 
 % % % kmeans -> doesn't work well
-%y = kmeans(X,2);
+%y = kmeans(X,k);
 
-% % Gaussian mixture
-%N = 5000;
-%idx = round((length(X)-1)*rand([N 1])+1);
-%X = X(idx,:);
+%% Gaussian mixture
 
-%[y,model,llh] = mixGaussEm(X',k);
-%kmax = 3;
-%[y, model, L] = mixGaussVb(X',kmax);
-scatter(X(:,1), X(:,2), 1, y,'.');
-%xlim([stats.lim{c1}(1)*0.1  stats.lim{c1}(2)*1.1]);
+gmfit = fitgmdist(Xnorm,k,'CovarianceType','full','SharedCovariance',false,...
+        'RegularizationValue', 10^(-3));
+%gmfit = fitgmdist(X,k,'CovarianceType','full','SharedCovariance',false);
+[y, ~, P, logpdf] = cluster(gmfit,Xnorm);
+idx = logpdf>-10;
+scatter(X(idx,1), X(idx,2), 1, y(idx),'.');
+%xlim([stats.lim{c1}(1)  stats.lim{c1}(2)]);
 %ylim(stats.lim{c2}');
+% convex hull of clusters
+
+hold on 
+for i=1:max(y)
+    Xc = X(idx & y==i,:);
+    K = convhull(Xc(:,1),Xc(:,2));
+    plot(Xc(K,1),Xc(K,2));
+end
+hold off 
+
+%% per condition
+
+fi = 4;
+Xc = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
+size(Xc)
+Xcnorm = Xc;
+for i = 1:2
+    Xcnorm(:,i) = Xcnorm(:,i)./max(Xcnorm(:,i));
+end
+[y, nlogl, P, logpdf] = cluster(gmfit,Xcnorm);
+% idx = logpdf>-10;
+idx = y>0;
+scatter(Xc(idx,1), Xc(idx,2), 1, y(idx),'.');
+xlim([stats.lim{c1}(1)  stats.lim{c1}(2)]);
+ylim(stats.lim{c2}');
 % hold on
 % scatter(model.mu(1,:),model.mu(2,:),100,'.g');
 % %scatter(bla.mu(1,:),bla.mu(2,:),100,'.c');
 % hold off
 
-%%
+%% try hierarchical clustering -> scales poorly
+
 N = 10000;
 idx = round((length(X)-1)*rand([N 1])+1);
 Xred = X(idx,:);
@@ -252,12 +277,26 @@ for i = 1:2
     Xred(:,i) = Xred(:,i)./max(Xred(:,i));
 end
 
-%%
-Z = linkage(Xred,'ward','euclidean');
-T = cluster(Z,'maxclust',2);
-dendrogram(Z)
+% Z = linkage(Xred,'ward','euclidean');
+% T = cluster(Z,'maxclust',2);
+
+Z = linkage(Xred,'average','euclidean');
+T = cluster(Z,'cutoff',0.4,'criterion','distance');%
 scatter(Xred(:,1),Xred(:,2),20,T,'.')
-%figure, hist(T)
+
+% T = cluster(Z,'maxclust',2);
+bins = unique(T);
+n = hist(T,bins);
+
+outliers = bins(n<20);
+for i = 1:numel(outliers)    
+    Xred(T == outliers(i),:) = [];
+    T(T == outliers(i),:) = [];
+end
+
+%dendrogram(Z)
+clf
+scatter(Xred(:,1),Xred(:,2),20,T,'.')
 
 %% conditional prob based on cluster
 
