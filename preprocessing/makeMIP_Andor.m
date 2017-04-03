@@ -68,7 +68,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
                 end
             end
             tic
-            stack = readStack(fullfile(inputdir,fname), 1:meta.nChannels);
+            stack = readStack(fullfile(inputdir,fname));
             toc
 
             % make MIP
