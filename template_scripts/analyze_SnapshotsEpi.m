@@ -104,6 +104,7 @@ filename = fullfile(resultsDir, [barefname 'segCheck.tif']);
 imwrite(RGBsegCheck, filename);
 
 %% process data for first image
+
 debugInfo = P.extractData(dataDir, nucChannel, opts);
 
 nucmaskpart = debugInfo.nucmask(xmin:xmax, ymin:ymax);
@@ -210,31 +211,53 @@ end
 %% try clustering in 2D
 
 k = 2;
-fi = 1;
+fi = 3;
 c1 = 1; c2 = 4;
 X = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
 for fi = 2:4
     X = cat(1,X,[stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)]);
 end
+X(X(:,2) > stats.lim{c1}(1),:) = [];
+scatter(X(:,1), X(:,2), 1, '.');
+
+%%
+for i = 1:2
+    X(:,i) = X(:,i)./max(X(:,i));
+end
 
 % % % kmeans -> doesn't work well
-% seeds = kseeds(X',k);
-% y = kmeans(X',seeds);
+%y = kmeans(X,2);
 
 % % Gaussian mixture
 %N = 5000;
 %idx = round((length(X)-1)*rand([N 1])+1);
 %X = X(idx,:);
 
-[y,model,llh] = mixGaussEm(X',k);
+%[y,model,llh] = mixGaussEm(X',k);
 %kmax = 3;
 %[y, model, L] = mixGaussVb(X',kmax);
 scatter(X(:,1), X(:,2), 1, y,'.');
-axis([stats.lim{c1}' stats.lim{c2}']);
-hold on
-scatter(model.mu(1,:),model.mu(2,:),100,'.g');
-%scatter(bla.mu(1,:),bla.mu(2,:),100,'.c');
-hold off
+%xlim([stats.lim{c1}(1)*0.1  stats.lim{c1}(2)*1.1]);
+%ylim(stats.lim{c2}');
+% hold on
+% scatter(model.mu(1,:),model.mu(2,:),100,'.g');
+% %scatter(bla.mu(1,:),bla.mu(2,:),100,'.c');
+% hold off
+
+%%
+N = 10000;
+idx = round((length(X)-1)*rand([N 1])+1);
+Xred = X(idx,:);
+for i = 1:2
+    Xred(:,i) = Xred(:,i)./max(Xred(:,i));
+end
+
+%%
+Z = linkage(Xred,'ward','euclidean');
+T = cluster(Z,'maxclust',2);
+dendrogram(Z)
+scatter(Xred(:,1),Xred(:,2),20,T,'.')
+%figure, hist(T)
 
 %% conditional prob based on cluster
 

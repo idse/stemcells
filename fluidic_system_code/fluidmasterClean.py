@@ -3,11 +3,13 @@
     collects cleaned up version of code used in experiments
     """
 
+# for python2 compatibility
+from __future__ import print_function
+
 ## We need these modules
 import time
 import datetime
 import drive
-import tkinter as tk
 
 ## Set up the serial connection
 drive.setup("/dev/cu.usbmodem1411",9600) # (port number,baud rate), e.g. COM11 on Windows or /dev/cu.usbmodem1411 on Mac
@@ -58,6 +60,7 @@ def pulsesetup(numpulses, pulselength, waitlength, numwashes = 5, washinterval =
     IN_SPD = 100
     LIG_VOL = 60
     MEDIA_VOL = 600
+    WASH_VOL = 500;
 
     MINUTE = 60/speedup; # minutes = 60 seconds unless testing is provided
     WASHINTERVAL = 5; # time between washes in in minutes
@@ -67,7 +70,7 @@ def pulsesetup(numpulses, pulselength, waitlength, numwashes = 5, washinterval =
     # SHOW ESTIMATED TIME AND VOLUME, GIVE 30 SECONDS TO ABORT
 
     # total experiment volume in microliter
-    Vpercycle = (numwashes + 2)*MEDIA_VOL + LIG_VOL;
+    Vpercycle = (numwashes + 1)*WASH_VOL + MEDIA_VOL + LIG_VOL;
     Vtot = Vpercycle*numpulses;
 
     # total experiment time in hours
@@ -85,7 +88,7 @@ def pulsesetup(numpulses, pulselength, waitlength, numwashes = 5, washinterval =
 
         print ("\nPulse "+str(i+1))
 
-        #initial drain
+        # initial drain
         print ("Draining")
         drive.m2(OUT, MEDIA_VOL + 50, OUT_SPD)
         time.sleep(DRAINWAIT)
@@ -98,15 +101,18 @@ def pulsesetup(numpulses, pulselength, waitlength, numwashes = 5, washinterval =
 
         print ("Pulse done, starting washes")
         
-        #initial quick wash after pulse
+        # initial quick wash after pulse
+        # - first take out difference between media and wash vol (so we can use smaller wash vol)
+        drive.m2(OUT, MEDIA_VOL - WASH_VOL, OUT_SPD)
+        # - then do initial quickwash
         wash(MEDIA_VOL, IN_SPD, OUT_SPD)
         time.sleep(DRAINWAIT)
         
-        #slower washes
+        # slower washes
         for k in range(numwashes):
 
             print ("Wash " + str(k+1) + " of " + str(numwashes) + "              ")
-            wash(MEDIA_VOL, IN_SPD, OUT_SPD)
+            wash(WASH_VOL, IN_SPD, OUT_SPD)
             countdown(WASHINTERVAL*MINUTE)
 
         # wait until next pulse
