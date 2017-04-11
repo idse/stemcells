@@ -31,7 +31,7 @@ def wash(volume, inspd, outspd):
 def swish(times, volume, spd):
     """
         uses the waste pump to successively remove and add liquid three times in a row.
-        """
+    """
     drive.m2(0,volume, spd)
     drive.m2(1,volume, spd)
     drive.m2(0,volume, spd)
@@ -40,10 +40,16 @@ def swish(times, volume, spd):
     drive.m2(1,volume, spd)
 
 def ramp_step_setup(duration, initial_volume, steps, final_concentration, testing=60):
+    """
+    We have not been able to get this code to work because of the problem with mixing
+    Swishing did not fix the issue because air and bubbles would get trapped in the swish
+    line and the water used to swish would sometimes get mixed in with the cells
+    """
+
     MEDIA_OUT_SPD = 500
     LIGAND_OUT_SPD = 20
     MEDIA_VOL = 80
-    SWISH_SPD = 200
+    SWISH_SPD = 100
 
     #---------------------
     total_volume = initial_volume
@@ -68,53 +74,80 @@ def ramp_step_setup(duration, initial_volume, steps, final_concentration, testin
         drive.m2(0,int(total_volume),SWISH_SPD)
         time.sleep(5)
         #800 is the estimated tube volume so 600 to be safe
-        drive.m2(1,int(total_volume)+600/steps, SWISH_SPD)
+        drive.m2(1,int(int(total_volume)+600/steps), SWISH_SPD)
         #sleep
-        print("Sleeping for "+str(int(duration/steps)) + " seconds")
+        print("Sleeping for " + str(int(duration/steps)) + " seconds")
         time.sleep(int(duration/steps))
     print ("p= "+str(past_lig))
 
 
-        
+def ramp_wash_setup(duration, initial_volume ,steps, final_concentration):  
 
-        
+    MEDIA_IN_SPD = 200
+    LIGAND_OUT_SPD = 20
+    MEDIA_OUT_SPD = 50
+    OUT_OFFSET = 40
+    #Assumed that initial volume is constant total volume
+    #-------------------
+    for i in range(steps):
+        print ("Step"+str(i))
+        #Take off old media
+        drive.m2(0, int(initial_volume)+OUT_OFFSET, MEDIA_OUT_SPD)
+        #delay for continued suction
+        time.sleep(int(int(initial_volume)*1/float(MEDIA_OUT_SPD)))
+        print ("wait for old media")
+        time.sleep(5)
+        #Calculate new concentration
+        partial_concentration = (i+1)*float(final_concentration)/(steps)
+        in_lig = int(partial_concentration*initial_volume)
+        print (in_lig)
+        in_med = initial_volume-in_lig
+        #Pump out ligand
+        drive.m3(1, in_lig, LIGAND_OUT_SPD)
+        time.sleep(5)
+        #Pump out media
+        drive.m1(1, in_med, MEDIA_IN_SPD)
+        print ("------End of step------")
+        print ("Wating "+str(int(duration/float(steps)))+"s for the next step")
+        time.sleep(int(duration/float(steps)))
 
 
 
 
-def ramp_setup(iterations, duration, volume, testing=60):
+# def ramp_setup(iterations, duration, volume, testing=60):
+    """
+    This function did not work because there was no mixing involved
+    """
+#     OUT_SPD = 50
+#     IN_SPD = 500
+#     MEDIA_VOL = 500
+#     #The amount of liquid used to flush each mini-pulse (40 minimum)
+#     RAMP_WASH_VOL = 40
     
-    OUT_SPD = 50
-    IN_SPD = 500
-    MEDIA_VOL = 500
-    #The amount of liquid used to flush each mini-pulse (40 minimum)
-    RAMP_WASH_VOL = 40
-    
-    #------------------------
-    for i in range(iterations):
-        #initial drain
-        drive.m2(0,MEDIA_VOL+100, OUT_SPD)
-        time.sleep(30)
-        drive.m1(1,MEDIA_VOL-volume*2, OUT_SPD)
-        time.sleep(30)
-        for k in range(duration):
-            inc_vol = volume/float(duration)
-            drive.m3(1, int(inc_vol), int(inc_vol/2.0))
-            drive.m1(1, 40, int(inc_vol/2.0))
-            time.sleep(1)
-        #washes
-        for k in range(6):
-            print ("\nSwish/Wash" + str(k))
-            # swish(3,500,250)
-            wash(MEDIA_VOL,IN_SPD, OUT_SPD)
-            for t in range(testing*10):
-                print (str(testing*10-t)+" Sec Remaining", end = "\r")
-                time.sleep(1)
-        for k in range (testing*testing*5):
-            print (str(testing*testing*5-t)+" Sec Remaining", end = "\r")
-            time.sleep(1)
-        print ("PULSE " + str(pulses) + " COMPLETE")
-
+#     #------------------------
+#     for i in range(iterations):
+#         #initial drain
+#         drive.m2(0,MEDIA_VOL+100, OUT_SPD)
+#         time.sleep(30)
+#         drive.m1(1,MEDIA_VOL-volume*2, OUT_SPD)
+#         time.sleep(30)
+#         for k in range(duration):
+#             inc_vol = volume/float(duration)
+#             drive.m3(1, int(inc_vol), int(inc_vol/2.0))
+#             drive.m1(1, 40, int(inc_vol/2.0))
+#             time.sleep(1)
+#         #washes
+#         for k in range(6):
+#             print ("\nSwish/Wash" + str(k))
+#             # swish(3,500,250)
+#             wash(MEDIA_VOL,IN_SPD, OUT_SPD)
+#             for t in range(testing*10):
+#                 print (str(testing*10-t)+" Sec Remaining", end = "\r")
+#                 time.sleep(1)
+#         for k in range (testing*testing*5):
+#             print (str(testing*testing*5-t)+" Sec Remaining", end = "\r")
+#             time.sleep(1)
+#         print ("PULSE " + str(pulses) + " COMPLETE")
 
 #4 well setup
 def alt_pulsesetup(pulses, testing = 60):
@@ -136,6 +169,7 @@ def alt_pulsesetup(pulses, testing = 60):
         
         print ("\nPulse "+str(i))
         drive.m3(1,LIG_VOL,OUT_SPD)
+        time.sleep(5)
         drive.m1(1,MEDIA_VOL,IN_SPD)
         for t in range(60*testing):
             print (str(60*testing-t)+" Sec Remaining", end="\r")

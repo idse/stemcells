@@ -273,10 +273,10 @@ void PrecisionSyringe()
   {
     for (int x = 1; x <= xlim; x++) //Loop the forward stepping enough times for motion to be visible
     {
-      if (stopmtr) {
-        Serial.println("LIMIT REACHED");
-        break;
-      }
+//      if (stopmtr) {
+//        Serial.println("LIMIT REACHED");
+//        break;
+//      }
       digitalWrite(dpins[4], HIGH); //Trigger one step forward
       delayMicroseconds(spd_t);
       digitalWrite(dpins[4], LOW);  //Pull step pin low so it can be triggered again
@@ -300,9 +300,6 @@ void PrecisionSyringe()
   }
   Serial.println();
 }
-
-
-
 
 // Drive blank and waste syringes at same time
 void BasicSyringeFlow()
