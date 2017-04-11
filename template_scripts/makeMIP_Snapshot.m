@@ -52,7 +52,7 @@ for i = 1:numel(listing)
         ci = allChannels(cii);
         
         disp(['channel: ' num2str(ci)]);
-        img = readStack(fullfile(dataDir,filename), ci);
+        img = readStack2(fullfile(dataDir,filename), ci);
 
         disp('making MIP');
         

@@ -12,6 +12,9 @@ resultsDir = fullfile(dataDir,'results');
 if ~exist(resultsDir,'dir')
     mkdir(resultsDir);
 end
+if ~exist(fullfile(resultsDir,'figs'),'dir')
+    mkdir(fullfile(resultsDir,'figs'));
+end
 
 % TODO : local normalization by DAPI
 
@@ -27,18 +30,11 @@ meta.channelLabel = {'Sox17','H2B','Smad4','Sox2'};
 meta.conditions = {'mtesr','+A10', '+A100', '+A10-1hr-pulses'};
 
 nucChannel = 2;
-dataChannels = [2 1 4];
+dataChannels = [1 4 2];
 
 markerChannels = setdiff(dataChannels, nucChannel);
 
-% set manual intensity limits so images can be compared
-Ilim = {[100 2^16-1],[100 1500],[100 2000],[100 500]};
-
 %% load data for parameter check
-
-fi = 1;
-vsifile = fullfile(dataDir,filelist{fi});
-[~,barefname,~] = fileparts(vsifile);
 
 n = 1;
 m = 2;
@@ -47,21 +43,66 @@ xmin = n*2048;
 ymax = ymin + m*2048;
 xmax = xmin + m*2048;
 preview = {};
-preview8bit = {};
+Ilim = {};
 
 series = 1;
-img_bf = bfopen_mod(vsifile,xmin,ymin,xmax-xmin+1,ymax-ymin+1,series);
 
-for ci = 1:numel(dataChannels)
+% load data and determine intensity limits per file
+for fi = 1:numel(meta.conditions)
+
+    vsifile = fullfile(dataDir,filelist{fi});
+    img_bf = bfopen_mod(vsifile,xmin,ymin,xmax-xmin+1,ymax-ymin+1,series);
     
-    preview{ci} = img_bf{1}{dataChannels(ci),1};                    
-    preview8bit{ci} = uint8((2^8-1)*mat2gray(preview{ci}, Ilim{dataChannels(ci)}));
+    for ci = 1:numel(dataChannels)
+
+        im = img_bf{1}{dataChannels(ci),1};
+        preview{ci, fi} = im;
+        maxim = double(max(im(:)));
+        minim = double(min(im(:)));
+        Ilim{dataChannels(ci), fi} = stretchlim(mat2gray(im))*(maxim-minim) + minim;
+    end
 end
 
-previewChannels = 1:3;
-filename = fullfile(dataDir, 'preview', [barefname '_RGBpreview.tif']);
-imwrite(cat(3,preview8bit{previewChannels}), filename);
-imshow(cat(3,preview8bit{previewChannels}))
+%% combine lookup tables and save RGB previews
+
+preview8bit = {}; 
+for fi = 1:numel(meta.conditions)
+    
+    for ci = 1:numel(dataChannels)  
+        
+        Imin = min(min([Ilim{dataChannels(ci),:}]));
+        Imax = max(max([Ilim{dataChannels(ci),:}]));
+        preview8bit{ci,fi} = uint8((2^8-1)*mat2gray(preview{ci, fi}, [Imin Imax]));
+    end
+
+    previewChannels = 1:3;
+    [~,barefname,~] = fileparts(filelist{fi});
+    filename = fullfile(dataDir, 'preview', ['RGBpreview_' barefname '_' [meta.channelLabel{dataChannels}] '.tif']);
+    RGBim = cat(3,preview8bit{previewChannels,fi});
+    imwrite(RGBim, filename);
+end
+
+%% smaller previews to copy to slide
+
+n = 1; m = numel(meta.conditions);
+L = 2^12;
+screensize = get( 0, 'Screensize' );
+margin = 50;
+fs = 15;
+figure('Position', [1, 1, screensize(3), screensize(3)/m + margin/2]);
+for fi = 1:numel(meta.conditions)
+    
+    subplot_tight(n,m,fi)
+    RGBim = cat(3,preview8bit{previewChannels,fi});
+    imshow(RGBim(1:L,1:L,:));
+    title(meta.conditions(fi),'FontSize',fs,'FontWeight','bold');
+    labelstr = ['\color{red}'   meta.channelLabel{dataChannels(1)}...
+                '\color{green}' meta.channelLabel{dataChannels(2)}...
+                '\color[rgb]{0.1, 0.5, 1}' meta.channelLabel{dataChannels(3)}];
+    text(margin, L - 2*margin, labelstr,'FontSize',fs,'FontWeight','bold');
+end
+saveas(gcf, fullfile(resultsDir,'overview.png'));
+close;
 
 %% load segmentation to test parameters
 
@@ -144,225 +185,124 @@ end
 
 %% make distributions
 
-% make distributions out of processed data
-stats = getStats(dataDir, filelist); % not normalized
-% stats = getStats(dataDir, filelist, nucChannel); % normalized
-stats.channelLabel = meta.channelLabel;
-stats.conditions = meta.conditions;
+% load all data  
+allData = {};
+for fi = 1:numel(filelist)
 
-%% plot distributions
+    vsifile = fullfile(dataDir, filelist{fi});
+    [~,barefname,~] = fileparts(vsifile);
+    load(fullfile(dataDir,'results', [barefname '_positions.mat']));
+    allData{fi} = P;
+end
+
+% make distributions out of processed data
+stats = cellStats(allData, meta, markerChannels);
+stats.makeHistograms(40);
+
+% plot distributions
 
 % overlay of the distribution of different conditions
 for channelIndex = markerChannels
 
-    plotDistribution(stats, channelIndex)
+    stats.plotDistributionComparison(channelIndex)
 
-    filename = fullfile(resultsDir,...
-            ['distOverlay_' meta.channelLabel{channelIndex}]);
-    saveas(gcf, filename);
-    saveas(gcf, [filename '.png']);
+    filename = ['distOverlay_' meta.channelLabel{channelIndex}];
+    saveas(gcf, fullfile(resultsDir, 'figs', filename));
+    saveas(gcf, fullfile(resultsDir, [filename '.png']));
+    close;
     
     cumulative = true;
-    plotDistribution(stats, channelIndex, cumulative)
+    stats.plotDistributionComparison(channelIndex, cumulative)
 
-    filename = fullfile(resultsDir,...
-            ['cumdistOverlay_' meta.channelLabel{channelIndex}]);
-    saveas(gcf, filename);
-    saveas(gcf, [filename '.png']);
+    filename = ['cumdistOverlay_' meta.channelLabel{channelIndex}];
+    saveas(gcf, fullfile(resultsDir, 'figs', filename));
+    saveas(gcf, fullfile(resultsDir, [filename '.png']));
+    close;
 end
-
-%% scatter plots of markers against each other
-
-%markerChannels = setdiff(dataChannels, nucChannel);
-fs = 15;
-
-for fi = 1:numel(filelist)
-    
-    for ci1 = 1:numel(markerChannels);
-        for ci2 = ci1+1:numel(markerChannels)
-
-            c1 = markerChannels(ci1);
-            c2 = markerChannels(ci2);
-            
-            A = stats.nucLevel{fi}(:,c1);
-            B = stats.nucLevel{fi}(:,c2);
-
-            scatter(A, B,1,'.');
-            xlabel(meta.channelLabel{c1}, 'FontSize',fs, 'FontWeight','Bold');
-            ylabel(meta.channelLabel{c2}, 'FontSize',fs, 'FontWeight','Bold');
-            title([meta.conditions{fi} '      (' filelist{fi} ')'],...
-                'Interpreter','none', 'FontSize',fs, 'FontWeight','Bold');
-            
-            axis([stats.lim{c1}' stats.lim{c2}']);
-
-            set(gcf,'color','w');
-            set(gca, 'LineWidth', 2);
-            set(gca,'FontSize', fs)
-            set(gca,'FontWeight', 'bold')
-
-            filename = fullfile(resultsDir, ['scatter_' meta.channelLabel{c1} '_' meta.channelLabel{c2} '_' barefname]);
-            saveas(gcf, filename);
-            saveas(gcf, [filename '.png']);
-        end
-    end
-end
-
 
 %% try clustering in 2D
 
 k = 2;
-fi = 1;
-c1 = 1; c2 = 4;
-X = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
-for fi = 2:4
-    X = cat(1,X,[stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)]);
-end
-X(X(:,2) > stats.lim{c1}(1),:) = [];
-%scatter(X(:,1), X(:,2), 1, '.');
+regularizationValue = 10^(-3);
+cutoff = 0.95;
+stats.makeClusters(k, regularizationValue, cutoff);
 
-Xnorm = X;
-for i = 1:2
-    Xnorm(:,i) = Xnorm(:,i)./max(Xnorm(:,i));
-end
+figure, 
 
-% % % kmeans -> doesn't work well
-%y = kmeans(X,k);
+for ci1 = 1:numel(markerChannels)
+    for ci2 = ci1+1:numel(markerChannels)
 
-%% Gaussian mixture
+        clf 
+        c1 = markerChannels(ci1);
+        c2 = markerChannels(ci2);
+        showClusters = true;
+        for conditionIdx = 1:numel(stats.conditions)
+            stats.makeScatterPlot(conditionIdx, [c1 c2], showClusters)
+        end
+        title('all data clustered');
 
-gmfit = fitgmdist(Xnorm,k,'CovarianceType','full','SharedCovariance',false,...
-        'RegularizationValue', 10^(-3));
-%gmfit = fitgmdist(X,k,'CovarianceType','full','SharedCovariance',false);
-[y, ~, P, logpdf] = cluster(gmfit,Xnorm);
-idx = logpdf>-10;
-scatter(X(idx,1), X(idx,2), 1, y(idx),'.');
-%xlim([stats.lim{c1}(1)  stats.lim{c1}(2)]);
-%ylim(stats.lim{c2}');
-% convex hull of clusters
-
-hold on 
-for i=1:max(y)
-    Xc = X(idx & y==i,:);
-    K = convhull(Xc(:,1),Xc(:,2));
-    plot(Xc(K,1),Xc(K,2));
-end
-hold off 
-
-%% per condition
-
-fi = 4;
-Xc = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
-size(Xc)
-Xcnorm = Xc;
-for i = 1:2
-    Xcnorm(:,i) = Xcnorm(:,i)./max(Xcnorm(:,i));
-end
-[y, nlogl, P, logpdf] = cluster(gmfit,Xcnorm);
-% idx = logpdf>-10;
-idx = y>0;
-scatter(Xc(idx,1), Xc(idx,2), 1, y(idx),'.');
-xlim([stats.lim{c1}(1)  stats.lim{c1}(2)]);
-ylim(stats.lim{c2}');
-% hold on
-% scatter(model.mu(1,:),model.mu(2,:),100,'.g');
-% %scatter(bla.mu(1,:),bla.mu(2,:),100,'.c');
-% hold off
-
-%% try hierarchical clustering -> scales poorly
-
-N = 10000;
-idx = round((length(X)-1)*rand([N 1])+1);
-Xred = X(idx,:);
-for i = 1:2
-    Xred(:,i) = Xred(:,i)./max(Xred(:,i));
+        [~,barefname,~] = fileparts(filelist{conditionIdx});
+        filename = ['cluster_' meta.channelLabel{c1} '_' meta.channelLabel{c2}];
+        saveas(gcf, fullfile(resultsDir, 'figs', filename));
+        saveas(gcf, fullfile(resultsDir, [filename '.png']));
+        close;
+    end
 end
 
-% Z = linkage(Xred,'ward','euclidean');
-% T = cluster(Z,'maxclust',2);
+%% if good visualize clusters for each condition
 
-Z = linkage(Xred,'average','euclidean');
-T = cluster(Z,'cutoff',0.4,'criterion','distance');%
-scatter(Xred(:,1),Xred(:,2),20,T,'.')
+figure,
 
-% T = cluster(Z,'maxclust',2);
-bins = unique(T);
-n = hist(T,bins);
+for ci1 = 1:numel(markerChannels)
+    for ci2 = ci1+1:numel(markerChannels)
+        
+        channelIdx = markerChannels([ci1 ci2]);
+        showClusters = true;
+        
+        for conditionIdx = 1:numel(stats.conditions)
 
-outliers = bins(n<20);
-for i = 1:numel(outliers)    
-    Xred(T == outliers(i),:) = [];
-    T(T == outliers(i),:) = [];
+            clf
+            stats.makeScatterPlot(conditionIdx, channelIdx, showClusters)
+            
+            [~,barefname,~] = fileparts(filelist{conditionIdx});
+            filename = ['cluster_' stats.channelLabel{c1} '_' stats.channelLabel{c2} '_' barefname];
+            saveas(gcf, fullfile(resultsDir, 'figs', filename));
+            saveas(gcf, fullfile(resultsDir, [filename '.png']));
+            close;
+        end
+    end
 end
 
-%dendrogram(Z)
-clf
-scatter(Xred(:,1),Xred(:,2),20,T,'.')
+% plot distributions per cluster
+stats.makeClusterHistograms();
 
-%% conditional prob based on cluster
+for clusterLabel = 1:stats.nClusters
+    for channelIndex = markerChannels
 
-fi = 2;
-ci = 2;
-X = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
-y = mixGaussPred(X',model);
-% scatter(X(:,1), X(:,2), 1, y,'.');
-% axis([stats.lim{c1}' stats.lim{c2}']);
+        cumulative = false;
+        stats.plotDistributionComparison(channelIndex, cumulative, clusterLabel)
 
-bins = linspace(stats.lim{c2}(1),stats.lim{c2}(2),50);
-[n,bins] = hist(X(:,ci),bins);
-[n1,bins] = hist(X(y==1,ci),bins);
-n2 = hist(X(y==2,ci),bins);
-n1 = n1./(sum(n1)+sum(n2));
-n2 = n2./(sum(n1)+sum(n2));
-n = n./sum(n);
-plot(bins, n)
-hold on
-plot(bins, n1,'g')
-plot(bins, n2,'r')
-hold off
+        filename = ['distOverlay_' meta.channelLabel{channelIndex} '_cluster' num2str(clusterLabel)];
+        saveas(gcf, fullfile(resultsDir, 'figs', filename));
+        saveas(gcf, fullfile(resultsDir, [filename '.png']));
+        close;
 
-%% conditional probabilities
+        cumulative = true;
+        stats.plotDistributionComparison(channelIndex, cumulative, clusterLabel)
 
-fi = 1;
-ci = 1;
-n = stats.histograms{fi, ci};
-bins = stats.bins{fi,ci};
-dist = n./sum(n);
-cumdist = cumsum(n./sum(n));
-i = find(cumdist > 0.99, 1, 'first');
-thresh = bins(i);
-
-%%
-fi = 1;
-ci = 2;
-
-X = [stats.nucLevel{fi}(:,c1) stats.nucLevel{fi}(:,c2)];
-y = 1 + (X(:,1) > thresh);
-
-bins = linspace(stats.lim{c2}(1),stats.lim{c2}(2),50);
-[n,bins] = hist(X(:,ci),bins);
-
-[n1,bins] = hist(X(y==1,ci),bins);
-n2 = hist(X(y==2,ci),bins);
-n1 = n1./(sum(n1)+sum(n2));
-n2 = n2./(sum(n1)+sum(n2));
-n = n./sum(n);
-plot(bins, n)
-hold on
-plot(bins, n1,'g')
-plot(bins, n2,'r')
-hold off
-
-%% determine fraction of sox17+ etc
-
-cutoff = 2;
-channelIdx = 2;
-
-for fi = 1:numel(filelist)
-    
-    p = allData{fi};
-    
-    N = p.cellData.nucLevel(:,nucChannel);
-    A = p.cellData.nucLevel(:,channelIdx)./N;
-
-    disp([filelist{fi} ' : ' num2str(100*sum(A > cutoff)/numel(A),2)]);
+        filename = ['cumdistOverlay_' meta.channelLabel{channelIndex} '_cluster' num2str(clusterLabel)];
+        saveas(gcf, fullfile(resultsDir, 'figs', filename));
+        saveas(gcf, fullfile(resultsDir, [filename '.png']));
+        close;
+    end
 end
+
+% summary 
+txtfile = fullfile(resultsDir, 'statsSummary.txt');
+if exist(txtfile,'file')
+    delete(txtfile);
+end
+diary(txtfile);
+diary on
+stats.printSummary();
+diary off
