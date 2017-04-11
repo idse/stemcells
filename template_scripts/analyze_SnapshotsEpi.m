@@ -2,8 +2,8 @@ clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-dataDir = '/Users/Idse/data_tmp/cellfate/pulses/170222_SyringePumpAendo2';
-filelist = {'Process_1918.vsi','Process_1919.vsi','Process_1920.vsi','Process_1921.vsi'};
+dataDir = '/Users/Idse/data_tmp/cellfate/pulses/170217_fixedSixPulseRep';
+filelist = {'Process_1763.vsi','Process_1764.vsi','Process_1765.vsi','Process_1766.vsi'};
 
 vsifile = fullfile(dataDir,filelist{1});
 [~,barefname,~] = fileparts(vsifile);
@@ -22,15 +22,15 @@ end
 %----------------
 
 meta = Metadata(vsifile);
-    
+
 % manually entered metadata
 %------------------------------
 
-meta.channelLabel = {'Sox17','H2B','Smad4','Sox2'};
-meta.conditions = {'mtesr','+A10', '+A100', '+A10-1hr-pulses'};
+meta.channelLabel = {'H2B','Sox17','Smad4','Sox2'};
+meta.conditions = {'mtesr+A10-1hr-pulse', 'E6+C', 'E6+A100+C','E6+A100'};
 
-nucChannel = 2;
-dataChannels = [1 4 2];
+nucChannel = 1;
+dataChannels = [2 4 1];
 
 markerChannels = setdiff(dataChannels, nucChannel);
 
@@ -38,8 +38,9 @@ markerChannels = setdiff(dataChannels, nucChannel);
 
 n = 1;
 m = 2;
-ymin = n*2048;
-xmin = n*2048;
+I = ones([1 numel(meta.conditions)]);
+ymin = I*n*2048;
+xmin = I*n*2048;
 ymax = ymin + m*2048;
 xmax = xmin + m*2048;
 preview = {};
@@ -51,7 +52,11 @@ series = 1;
 for fi = 1:numel(meta.conditions)
 
     vsifile = fullfile(dataDir,filelist{fi});
-    img_bf = bfopen_mod(vsifile,xmin,ymin,xmax-xmin+1,ymax-ymin+1,series);
+    metatmp = Metadata(vsifile);
+    xmax(fi) = min(xmax(fi), metatmp.xSize); 
+    ymax(fi) = min(ymax(fi), metatmp.ySize);
+    W = xmax(fi)-xmin(fi)+1; H = ymax(fi)-ymin(fi)+1;
+    img_bf = bfopen_mod(vsifile,xmin(fi),ymin(fi),W,H,series);
     
     for ci = 1:numel(dataChannels)
 
@@ -85,7 +90,6 @@ end
 %% smaller previews to copy to slide
 
 n = 1; m = numel(meta.conditions);
-L = 2^12;
 screensize = get( 0, 'Screensize' );
 margin = 50;
 fs = 15;
@@ -94,7 +98,7 @@ for fi = 1:numel(meta.conditions)
     
     subplot_tight(n,m,fi)
     RGBim = cat(3,preview8bit{previewChannels,fi});
-    imshow(RGBim(1:L,1:L,:));
+    imshow(RGBim);
     title(meta.conditions(fi),'FontSize',fs,'FontWeight','bold');
     labelstr = ['\color{red}'   meta.channelLabel{dataChannels(1)}...
                 '\color{green}' meta.channelLabel{dataChannels(2)}...
@@ -106,11 +110,13 @@ close;
 
 %% load segmentation to test parameters
 
+fi = 1;
 vsifile = fullfile(dataDir, filelist{fi});
+
 P = Position(meta.nChannels, vsifile, meta.nTime);
 P.setID(pi);
 seg = P.loadSegmentation(fullfile(dataDir,'MIP'), nucChannel);
-segpart = seg(xmin:xmax, ymin:ymax);
+segpart = seg(ymin(fi):ymax(fi), xmin(fi):xmax(fi));
 
 %% finding the right options for extract data
 
@@ -126,15 +132,15 @@ opts = struct(  'cytoplasmicLevels',    false,...
                     'cytoMargin',       5,...
                     'bgMargin',         4);
                 
-opts.cleanupOptions = struct('separateFused', true,'openSize',5,...
-    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',500);
+opts.cleanupOptions = struct('separateFused', true,'openSize',4,...
+    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',400);
 
 % try out the nuclear cleanup settings on some frame:
 segpartclean = nuclearCleanup(segpart, opts.cleanupOptions);
 
 % visualize
 s = 0.2;
-nucim = mat2gray(preview8bit{dataChannels==nucChannel});
+nucim = mat2gray(preview8bit{dataChannels==nucChannel,fi});
 
 RGBsegCheck = cat(3,   nucim + s*mat2gray(segpartclean),...
                         nucim,...
@@ -144,44 +150,33 @@ figure, imshow(RGBsegCheck)
 filename = fullfile(resultsDir, [barefname 'segCheck.tif']);
 imwrite(RGBsegCheck, filename);
 
-%% process data for first image
+%% process the images
 
-debugInfo = P.extractData(dataDir, nucChannel, opts);
-
-nucmaskpart = debugInfo.nucmask(xmin:xmax, ymin:ymax);
-figure, imshow(cat(3,   nucim + s*nucmaskpart,...
-                        nucim,...
-                        nucim + s*segpart))
-                    
-% save
-save(fullfile(resultsDir, [barefname '_positions.mat']),'P');
-
-%% scatter cell locations on top of part of preview to check result
-
-XY = P.cellData.XY;
-
-inpreview =     XY(:,1) < xmax & XY(:,1) > xmin...
-                & XY(:,2) < ymax & XY(:,2) > ymin;
-XY = XY(inpreview,:);
-
-imshow(nucim,[])
-hold on
-scatter(XY(:,1) - xmin,XY(:,2) - ymin, 200, '.r');
-hold off
-
-%% process the other images
-
-for fi = 2:numel(filelist)
+for fi = 1:numel(filelist)
     
     vsifile = fullfile(dataDir, filelist{fi});
     [~,barefname,~] = fileparts(vsifile);
 
     P = Position(meta.nChannels, vsifile, meta.nTime);
-    P.setID(pi);
+    P.setID(fi);
     P.extractData(dataDir, nucChannel, opts);
 
     save(fullfile(resultsDir, [barefname '_positions.mat']),'P');
 end
+
+%% scatter cell locations on top of part of preview to check result
+
+XY = P.cellData.XY;
+
+inpreview =     XY(:,1) < xmax(fi) & XY(:,1) > xmin(fi)...
+                & XY(:,2) < ymax(fi) & XY(:,2) > ymin(fi);
+XY = XY(inpreview,:);
+
+nucim = mat2gray(preview8bit{dataChannels==nucChannel,fi});
+imshow(nucim,[])
+hold on
+scatter(XY(:,1) - xmin(fi), XY(:,2) - ymin(fi), 200, '.r');
+hold off
 
 %% make distributions
 
@@ -224,8 +219,9 @@ end
 
 k = 2;
 regularizationValue = 10^(-3);
-cutoff = 0.95;
-stats.makeClusters(k, regularizationValue, cutoff);
+cutoff = 0.8;
+[y, x] = stats.makeClusters(k, regularizationValue, cutoff);
+%scatter(x(:,1),x(:,2),1,y)
 
 figure, 
 
@@ -245,7 +241,6 @@ for ci1 = 1:numel(markerChannels)
         filename = ['cluster_' meta.channelLabel{c1} '_' meta.channelLabel{c2}];
         saveas(gcf, fullfile(resultsDir, 'figs', filename));
         saveas(gcf, fullfile(resultsDir, [filename '.png']));
-        close;
     end
 end
 

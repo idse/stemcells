@@ -8,6 +8,7 @@ classdef cellStats < handle
     properties
         
         % meta
+        area
         conditions
         channelLabel
         markerChannels
@@ -43,6 +44,9 @@ classdef cellStats < handle
             this.conditions = meta.conditions;
             this.channelLabel = meta.channelLabel;
             this.markerChannels = markerChannels;
+            
+            % area in cm^2
+            this.area = meta.xSize*meta.ySize*meta.xres*meta.yres/10^8;
             
             % make table of nuclear values
             for i = 1:numel(allData)
@@ -109,7 +113,7 @@ classdef cellStats < handle
         % clusters
         %-----------------------------------------------------------------
         
-        function makeClusters(this, k, regularizationVal, cutoff)
+        function [clusterLabels, nucInorm] = makeClusters(this, k, regularizationVal, cutoff)
             
             this.cutoff = cutoff;
             this.nClusters = k;
@@ -118,37 +122,38 @@ classdef cellStats < handle
             
             % combine nuclear values of all conditions
             nucI = this.nucLevel{1}(:,mc);
+            condIdx = ones([size(nucI,1) 1],'uint8');
             for fi = 2:numel(this.conditions)
                 nucI = cat(1, nucI, this.nucLevel{fi}(:,mc));
+                condIdx = cat(1, condIdx, fi*ones([size(this.nucLevel{fi}(:,mc),1) 1],'uint8'));
             end
 
             % remove outliers and normalize the values
             nucInorm = nucI;
             for i = 1:numel(mc)
-                nucI(nucI(:,i) > this.lim{mc(i)}(2),:) = [];
-                nucInorm(nucInorm(:,i) > this.lim{mc(i)}(2),:) = [];
+                outliers = nucI(:,i) > this.lim{mc(i)}(2);
+                %nucI(outliers,:) = [];
+                %nucInorm(outliers,:) = [];
                 nucInorm(:,i) = nucInorm(:,i) - this.lim{mc(i)}(1);
-                nucInorm(:,i) = nucInorm(:,i)./max(nucInorm(:,i));
+                nucInorm(:,i) = nucInorm(:,i)./max(nucInorm(~outliers,i));
             end
 
             % fit Gaussian mixture model to all data
-            this.clustermodel = fitgmdist(nucInorm,k,'CovarianceType','full','SharedCovariance',false,...
+            this.clustermodel = fitgmdist(nucInorm(~outliers,:),k,'CovarianceType','full','SharedCovariance',false,...
                     'RegularizationValue', regularizationVal);
                 
+            % cluster all
+            [clusterLabels, ~, clusterProb, ~] = cluster(this.clustermodel, nucInorm);
+            clusterLabels(outliers) = 0;
+            
             % cluster every individual conditions
             this.clusters = {};
             for fi = 1:numel(this.conditions)
-
-                Xc = this.nucLevel{fi}(:,this.markerChannels);
-                Xcnorm = Xc;
-                for i = 1:numel(this.markerChannels)
-                    Xcnorm(:,i) = Xcnorm(:,i) - this.lim{this.markerChannels(i)}(1);
-                    Xcnorm(:,i) = Xcnorm(:,i)./max(Xcnorm(:,i));
-                end
-
-                [clusterLabels, ~, clusterProb, ~] = cluster(this.clustermodel, Xcnorm);
-                this.clusters{fi} = struct('clusterLabels', clusterLabels, 'clusterProb',  clusterProb);
                 
+                idx = condIdx == fi;
+                this.clusters{fi} = struct('clusterLabels', clusterLabels(idx),...
+                                            'clusterProb',  clusterProb(idx,:));
+
                 % add mean and std
                 for k = 1:this.nClusters
                     clusterIdx = this.getClusterIdx(fi, k);
@@ -157,8 +162,28 @@ classdef cellStats < handle
                 end
             end
 
-            % cluster all
-            %[clusterLabels, ~, clusterProb, ~] = cluster(this.clustermodel, nucInorm);
+%             % cluster every individual conditions, by applying model to
+%             each case separately -> didn't work that well
+%             this.clusters = {};
+%             for fi = 1:numel(this.conditions)
+% 
+%                 Xc = this.nucLevel{fi}(:,this.markerChannels);
+%                 Xcnorm = Xc;
+%                 for i = 1:numel(this.markerChannels)
+%                     Xcnorm(:,i) = Xcnorm(:,i) - this.lim{this.markerChannels(i)}(1);
+%                     Xcnorm(:,i) = Xcnorm(:,i)./max(Xcnorm(:,i));
+%                 end
+% 
+%                 [clusterLabels, ~, clusterProb, ~] = cluster(this.clustermodel, Xcnorm);
+%                 this.clusters{fi} = struct('clusterLabels', clusterLabels, 'clusterProb',  clusterProb);
+%                 
+%                 % add mean and std
+%                 for k = 1:this.nClusters
+%                     clusterIdx = this.getClusterIdx(fi, k);
+%                     this.clusters{fi}.mean{k} = mean(this.nucLevel{fi}(clusterIdx,:));
+%                     this.clusters{fi}.std{k} = std(this.nucLevel{fi}(clusterIdx,:));
+%                 end
+%             end
         end
     
         function clusterIdx = getClusterIdx(this, conditionIdx, clusterLabel)
@@ -194,43 +219,63 @@ classdef cellStats < handle
             clusterLabel = [];
             intensitySummary(clusterLabel);
             
-            for clusterLabel = 1:this.nClusters
-                intensitySummary(clusterLabel)
-            end
-            
             %-----------------------------------
 
             if ~isempty(this.clusters)
                 
-                N = max(cellfun(@numel, this.conditions)) + 5;
-                width = 10;
-                conditionstr = pad(this.conditions, width);
-                t = [pad('', N) conditionstr{:}];
+                for clusterLabel = 1:this.nClusters
+                    intensitySummary(clusterLabel)
+                end
+            
+                %-----------------------------------
+                
+                width = 12;
+                conditionstr = this.conditions;
+                for i = 1:numel(this.conditions)
+                    N = numel(conditionstr{i}) + 6;
+                    conditionstr{i} = pad(conditionstr{i}, N);
+                end
+                t = [pad('', width) conditionstr{:}];
 
                 disp(' ');
                 disp(t)
                 disp(repmat('-',1,numel(t)));
+                
+                % cell numbers
+                s = pad(['Ncells '], width);
                 valstr = [];
                 for fi = 1:numel(this.conditions)
 
-                    Nt = size(this.clusters{fi}.clusterLabels,1);
-                    valstr = [valstr pad(sprintf('%d', Nt), width)];
+                    N = numel(conditionstr{fi});
+                    Nt = size(this.nucLevel{fi},1);
+                    valstr = [valstr pad(sprintf('%d', Nt), N)];
                 end
-                
-                s = pad(['Ncells '], N);
                 disp([s valstr]);
                 
+                % density
+                s = pad(['cells/cm^2'], width);
+                valstr = [];
+                for fi = 1:numel(this.conditions)
+
+                    N = numel(conditionstr{fi});
+                    rho = size(this.nucLevel{fi},1)/this.area;
+                    valstr = [valstr pad(sprintf('%.1e', rho), N)];
+                end
+                disp([s valstr]);
+
+                % fractions in cluster
                 for clusterLabel = 1:this.nClusters
                     
+                    s = pad(['cluster ' num2str(clusterLabel)], width);
                     valstr = [];
                     for fi = 1:numel(this.conditions)
                         
+                        N = numel(conditionstr{fi});
                         Nt = size(this.clusters{fi}.clusterLabels,1);
                         Nc = sum(this.getClusterIdx(fi,clusterLabel));
                         fraction = Nc/Nt;
-                        valstr = [valstr pad(sprintf('%.2f', fraction), width)];
+                        valstr = [valstr pad(sprintf('%.2f', fraction), N)];
                     end
-                    s = pad(['cluster ' num2str(clusterLabel)], N);
                     disp([s valstr]);
                 end
             end
