@@ -1,9 +1,12 @@
 clear all; close all;
 
+%addpath(genpath('~/Documents/Stemcells')); 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-dataDir = '/Users/Idse/data_tmp/cellfate/pulses/170217_fixedSixPulseRep';
-filelist = {'Process_1763.vsi','Process_1764.vsi','Process_1765.vsi','Process_1766.vsi'};
+dataDir = '/Volumes/IdseData/0_cellfate/170321_IWP2differentiation/10k';
+filelist = {'Process_2086.vsi','Process_2087.vsi','Process_2088.vsi',...
+    'Process_2089.vsi','Process_2090.vsi',...
+    'Process_2091.vsi','Process_2092.vsi','Process_2093.vsi'};
 
 vsifile = fullfile(dataDir,filelist{1});
 [~,barefname,~] = fileparts(vsifile);
@@ -26,11 +29,12 @@ meta = Metadata(vsifile);
 % manually entered metadata
 %------------------------------
 
-meta.channelLabel = {'H2B','Sox17','Smad4','Sox2'};
-meta.conditions = {'mtesr+A10-1hr-pulse', 'E6+C', 'E6+A100+C','E6+A100'};
+meta.channelLabel = {'Sox17','Sox2','Nanog','Dapi'};
+meta.conditions = {'MtsrA100iwp2','MtsrA100','E6A100iwp2','E6A100',...
+    'endo3daysChir3iwp2','endoDay1Chir3iwp2','endo3daysChir3','endoDay1Chir3'};
 
-nucChannel = 1;
-dataChannels = [2 4 1];
+nucChannel = 4;
+dataChannels = [1 2 3 4];
 
 markerChannels = setdiff(dataChannels, nucChannel);
 
@@ -64,7 +68,8 @@ for fi = 1:numel(meta.conditions)
         preview{ci, fi} = im;
         maxim = double(max(im(:)));
         minim = double(min(im(:)));
-        Ilim{dataChannels(ci), fi} = stretchlim(mat2gray(im))*(maxim-minim) + minim;
+        tolerance = 0.04;
+        Ilim{dataChannels(ci), fi} = stretchlim(mat2gray(im), tolerance)*(maxim-minim) + minim;
     end
 end
 
@@ -72,9 +77,9 @@ end
 
 preview8bit = {}; 
 for fi = 1:numel(meta.conditions)
-    
+
     for ci = 1:numel(dataChannels)  
-        
+
         Imin = min(min([Ilim{dataChannels(ci),:}]));
         Imax = max(max([Ilim{dataChannels(ci),:}]));
         preview8bit{ci,fi} = uint8((2^8-1)*mat2gray(preview{ci, fi}, [Imin Imax]));
@@ -89,28 +94,32 @@ end
 
 %% smaller previews to copy to slide
 
-n = 1; m = numel(meta.conditions);
+N = numel(meta.conditions);
+n = ceil(N/4);
+m = min(N,4);
 screensize = get( 0, 'Screensize' );
 margin = 50;
 fs = 15;
-figure('Position', [1, 1, screensize(3), screensize(3)/m + margin/2]);
+figure('Position', [1, 1, screensize(3), n*(screensize(3)/m + margin/2)]);
 for fi = 1:numel(meta.conditions)
     
     subplot_tight(n,m,fi)
     RGBim = cat(3,preview8bit{previewChannels,fi});
+    RGBnuc = repmat(preview8bit{dataChannels==nucChannel,fi},[1 1 3]);
+    %RGBim = RGBim + 0.5*RGBnuc;
     imshow(RGBim);
     title(meta.conditions(fi),'FontSize',fs,'FontWeight','bold');
     labelstr = ['\color{red}'   meta.channelLabel{dataChannels(1)}...
                 '\color{green}' meta.channelLabel{dataChannels(2)}...
                 '\color[rgb]{0.1, 0.5, 1}' meta.channelLabel{dataChannels(3)}];
-    text(margin, L - 2*margin, labelstr,'FontSize',fs,'FontWeight','bold');
+    text(margin, size(RGBim,1) - 2*margin, labelstr,'FontSize',fs,'FontWeight','bold');
 end
 saveas(gcf, fullfile(resultsDir,'overview.png'));
-close;
+%close;
 
 %% load segmentation to test parameters
 
-fi = 1;
+fi = 8;
 vsifile = fullfile(dataDir, filelist{fi});
 
 P = Position(meta.nChannels, vsifile, meta.nTime);
@@ -159,7 +168,16 @@ for fi = 1:numel(filelist)
 
     P = Position(meta.nChannels, vsifile, meta.nTime);
     P.setID(fi);
-    P.extractData(dataDir, nucChannel, opts);
+    debugInfo = P.extractData(dataDir, nucChannel, opts);
+
+    % save segcheck im
+    %im = mat2gray(preview8bit{dataChannels==nucChannel,fi});
+    im = cat(3,preview8bit{previewChannels,fi});
+    mask = debugInfo.nucmask(xmin:xmax,ymin:ymax);
+    mask = imdilate(mask,strel('disk',3)) - mask > 0;
+    im(repmat(mask,[1 1 3])) = 255;
+    filename = fullfile(resultsDir, [barefname 'segCheck.tif']);
+    imwrite(im, filename);
 
     save(fullfile(resultsDir, [barefname '_positions.mat']),'P');
 end
@@ -192,9 +210,11 @@ end
 
 % make distributions out of processed data
 stats = cellStats(allData, meta, markerChannels);
-stats.makeHistograms(40);
+tolerance = 0.01;
+nbins = 50;
+stats.makeHistograms(nbins, tolerance);
 
-% plot distributions
+%% plot distributions
 
 % overlay of the distribution of different conditions
 for channelIndex = markerChannels
@@ -221,8 +241,10 @@ k = 2;
 regularizationValue = 10^(-3);
 cutoff = 0.8;
 [y, x] = stats.makeClusters(k, regularizationValue, cutoff);
-%scatter(x(:,1),x(:,2),1,y)
+% ci1 = 1; ci2 = 2;
+% scatter(x(:,ci1),x(:,ci2),1,y)
 
+%%
 figure, 
 
 for ci1 = 1:numel(markerChannels)
@@ -244,6 +266,12 @@ for ci1 = 1:numel(markerChannels)
     end
 end
 
+%% if bad manual cluster definition
+
+k = 2;
+ci1 = 1; ci2 = 3;
+stats.makeClustersManual(k, ci1, ci2)
+
 %% if good visualize clusters for each condition
 
 figure,
@@ -260,14 +288,15 @@ for ci1 = 1:numel(markerChannels)
             stats.makeScatterPlot(conditionIdx, channelIdx, showClusters)
             
             [~,barefname,~] = fileparts(filelist{conditionIdx});
-            filename = ['cluster_' stats.channelLabel{c1} '_' stats.channelLabel{c2} '_' barefname];
+            filename = ['cluster_' stats.channelLabel{channelIdx(1)} '_'...
+                        stats.channelLabel{channelIdx(2)} '_' barefname];
             saveas(gcf, fullfile(resultsDir, 'figs', filename));
             saveas(gcf, fullfile(resultsDir, [filename '.png']));
             close;
         end
     end
 end
-
+%%
 % plot distributions per cluster
 stats.makeClusterHistograms();
 
@@ -301,3 +330,6 @@ diary(txtfile);
 diary on
 stats.printSummary();
 diary off
+
+% save stats object
+save(fullfile(resultsDir,'stats'),'stats');
