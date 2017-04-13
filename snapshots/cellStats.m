@@ -58,12 +58,9 @@ classdef cellStats < handle
                     this.nucLevel{i} = allData{i}.cellData.nucLevel; 
                 end
             end
-            
-            % set intensity limits
-            this.setLimits();
         end
         
-        function setLimits(this)
+        function setLimits(this, tol)
             % determine intensity limits for distributions and plots
             
             nucLevelAll = [];
@@ -71,7 +68,6 @@ classdef cellStats < handle
                 nucLevelAll = cat(1, nucLevelAll, this.nucLevel{i});
             end
     
-            tol = 0.001;
             this.lim = {};
             this.scale = zeros([1 4]);
             this.offset = zeros([1 4]);
@@ -91,10 +87,13 @@ classdef cellStats < handle
 %             end
         end
 
-        function makeHistograms(this, nBins)
+        function makeHistograms(this, nBins, tolerance)
             % make histograms
             %
             % makeHistograms(nBins)
+            
+            % set intensity limits
+            this.setLimits(tolerance);
             
             this.histograms = {};
             this.bins = {};
@@ -112,6 +111,54 @@ classdef cellStats < handle
         %-----------------------------------------------------------------
         % clusters
         %-----------------------------------------------------------------
+        
+        function makeClustersManual(this, k, ci1, ci2)
+            
+            this.nClusters = k;
+            this.cutoff = 0.5;
+            
+            % combine nuclear values of all conditions
+            nucI = this.nucLevel{1};
+            condIdx = ones([size(nucI,1) 1],'uint8');
+            for fi = 2:numel(this.conditions)
+                nucI = cat(1, nucI, this.nucLevel{fi});
+                condIdx = cat(1, condIdx, fi*ones([size(this.nucLevel{fi},1) 1],'uint8'));
+            end
+
+            figure, 
+            scatter(nucI(:,ci1), nucI(:,ci2),1)
+            xlim(this.lim{ci1}');
+            ylim(this.lim{ci2}');
+
+            clusterLabels = 0*nucI(:,ci1);
+            clusterProb = 0*nucI(:,ci1);
+            for i = 1:k
+                h(i) = impoly;
+                clusterX = h(i).getPosition;
+                idx = inpolygon(nucI(:,ci1),nucI(:,ci2),clusterX(:,1),clusterX(:,2));
+                clusterLabels(idx) = i;
+                clusterProb(idx) = 1;
+                this.clusters{i} = struct();
+            end
+            close;
+            
+             % cluster every individual conditions
+            this.clusters = {};
+            for fi = 1:numel(this.conditions)
+                
+                idx = condIdx == fi;
+                this.clusters{fi} = struct('clusterLabels', clusterLabels(idx),...
+                                            'clusterProb',  clusterProb(idx,:));
+
+                % add mean and std
+                for k = 1:this.nClusters
+                    clusterIdx = this.getClusterIdx(fi, k);
+                    this.clusters{fi}.mean{k} = mean(this.nucLevel{fi}(clusterIdx,:));
+                    this.clusters{fi}.std{k} = std(this.nucLevel{fi}(clusterIdx,:));
+                end
+            end
+
+        end
         
         function [clusterLabels, nucInorm] = makeClusters(this, k, regularizationVal, cutoff)
             
@@ -204,6 +251,9 @@ classdef cellStats < handle
                     for channelIndex = 1:numel(this.lim)
 
                         n = histc(this.nucLevel{fi}(clusterIdx,channelIndex), this.bins{channelIndex});
+                        if sum(n) < 10
+                            n = zeros([numel(this.bins{channelIndex}) 1],class(n));
+                        end
                         this.clusterHistograms{fi, channelIndex, clusterLabel} = n;
                     end
                 end
@@ -302,6 +352,10 @@ classdef cellStats < handle
                         idx = this.getClusterIdx(fj, clusterLabel);
                     end
                     
+                    if sum(idx) < 10
+                        idx = idx*0 > 0;
+                    end
+                    
                     s = pad(this.conditions{fj}, N);
 
                     meanval = mean(this.nucLevel{fj}(idx, this.markerChannels));
@@ -336,9 +390,9 @@ classdef cellStats < handle
             A = this.nucLevel{cdi}(:,c1);
             B = this.nucLevel{cdi}(:,c2);
 
+            colormap(lines(this.nClusters));
             fs = 15;
-            colormap(lines(this.clustermodel.NumComponents));
-
+            
             if ~showClusters
                 scatter(A, B, 1,'.');
                 disp('no clusters');
@@ -398,14 +452,25 @@ classdef cellStats < handle
                 dist = cumsum(dist);
             end
 
+            nc = numel(this.conditions);
+            if nc < 8
+                colors = lines(nc);
+            else
+                colors = hsv(nc);
+            end
+
             [x,y] = histForBarlikePlot(this.bins{channelIndex}, dist);
 
             figure, 
 
+            hold on
             fs = 15;
-            plot(x,y,'LineWidth',2);
+            for i = 1:nc
+                plot(x,y(:,i),'LineWidth',2, 'Color',colors(i,:));
+            end
             title(titlestr, 'FontSize',fs, 'FontWeight','Bold');
-
+            hold off
+            
             xlabel('Intensity', 'FontSize',fs, 'FontWeight','Bold');
             ylabel('Frequency', 'FontSize',fs, 'FontWeight','Bold');
 
@@ -418,10 +483,12 @@ classdef cellStats < handle
 
             if cumulative
                 legend(this.conditions, 'Location','SouthEast');
-                ylim([0 1.1]);
+                ylim([0 1.05]);
             else
                 legend(this.conditions, 'Location','NorthEast');
+                ylim([0 0.3]);
             end
+            
         end
         
         %-----------------------------------------------------------------
@@ -445,7 +512,7 @@ classdef cellStats < handle
             %         scatter(gmfit.mu(:,1), gmfit.mu(:,2),100,'.k')
 
             % covariance ellipse and cluster labels
-            for i = 1:this.clustermodel.NumComponents
+            for i = 1:this.nClusters
 
                 text(gmfit.mu(i,ci1), gmfit.mu(i,ci2), num2str(i),'FontSize',fs, 'FontWeight','Bold');
 
