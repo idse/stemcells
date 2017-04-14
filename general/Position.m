@@ -355,7 +355,8 @@ classdef Position < handle
             %                       default is all
             % -tMax                 maximal time, default nTime
             % -------------------------------------------------------------
-            % -cleanupOptions       options for cleanup
+            % -cleanupOptions       options for nuclearCleanup
+            % -dirtyOptions         if using dirtyNuclearSegmentation
             % -nucShrinkage         number of pixels to shrink nuclear mask
             %                       by to get more accurate nuclear
             %                       readouts
@@ -454,7 +455,7 @@ classdef Position < handle
                 
                 % get background mask
                 %--------------------------
-                if isfield(opts, 'fgChannel');
+                if isfield(opts, 'fgChannel')
                     fgmask = imclose(seg{opts.fgChannel}(:,:,ti),strel('disk',10));
                     bgmask = imerode(~fgmask,strel('disk', opts.bgMargin));
                     fgmask = imerode(fgmask,strel('disk', opts.bgMargin));
@@ -467,10 +468,21 @@ classdef Position < handle
             
                 nucmaskraw = seg{nucChannel}(:,:,ti);
                 %nucmaskraw(bgmask) = false;
-                if ~isfield(opts, 'nuclearSegmentation')  
+                if ~isfield(opts, 'nuclearSegmentation') && ~isfield(opts, 'dirtyOptions') 
+                    
+                    disp('using nuclearCleanup');
                     nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
-                else
+                    
+                elseif isfield(opts, 'nuclearSegmentation')
+                    
                     nucmask = nucmaskraw;
+                    
+                elseif isfield(opts, 'dirtyOptions') 
+                    
+                    disp('using dirty nuclear segmentation');
+                    opts.dirtyOptions.mask = nucmaskraw;
+                    imc = this.loadImage(dataDir, nucChannel, ti);
+                    nucmask = dirtyNuclearSegmentation(imc, opts.dirtyOptions);
                 end
                 
                 % make cytoplasmic mask 

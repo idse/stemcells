@@ -1,14 +1,14 @@
 clear all; close all;
 warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
  
-addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
+addpath(genpath('~/Documents/Stemcells')); 
 
-dataDir = '/Users/Idse/data_tmp/cellfate/pulses/170222_SyringePumpAendo2';
+dataDir = '/Volumes/IdseData3/170227_3daysManystains/d1_10pm';
 
-MIPchannels = 2;
+MIPchannels = 4;
 saveChunk = true;
 saveidx = false; 
-previewChannels = 1:2;
+previewChannels = 4;
 
 %% preprocessing
 
@@ -58,8 +58,14 @@ for i = 1:numel(listing)
         
         [MIP, MIPidx] = max(img,[],3);
         MIPidx = uint8(MIPidx);
-        chunk = MIP(2048:2*2048, 2048:2*2048);
+        ymin = 1;
+        ymax = min(ymin + 2*2048, size(MIP,1));
+        xmin = 1;
+        xmax = min(xmin + 2*2048, size(MIP,2));
+        chunk = MIP(ymin:ymax, xmin:xmax);
 
+        disp('saving MIP');
+        
         if any(MIPchannels == ci)
            
             channelFilename = fullfile(MIPdir, sprintf([barefname '_MIP' postfix '_w%.4d.tif'], ci-1));
@@ -71,12 +77,14 @@ for i = 1:numel(listing)
             end
         end
         
+        disp('saving preview');
         if any(previewChannels == ci)
             
             channelFilename = fullfile(previewDir, sprintf([barefname postfix '_w%.4d.tif'], ci-1));
             imwrite(imadjust(mat2gray(chunk)), channelFilename); 
         end
         
+        disp('saving MIP chunck');
         if saveChunk(MIPchannels == ci)
             
             channelFilename = fullfile(MIPdir, sprintf([barefname '_chunk' postfix '_w%.4d.tif'], ci-1));

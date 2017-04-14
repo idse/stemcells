@@ -3,10 +3,10 @@ clear all; close all;
 %addpath(genpath('~/Documents/Stemcells')); 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-dataDir = '/Volumes/IdseData/0_cellfate/170321_IWP2differentiation/10k';
-filelist = {'Process_2086.vsi','Process_2087.vsi','Process_2088.vsi',...
-    'Process_2089.vsi','Process_2090.vsi',...
-    'Process_2091.vsi','Process_2092.vsi','Process_2093.vsi'};
+dataDir = '/Volumes/IdseData/0_cellfate/170321_IWP2differentiation/20k';
+filelist = {'Process_2076.vsi','Process_2077.vsi','Process_2078.vsi',...
+    'Process_2079.vsi','Process_2080.vsi',...
+    'Process_2081.vsi','Process_2082.vsi','Process_2083.vsi'};
 
 vsifile = fullfile(dataDir,filelist{1});
 [~,barefname,~] = fileparts(vsifile);
@@ -73,6 +73,8 @@ for fi = 1:numel(meta.conditions)
     end
 end
 
+save(fullfile(resultsDir,'overviewIlim'), 'Ilim');
+
 %% combine lookup tables and save RGB previews
 
 preview8bit = {}; 
@@ -119,7 +121,7 @@ saveas(gcf, fullfile(resultsDir,'overview.png'));
 
 %% load segmentation to test parameters
 
-fi = 8;
+fi = 2;
 vsifile = fullfile(dataDir, filelist{fi});
 
 P = Position(meta.nChannels, vsifile, meta.nTime);
@@ -142,7 +144,8 @@ opts = struct(  'cytoplasmicLevels',    false,...
                     'bgMargin',         4);
                 
 opts.cleanupOptions = struct('separateFused', true,'openSize',4,...
-    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',400);
+    'clearBorder',true,'minAreaStd', 1, 'erodeSize',1.1,'minSolidity',0.9,...
+    'minArea',400);
 
 % try out the nuclear cleanup settings on some frame:
 segpartclean = nuclearCleanup(segpart, opts.cleanupOptions);
@@ -156,8 +159,29 @@ RGBsegCheck = cat(3,   nucim + s*mat2gray(segpartclean),...
                         nucim + s*segpart);
 figure, imshow(RGBsegCheck)
 
-filename = fullfile(resultsDir, [barefname 'segCheck.tif']);
+filename = fullfile(resultsDir, [barefname 'cleansegCheck.tif']);
 imwrite(RGBsegCheck, filename);
+
+%% if not good, try dirty segmentation
+
+dirtyopts = struct();
+% 3.5 microns is a good scale for the filters
+dirtyopts.s = round(5/meta.xres);
+dirtyopts.areacutoff = round(dirtyopts.s^2);
+dirtyopts.mask = segpart; %dirtyopts.absolutethresh = 200;
+dirtyopts.toobigNstd = 3;
+nucseg = dirtyNuclearSegmentation(preview{dataChannels==nucChannel,fi}, dirtyopts);
+
+% visualize nuclear mask
+newmaskedge = nucseg - imerode(nucseg,strel('disk',1));
+impp = imadjust(mat2gray(nucim));
+overlay = cat(3, impp, impp+newmaskedge, impp+segpartclean);
+imshow(overlay)
+
+filename = fullfile(resultsDir, [barefname 'dirtysegCheck.tif']);
+imwrite(overlay, filename);
+
+opts.dirtyOptions = dirtyopts;
 
 %% process the images
 
@@ -274,7 +298,12 @@ stats.makeClustersManual(k, ci1, ci2)
 
 %% if good visualize clusters for each condition
 
-figure,
+N = numel(meta.conditions);
+n = ceil(N/4); m = min(N,4);
+margin = 10;
+screensize = get( 0, 'Screensize' );
+h1 = figure;
+h2 = figure('Position', [1, 1, screensize(3), n*(screensize(3)/m + margin/2)]);
 
 for ci1 = 1:numel(markerChannels)
     for ci2 = ci1+1:numel(markerChannels)
@@ -282,8 +311,12 @@ for ci1 = 1:numel(markerChannels)
         channelIdx = markerChannels([ci1 ci2]);
         showClusters = true;
         
+        figure(h2)
+        clf
+        
         for conditionIdx = 1:numel(stats.conditions)
 
+            figure(h1)
             clf
             stats.makeScatterPlot(conditionIdx, channelIdx, showClusters)
             
@@ -292,8 +325,16 @@ for ci1 = 1:numel(markerChannels)
                         stats.channelLabel{channelIdx(2)} '_' barefname];
             saveas(gcf, fullfile(resultsDir, 'figs', filename));
             saveas(gcf, fullfile(resultsDir, [filename '.png']));
-            close;
+            
+            figure(h2)
+            subplot_tight(n,m, conditionIdx, [2 1]*0.05)
+            stats.makeScatterPlot(conditionIdx, channelIdx, showClusters)
         end
+        
+        filename = ['clusterAll_' stats.channelLabel{channelIdx(1)} '_'...
+                        stats.channelLabel{channelIdx(2)}];
+        saveas(figure(h2),fullfile(resultsDir, filename));
+        saveas(figure(h2),fullfile(resultsDir, [filename '.png']));
     end
 end
 %%
