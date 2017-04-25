@@ -129,6 +129,9 @@ classdef cellStats < handle
             scatter(nucI(:,ci1), nucI(:,ci2),1)
             xlim(this.lim{ci1}');
             ylim(this.lim{ci2}');
+            xlabel(this.channelLabel{this.markerChannels(ci1)});
+            ylabel(this.channelLabel{this.markerChannels(ci2)});
+
 
             clusterLabels = 0*nucI(:,ci1);
             clusterProb = 0*nucI(:,ci1);
@@ -283,40 +286,40 @@ classdef cellStats < handle
                 conditionstr = this.conditions;
                 for i = 1:numel(this.conditions)
                     N = numel(conditionstr{i}) + 6;
-                    conditionstr{i} = pad(conditionstr{i}, N);
+                    conditionstr{i} = strpad(conditionstr{i}, N,'post',' ');
                 end
-                t = [pad('', width) conditionstr{:}];
+                t = [strpad('', width,'post',' ') conditionstr{:}];
 
                 disp(' ');
                 disp(t)
                 disp(repmat('-',1,numel(t)));
                 
                 % cell numbers
-                s = pad(['Ncells '], width);
+                s = strpad(['Ncells '], width,'post',' ');
                 valstr = [];
                 for fi = 1:numel(this.conditions)
 
                     N = numel(conditionstr{fi});
                     Nt = size(this.nucLevel{fi},1);
-                    valstr = [valstr pad(sprintf('%d', Nt), N)];
+                    valstr = [valstr strpad(sprintf('%d', Nt), N,'post',' ')];
                 end
                 disp([s valstr]);
                 
                 % density
-                s = pad(['cells/cm^2'], width);
+                s = strpad('cells/cm^2', width,'post',' ');
                 valstr = [];
                 for fi = 1:numel(this.conditions)
 
                     N = numel(conditionstr{fi});
                     rho = size(this.nucLevel{fi},1)/this.area;
-                    valstr = [valstr pad(sprintf('%.1e', rho), N)];
+                    valstr = [valstr strpad(sprintf('%.1e', rho), N,'post',' ')];
                 end
                 disp([s valstr]);
 
                 % fractions in cluster
                 for clusterLabel = 1:this.nClusters
                     
-                    s = pad(['cluster ' num2str(clusterLabel)], width);
+                    s = strpad(['cluster ' num2str(clusterLabel)], width,'post',' ');
                     valstr = [];
                     for fi = 1:numel(this.conditions)
                         
@@ -324,7 +327,7 @@ classdef cellStats < handle
                         Nt = size(this.clusters{fi}.clusterLabels,1);
                         Nc = sum(this.getClusterIdx(fi,clusterLabel));
                         fraction = Nc/Nt;
-                        valstr = [valstr pad(sprintf('%.2f', fraction), N)];
+                        valstr = [valstr strpad(sprintf('%.2f', fraction), N,'post',' ')];
                     end
                     disp([s valstr]);
                 end
@@ -334,11 +337,14 @@ classdef cellStats < handle
 
                 width = 16;
                 N = max(cellfun(@numel, this.conditions)) + 5;
-                labels = pad(this.channelLabel(this.markerChannels), width);
+                labels = [];
+                for i = 1:numel(this.markerChannels)
+                    labels = [labels strpad(this.channelLabel{this.markerChannels(i)}, width,'post',' ')];
+                end
                 if isempty(clusterLabel)
-                    t = [pad('',N) labels{:}];
+                    t = [strpad('',N,'post',' ') labels];
                 else
-                    t = [pad(['cluster ' num2str(clusterLabel)], N) labels{:}];
+                    t = [strpad(['cluster ' num2str(clusterLabel)], N,'post',' ') labels];
                 end
                 
                 disp(' ');
@@ -356,14 +362,14 @@ classdef cellStats < handle
                         idx = idx*0 > 0;
                     end
                     
-                    s = pad(this.conditions{fj}, N);
+                    s = strpad(this.conditions{fj}, N,'post',' ');
 
                     meanval = mean(this.nucLevel{fj}(idx, this.markerChannels));
                     stdval = std(this.nucLevel{fj}(idx, this.markerChannels));
 
                     valstr = [];
                     for channel = 1:numel(this.markerChannels)
-                        valstr = [valstr pad(sprintf('%.0f (%.0f)', meanval(channel), stdval(channel)), width)];
+                        valstr = [valstr strpad(sprintf('%.0f (%.0f)', meanval(channel), stdval(channel)), width,'post',' ')];
                     end
                     disp([s valstr])
                 end
@@ -390,7 +396,8 @@ classdef cellStats < handle
             A = this.nucLevel{cdi}(:,c1);
             B = this.nucLevel{cdi}(:,c2);
 
-            colormap(lines(this.nClusters));
+            %colormap(lines(this.nClusters));
+            colors = lines(this.nClusters);
             fs = 15;
             
             if ~showClusters
@@ -405,7 +412,7 @@ classdef cellStats < handle
                 
                 for i = 1:max(clusterLabels)
                     idxx = clusterLabels == i & idx;
-                    scatter(A(idxx), B(idxx), 1, clusterLabels(idxx),'.');
+                    scatter(A(idxx), B(idxx), 1, colors(clusterLabels(idxx),:),'.');
                     scatterlegend = [scatterlegend, ['cluster ' num2str(i)]];
                 end
                 
@@ -447,9 +454,12 @@ classdef cellStats < handle
                 nall = [this.histograms{:, channelIndex}];
             end
             
-            dist = bsxfun(@rdivide, nall, sum(nall,1));
             if cumulative
+                dist = bsxfun(@rdivide, nall, sum(nall,1));
                 dist = cumsum(dist);
+            else
+                dist = bsxfun(@rdivide, nall, sum(nall,1));
+                %dist = bsxfun(@rdivide, nall, max(nall,[],1));
             end
 
             nc = numel(this.conditions);
@@ -487,6 +497,7 @@ classdef cellStats < handle
             else
                 legend(this.conditions, 'Location','NorthEast');
                 ylim([0 0.3]);
+                %ylim([0 1.05]);
             end
             
         end

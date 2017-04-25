@@ -123,6 +123,7 @@ saveas(gcf, fullfile(resultsDir,'overview.png'));
 
 fi = 2;
 vsifile = fullfile(dataDir, filelist{fi});
+[~,barefname,~] = fileparts(vsifile);
 
 P = Position(meta.nChannels, vsifile, meta.nTime);
 P.setID(pi);
