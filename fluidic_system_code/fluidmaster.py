@@ -96,7 +96,7 @@ def ramp_wash_setup(duration, initial_volume ,steps, final_concentration):
         #delay for continued suction
         time.sleep(int(int(initial_volume)*1/float(MEDIA_OUT_SPD)))
         print ("wait for old media")
-        time.sleep(5)
+        time.sleep(10)
         #Calculate new concentration
         partial_concentration = (i+1)*float(final_concentration)/(steps)
         in_lig = int(partial_concentration*initial_volume)
