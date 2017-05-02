@@ -396,8 +396,8 @@ classdef cellStats < handle
             A = this.nucLevel{cdi}(:,c1);
             B = this.nucLevel{cdi}(:,c2);
 
-            %colormap(lines(this.nClusters));
-            colors = lines(this.nClusters);
+            colormap(lines(this.nClusters));
+            %colors = lines(this.nClusters);
             fs = 15;
             
             if ~showClusters
@@ -412,7 +412,7 @@ classdef cellStats < handle
                 
                 for i = 1:max(clusterLabels)
                     idxx = clusterLabels == i & idx;
-                    scatter(A(idxx), B(idxx), 1, colors(clusterLabels(idxx),:),'.');
+                    scatter(A(idxx), B(idxx), 1, clusterLabels(idxx),'.'); %colors(clusterLabels(idxx),:)
                     scatterlegend = [scatterlegend, ['cluster ' num2str(i)]];
                 end
                 
@@ -470,8 +470,6 @@ classdef cellStats < handle
             end
 
             [x,y] = histForBarlikePlot(this.bins{channelIndex}, dist);
-
-            figure, 
 
             hold on
             fs = 15;

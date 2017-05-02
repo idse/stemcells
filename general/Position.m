@@ -491,13 +491,19 @@ classdef Position < handle
                 if opts.cytoplasmicLevels
 
                     nucmaskmarg = imdilate(nucmask,strel('disk',opts.cytoMargin));
-                    
+
+%                     %watershedding inside the dilation
+%                     dilated = imdilate(nucmask, strel('disk',opts.cytoSize + opts.cytoMargin));
+%                     basin = bwdist(nucmaskmarg);
+%                     basin = imimposemin(basin, nucmask);
+%                     L = watershed(basin);
+
                     % watershedding inside the dilation
                     dilated = imdilate(nucmask, strel('disk',opts.cytoSize + opts.cytoMargin));
-                    basin = imcomplement(bwdist(dilated));
+                    basin = bwdist(dilated);
                     basin = imimposemin(basin, nucmask);
                     L = watershed(basin);
-                    
+
                     % OLD: can change number of CC and mess things up:
                     % L(~dilated) = 0;    % exclude outside dilated nuclei
                     % L(nucmaskraw) = 0;  % exclude nuclei before cleanup
@@ -515,12 +521,16 @@ classdef Position < handle
                             CCPIL = CCPIL(~nucmaskmarg(CCPIL)); % exclude margin around nuclei
                         end
                         if ~isempty(fgmask)
-                            cytCC.PixelIdxList{cci} = CCPIL(fgmask(CCPIL));% exclude background 
+                            CCPIL = CCPIL(fgmask(CCPIL));% exclude background 
                         end
+                        cytCC.PixelIdxList{cci} = CCPIL;
                     end
                     
                     this.cellData(ti).cytLevel = zeros([numel(cytCC.PixelIdxList) numel(opts.dataChannels)]);
                     this.cellData(ti).cytLevelAvg = zeros([1 numel(opts.dataChannels)]);
+                    
+%                     cytmask = false(size(nucmask));
+%                     cytmask(cat(1,cytCC.PixelIdxList{:}))=true;
                 else
                     cytCC = {};
                 end
@@ -550,6 +560,7 @@ classdef Position < handle
                 this.cellData(ti).area = areas;
                 this.cellData(ti).nucLevel = zeros([nCells numel(opts.dataChannels)]);
                 this.cellData(ti).nucLevelAvg = zeros([1 numel(opts.dataChannels)]);
+                this.cellData(ti).nucLevelStd = zeros([1 numel(opts.dataChannels)]);
                 this.cellData(ti).background = zeros([1 numel(opts.dataChannels)]);
                 
                 % if is no MIPidx, analyze the MIP
@@ -564,7 +575,7 @@ classdef Position < handle
                 if ti == 1 && isempty(MIPidx) 
                    warning('------------ NO MIPidx FOUND ------------');
                 end
-                
+
                 % for background subtraction, median z-plane
                 % this ifempty(MIPidx) is just so that it proceeds without
                 % MIPidx if the MIPidx cannot be loaded
@@ -575,13 +586,13 @@ classdef Position < handle
                     % read out in its only plane
                     zmed = 1; 
                 end
-                
+
                 % read out nuclear and cytoplasmic levels 
                 %-----------------------------------------
                 % zmed == 0 means no nuclei in mask so no cells in MIPidx
                 % case
                 if nCells > 0  % zmed > 0 
-                    
+
                 for cii = 1:numel(opts.dataChannels)
                     
                     %disp(['loading channel ' num2str(opts.dataChannels(cii))]);
@@ -664,6 +675,7 @@ classdef Position < handle
                         idx = 1:numel(A);
                     end
                     this.cellData(ti).nucLevelAvg(cii) = mean(nL(idx).*A(idx))/mean(A(idx));
+                    this.cellData(ti).nucLevelStd(cii) = std(nL(idx));
                 end
                 else
                     warning(['------------ NO CELLS AT T = ' num2str(ti) '------------']);

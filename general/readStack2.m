@@ -1,4 +1,4 @@
-function img = readStack(fullfname, channels) 
+function img = readStack2(fullfname, channels) 
     % read the data from a single multichannel stack
             
     % load the Bio-Formats library into the MATLAB environment
@@ -38,32 +38,14 @@ function img = readStack(fullfname, channels)
 
     [~,~,ext] = fileparts(fullfname);
 
-    if strcmp(ext,'.tif') || strcmp(ext,'.btf')
-
-        info = imfinfo(fullfname);
-        w = info.Width;
-        h = info.Height;
-
-        img = zeros([h w numel(channels)],'uint16');
-        for cii = 1:numel(channels)
-            img(:,:,cii) = imread(fullfname, channels(cii));
+    r = bfGetReader(fullfname);
+    img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
+    for cii = 1:numel(channels)
+        for zi = 1:r.getSizeZ()
+            time = 1; % intended for snapshots
+            img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,time-1)+1);
         end
-
-        if exist('time','var') && time > 1
-            error('todo : include reading for dynamic not Andor or epi');
-        end
-
-    elseif strcmp(ext,'.vsi') || strcmp(ext, '.oif')
-
-        r = bfGetReader(fullfname);
-        img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
-        for cii = 1:numel(channels)
-            for zi = 1:r.getSizeZ()
-                time = 1; % intended for snapshots
-                img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,time-1)+1);
-            end
-        end
-        r.close();
-        img = squeeze(img);
     end
+    r.close();
+    img = squeeze(img);
 end
