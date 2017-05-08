@@ -1,24 +1,19 @@
 clear all; close all;
 warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
  
-addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
+addpath(genpath('~/Documents/Stemcells')); 
 
-dataDir = '/Users/idse/data_tmp/160901_smad2';
-%dataDir = '/Volumes/IdseData3/161009_Smad2FISH';
-%dataDir = '/Users/idse/data_tmp/161009_Smad2FISH';
+dataDir = '/Volumes/IdseData3/170227_3daysManystains/d1_10pm';
 
-MIPchannels = 4;%1:2;%3:4;
-saveChunk = false;
-%saveidx = [true false]; 
-saveidx = [false false false false]; 
-
-previewChannels = [];
+MIPchannels = 4;
+saveChunk = true;
+saveidx = false; 
+previewChannels = 4;
 
 %% preprocessing
 
 MIPdir = fullfile(dataDir,'MIP');
 previewDir = fullfile(dataDir,'preview');
-
 
 if ~exist(MIPdir,'dir') && ~isempty(MIPchannels)
     mkdir(MIPdir);
@@ -29,12 +24,12 @@ end
 
 listing = dir(fullfile(dataDir,'*oib'));
 if isempty(listing)
-    listing = dir(fullfile(dataDir,'*tif'));
+    listing = dir(fullfile(dataDir,'*vsi'));
+    meta = Metadata(fullfile(dataDir,listing(1).name));
 end
 if isempty(listing)
-    listing = dir(fullfile(dataDir,'*btf'));
+    listing = dir(fullfile(dataDir,'*tif'));
 end
-
 
 for i = 1:numel(listing)
     
@@ -42,42 +37,58 @@ for i = 1:numel(listing)
     [~, barefname] = fileparts(filename);
     s = strsplit(barefname,'_p');
     barefname = s{1};
-    posnr = s{2};
     
-    img = readStack(fullfile(dataDir,filename));
-
-    disp('making MIPs');
-    for cii = 1:numel(MIPchannels)
-        
-        ci = MIPchannels(cii);
-        disp(['channel: ' num2str(ci)]);
-        
-        [MIP, MIPidx] = max(img(:,:,:,ci),[],3);
-        MIPidx = uint8(MIPidx);
-        
-        channelFilename = fullfile(MIPdir, sprintf([barefname '_MIP_p' posnr '_w%.4d.tif'], ci-1));
-        imwrite(MIP, channelFilename); 
-        
-        if saveidx(cii)
-            channelFilename = fullfile(MIPdir, sprintf([barefname '_MIPidx_p' posnr '_w%.4d.tif'], ci-1));
-            imwrite(MIPidx, channelFilename); 
-        end
-        
-        if saveChunk
-            chunk = MIP(2048:2*2048, 2048:2*2048);
-            channelFilename = fullfile(MIPdir, sprintf([barefname '_chunk_p' posnr '_w%.4d.tif'], ci-1));
-            imwrite(chunk, channelFilename); 
-        end
+    if numel(s)>1
+        posnr = s{2};
+        postfix = ['_p' posnr];
+    else
+        postfix = [];
     end
 
-    disp('making previews');
-    for cii = 1:numel(previewChannels)
+    allChannels = unique([MIPchannels previewChannels]);
+    
+    for cii = 1:numel(allChannels)
+
+        ci = allChannels(cii);
         
-        ci = previewChannels(cii);
+        disp(['channel: ' num2str(ci)]);
+        img = readStack2(fullfile(dataDir,filename), ci);
+
+        disp('making MIP');
         
-        [MIP, MIPidx] = max(img(:,:,:,ci),[],3);
+        [MIP, MIPidx] = max(img,[],3);
+        MIPidx = uint8(MIPidx);
+        ymin = 1;
+        ymax = min(ymin + 2*2048, size(MIP,1));
+        xmin = 1;
+        xmax = min(xmin + 2*2048, size(MIP,2));
+        chunk = MIP(ymin:ymax, xmin:xmax);
+
+        disp('saving MIP');
         
-        channelFilename = fullfile(previewDir, sprintf([barefname '_p' posnr '_w%.4d.tif'], ci-1));
-        imwrite(imadjust(mat2gray(MIP)), channelFilename); 
+        if any(MIPchannels == ci)
+           
+            channelFilename = fullfile(MIPdir, sprintf([barefname '_MIP' postfix '_w%.4d.tif'], ci-1));
+            imwrite(MIP, channelFilename); 
+
+            if saveidx(MIPchannels == ci)
+                channelFilename = fullfile(MIPdir, sprintf([barefname '_MIPidx' postfix '_w%.4d.tif'], ci-1));
+                imwrite(MIPidx, channelFilename); 
+            end
+        end
+        
+        disp('saving preview');
+        if any(previewChannels == ci)
+            
+            channelFilename = fullfile(previewDir, sprintf([barefname postfix '_w%.4d.tif'], ci-1));
+            imwrite(imadjust(mat2gray(chunk)), channelFilename); 
+        end
+        
+        disp('saving MIP chunck');
+        if saveChunk(MIPchannels == ci)
+            
+            channelFilename = fullfile(MIPdir, sprintf([barefname '_chunk' postfix '_w%.4d.tif'], ci-1));
+            imwrite(chunk, channelFilename); 
+        end
     end
 end

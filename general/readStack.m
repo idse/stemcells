@@ -1,20 +1,6 @@
-function [data, nChannels] = readStack(fullfname) 
+function [data meta] = readStack(fullfname) 
     % read the data from a single multichannel stack
 
-    % a way to do it without bioformats:
-    %         tic
-    %         disp(['reading: ' fname]);
-    %         warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffErrorAsWarning');
-    %         stack = zeros([1024 1024 meta.nZslices meta.tPerFile]);
-    %         imax = meta.nZslices*meta.tPerFile;
-    %         for i = 0:imax-1
-    %             zi = rem(i,meta.nZslices)+1;
-    %             tj = ceil((i+1)/meta.nZslices);
-    %             stack(:,:,zi,tj) = imread(fullfile(inputdir,fname),i+1);
-    %         end
-    %         warning('on', 'MATLAB:imagesci:tiffmexutils:libtiffErrorAsWarning');
-    %         toc
-            
     % load the Bio-Formats library into the MATLAB environment
     autoloadBioFormats = 1;
     status = bfCheckJavaPath(autoloadBioFormats);
@@ -47,6 +33,12 @@ function [data, nChannels] = readStack(fullfname)
     end
     fprintf('\n');
 
-    nChannels = r.getSizeC();
+    meta = struct();
+    meta.nChannels = r.getSizeC();
+    
+    omeMeta = r.getMetadataStore();
+    meta.xres = double(omeMeta.getPixelsPhysicalSizeX(0).value(ome.units.UNITS.MICROM));
+    meta.yres = double(omeMeta.getPixelsPhysicalSizeY(0).value(ome.units.UNITS.MICROM));
+
     r.close();
 end

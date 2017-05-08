@@ -11,7 +11,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
         s = strsplit(meta.filename,'_p');
     end
     barefname = s{1};
-    
+
     % some input checking
     if ~exist('saveidx','var')
         saveidx = false;

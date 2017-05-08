@@ -100,9 +100,20 @@ classdef Position < handle
             if ~exist('channels','var')
                 channels = 1:this.nChannels;
             end
-            fname = fullfile(dataDir, this.filename);
+            
             [~,~,ext] = fileparts(this.filename);
             
+            % the LSM stores each position in a subdirectory and each time
+            % in a separate file
+            if strcmp(ext, '.oif')
+                dataDir = fullfile(dataDir, sprintf('Track%.4d',this.ID));
+                s = strsplit(this.filename,'_');
+                this.filename = sprintf([s{1} '_%.2d.oif'], time);
+                time = 1;
+            end
+
+            fname = fullfile(dataDir, this.filename);
+
             if strcmp(ext,'.tif') || strcmp(ext,'.btf')
 
                 info = imfinfo(fname);
@@ -118,7 +129,7 @@ classdef Position < handle
                     error('todo : include reading for dynamic not Andor or epi');
                 end
                 
-            elseif strcmp(ext,'.vsi')
+            elseif strcmp(ext,'.vsi') || strcmp(ext, '.oif')
                 
                 r = bfGetReader(fname);
                 img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
@@ -129,19 +140,12 @@ classdef Position < handle
                 end
                 r.close();
                 img = squeeze(img);
-% OLD, probably obsolete (reads vsi, but can't deal with time)
-%             else
-%                 %img = readStack(fname);
-%                 xmin = []; ymin = []; xmax = []; ymax = [];
-%                 series = 1;
-%                 img_bf = bfopen_mod(fname,xmin,ymin,xmax-xmin+1,ymax-ymin+1,series,channels);
-%                 img = cat(3,img_bf{1}{:,1});
             end
             
             %disp(['loaded image ' fname]);
         end
 
-        function seg = loadSegmentation(this, dataDir, channel)
+        function seg = loadSegmentation(this, dataDir, channel, segfileformat)
             % load segmentation
             %
             % seg = loadSegmentation(dataDir, channel)
@@ -162,60 +166,109 @@ classdef Position < handle
             if ~exist('channel','var')
                 error('please provide channel');
             end
-            
+
             [~,~,ext] = fileparts(this.filename);
             
-            % just a convention, batchMIP_epi renames MIPs to Andor
-            % convention with barefname the dataDir name, which is 
-            % one level above /MIP
-            if strcmp(ext,'.vsi')
-                s = strsplit(dataDir,filesep);
-                barefname = sprintf([s{end-1}, '_MIP_p%.4d'], this.ID-1); 
+            if exist('segfileformat','var')
+                
+                fname = sprintf(segfilenameformat, channel-1);
             else
+                % guessing filename based on conventions
+                %------------------------------------------
+                
+%                 % convention, batchMIP_epi renames MIPs to Andor
+%                 % convention with barefname the dataDir name, which is 
+%                 % one level above /MIP
+%                 if strcmp(ext,'.vsi') || strcmp(ext,'.oif')
+%                     s = strsplit(dataDir,filesep);
+%                     barefname = sprintf([s{end-1}, '_MIP_p%.4d'], this.ID-1);
+%                 else
+%                     s = strsplit(this.filename,'_.%\.4d|\.','DelimiterType','RegularExpression');            
+%                     barefname = s{1};
+%                 end
+% 
+%                 % for dynamic data the raw data will usually be a MIP
+%                 % this code tries both
+%                 listing = dir(fullfile(dataDir,[barefname '*h5']));
+%                 if isempty(listing)
+%                     s = strsplit(this.filename,'_[fwptm][0-9]+','DelimiterType','RegularExpression');
+%                     barefname = sprintf([s{1} '_MIP_p%.4d'], this.ID-1);
+%                     listing = dir(fullfile(dataDir,[barefname '_*h5']));
+%                 end
+%                 if isempty(listing)
+%                     error(['segmentation ' [barefname '*h5'] ' for channel ' num2str(channel) ' not found in ' dataDir]);
+%                 end
+% 
+%                 fname = [];
+%                 for i = 1:numel(listing)
+%                     % DON'T COMMENT THE IF STATEMENT BELOW, IT WILL LOAD THE WRONG
+%                     % CHANNEL
+%                     if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
+%                             || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
+% 
+%                         fname = fullfile(dataDir,listing(i).name);
+%                     end
+%                 end
+  
+                barefname = {};
+                
+                % convention, batchMIP_epi renames MIPs to Andor
+                % convention with barefname the dataDir name, which is 
+                % one level above /MIP
+                s = strsplit(dataDir,filesep);
+                barefname{1} = sprintf([s{1}  '_MIP_p%.4d'], this.ID-1);
+
                 s = strsplit(this.filename,'_.%\.4d|\.','DelimiterType','RegularExpression');            
-                barefname = s{1};
-            end
-            
-            % for dynamic data the raw data will usually be a MIP
-            % this code tries both
-            listing = dir(fullfile(dataDir,[barefname '*h5']));
-            if isempty(listing)
-                s = strsplit(this.filename,'_.[0-9]+','DelimiterType','RegularExpression');
-                barefname = sprintf([s{1} '_MIP_p%.4d'], this.ID-1);
-                listing = dir(fullfile(dataDir,[barefname '_*h5']));
-            end
-            if isempty(listing)
-                error(['segmentation ' [barefname '*h5'] ' for channel ' num2str(channel) ' not found in ' dataDir]);
-            end
+                barefname{2} = s{1};
+                
+                s = strsplit(this.filename,'_[fwptm][0-9]+','DelimiterType','RegularExpression');
+                barefname{3} = sprintf([s{1}  '_MIP_p%.4d'], this.ID-1);
 
-            seg = [];
-            
-            for i = 1:numel(listing)
-                % DON'T COMMENT THE IF STATEMENT BELOW, IT WILL LOAD THE WRONG
-                % CHANNEL
-                if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
-                        || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
+                % find the first barefname for which there is an h5 file
+                i = 0;
+                listing = [];
+                while(isempty(listing))
+                    i = i+1;
+                    if i > numel(barefname)
+                        error(['segmentation ' [barefname '*h5'] ' for channel ' num2str(channel) ' not found in ' dataDir]);
+                    else
+                        listing = dir(fullfile(dataDir,[barefname{i} '*h5']));    
+                    end
+                end
 
-                    fname = fullfile(dataDir,listing(i).name);
-                    seg = h5read(fname, '/exported_data');
-                    % Probabilities
-                    if size(seg,1) > 1 
-                        ssegsize = size(seg);
-                        ssegsize(1) = 1;
-                        simpleseg = false(ssegsize);
-                        simpleseg(seg(2,:,:,:) >= 0.5) = true;
-                        seg = squeeze(simpleseg);
-                        
-                    % Simple Segmentation
-                    else                
-                        seg = squeeze(seg == 2);
+                fname = [];
+                for i = 1:numel(listing)
+                    % DON'T COMMENT THE IF STATEMENT BELOW, IT WILL LOAD THE WRONG
+                    % CHANNEL
+                    if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
+                            || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
+
+                        fname = fullfile(dataDir,listing(i).name);
                     end
                 end
             end
             
-            if isempty(seg)
+            % actually reading the file
+            %----------------------------
+            
+            if ~exist(fname,'file')
+                
                 warning(['segmentation for channel ' num2str(channel) ' not found in ' dataDir, ', may be naming convention problem']);
+                seg = [];
+                
             else
+                seg = h5read(fname, '/exported_data');
+                % Probabilities
+                if size(seg,1) > 1 
+                    ssegsize = size(seg);
+                    ssegsize(1) = 1;
+                    simpleseg = false(ssegsize);
+                    simpleseg(seg(2,:,:,:) >= 0.5) = true;
+                    seg = squeeze(simpleseg);
+                % Simple Segmentation
+                else                
+                    seg = squeeze(seg == 2);
+                end
                 % Ilastik output data has xy transposed
                 seg = permute(seg, [2 1 3]);
                 disp(['loaded segmentation ' fname]);
@@ -237,17 +290,24 @@ classdef Position < handle
                 time = 1;
             end
             
-            fname = this.filename;
-
-            % remove time part of filename:
-            [startIndex,endIndex]  = regexp(this.filename,'_t([0-9]+|%.4d)');
-            if ~isempty(startIndex)
-                fname = fname([1:startIndex-1 endIndex+1:end]);
-            end
+            [~,~,ext] = fileparts(this.filename);
             
-            % MIPidx is supposed to be single file for all times
-            startIndex = regexp(fname,'_.[0-9]+');
-            fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
+            if strcmp(ext,'.vsi') || strcmp(ext,'.oif')
+                
+                s = strsplit(dataDir,filesep);
+                fname = sprintf([s{end-1}, '_MIPidx_p%.4d.tif'], this.ID-1); 
+            else                
+                % remove time part of filename:
+                fname = this.filename;
+                [startIndex,endIndex]  = regexp(this.filename,'_t([0-9]+|%.4d)');
+                if ~isempty(startIndex)
+                    fname = fname([1:startIndex-1 endIndex+1:end]);
+                end
+
+                % MIPidx is supposed to be single file for all times
+                startIndex = regexp(fname,'_[fwptm][0-9]+');
+                fname = [fname(1:startIndex(1)) 'MIPidx_' fname(startIndex(1)+1:end)];
+            end
 
             % if the channels were split in export, put in the channel index
             if ~isempty(regexp(fname,'_w%.4d','once'))
@@ -295,7 +355,8 @@ classdef Position < handle
             %                       default is all
             % -tMax                 maximal time, default nTime
             % -------------------------------------------------------------
-            % -cleanupOptions       options for cleanup
+            % -cleanupOptions       options for nuclearCleanup
+            % -dirtyOptions         if using dirtyNuclearSegmentation
             % -nucShrinkage         number of pixels to shrink nuclear mask
             %                       by to get more accurate nuclear
             %                       readouts
@@ -394,7 +455,7 @@ classdef Position < handle
                 
                 % get background mask
                 %--------------------------
-                if isfield(opts, 'fgChannel');
+                if isfield(opts, 'fgChannel')
                     fgmask = imclose(seg{opts.fgChannel}(:,:,ti),strel('disk',10));
                     bgmask = imerode(~fgmask,strel('disk', opts.bgMargin));
                     fgmask = imerode(fgmask,strel('disk', opts.bgMargin));
@@ -407,10 +468,21 @@ classdef Position < handle
             
                 nucmaskraw = seg{nucChannel}(:,:,ti);
                 %nucmaskraw(bgmask) = false;
-                if ~isfield(opts, 'nuclearSegmentation')  
+                if ~isfield(opts, 'nuclearSegmentation') && ~isfield(opts, 'dirtyOptions') 
+                    
+                    disp('using nuclearCleanup');
                     nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
-                else
+                    
+                elseif isfield(opts, 'nuclearSegmentation')
+                    
                     nucmask = nucmaskraw;
+                    
+                elseif isfield(opts, 'dirtyOptions') 
+                    
+                    disp('using dirty nuclear segmentation');
+                    opts.dirtyOptions.mask = nucmaskraw;
+                    imc = this.loadImage(dataDir, nucChannel, ti);
+                    nucmask = dirtyNuclearSegmentation(imc, opts.dirtyOptions);
                 end
                 
                 % make cytoplasmic mask 
@@ -419,13 +491,19 @@ classdef Position < handle
                 if opts.cytoplasmicLevels
 
                     nucmaskmarg = imdilate(nucmask,strel('disk',opts.cytoMargin));
-                    
+
+%                     %watershedding inside the dilation
+%                     dilated = imdilate(nucmask, strel('disk',opts.cytoSize + opts.cytoMargin));
+%                     basin = bwdist(nucmaskmarg);
+%                     basin = imimposemin(basin, nucmask);
+%                     L = watershed(basin);
+
                     % watershedding inside the dilation
                     dilated = imdilate(nucmask, strel('disk',opts.cytoSize + opts.cytoMargin));
-                    basin = imcomplement(bwdist(dilated));
+                    basin = bwdist(dilated);
                     basin = imimposemin(basin, nucmask);
                     L = watershed(basin);
-                    
+
                     % OLD: can change number of CC and mess things up:
                     % L(~dilated) = 0;    % exclude outside dilated nuclei
                     % L(nucmaskraw) = 0;  % exclude nuclei before cleanup
@@ -443,12 +521,16 @@ classdef Position < handle
                             CCPIL = CCPIL(~nucmaskmarg(CCPIL)); % exclude margin around nuclei
                         end
                         if ~isempty(fgmask)
-                            cytCC.PixelIdxList{cci} = CCPIL(fgmask(CCPIL));% exclude background 
+                            CCPIL = CCPIL(fgmask(CCPIL));% exclude background 
                         end
+                        cytCC.PixelIdxList{cci} = CCPIL;
                     end
                     
                     this.cellData(ti).cytLevel = zeros([numel(cytCC.PixelIdxList) numel(opts.dataChannels)]);
                     this.cellData(ti).cytLevelAvg = zeros([1 numel(opts.dataChannels)]);
+                    
+%                     cytmask = false(size(nucmask));
+%                     cytmask(cat(1,cytCC.PixelIdxList{:}))=true;
                 else
                     cytCC = {};
                 end
@@ -478,6 +560,7 @@ classdef Position < handle
                 this.cellData(ti).area = areas;
                 this.cellData(ti).nucLevel = zeros([nCells numel(opts.dataChannels)]);
                 this.cellData(ti).nucLevelAvg = zeros([1 numel(opts.dataChannels)]);
+                this.cellData(ti).nucLevelStd = zeros([1 numel(opts.dataChannels)]);
                 this.cellData(ti).background = zeros([1 numel(opts.dataChannels)]);
                 
                 % if is no MIPidx, analyze the MIP
@@ -492,7 +575,7 @@ classdef Position < handle
                 if ti == 1 && isempty(MIPidx) 
                    warning('------------ NO MIPidx FOUND ------------');
                 end
-                
+
                 % for background subtraction, median z-plane
                 % this ifempty(MIPidx) is just so that it proceeds without
                 % MIPidx if the MIPidx cannot be loaded
@@ -503,13 +586,13 @@ classdef Position < handle
                     % read out in its only plane
                     zmed = 1; 
                 end
-                
+
                 % read out nuclear and cytoplasmic levels 
                 %-----------------------------------------
                 % zmed == 0 means no nuclei in mask so no cells in MIPidx
                 % case
                 if nCells > 0  % zmed > 0 
-                    
+
                 for cii = 1:numel(opts.dataChannels)
                     
                     %disp(['loading channel ' num2str(opts.dataChannels(cii))]);
@@ -592,14 +675,14 @@ classdef Position < handle
                         idx = 1:numel(A);
                     end
                     this.cellData(ti).nucLevelAvg(cii) = mean(nL(idx).*A(idx))/mean(A(idx));
+                    this.cellData(ti).nucLevelStd(cii) = std(nL(idx));
                 end
                 else
                     warning(['------------ NO CELLS AT T = ' num2str(ti) '------------']);
                 end
             end
             fprintf('\n');
-            
-            debugInfo = struct('bgmask', bgmask, 'nucmask', nucmask, 'cytCC', cytCC);
+            debugInfo = struct('bgmask', bgmask, 'nucmask', nucmask, 'cytCC', {cytCC});
         end
         
         function makeTimeTraces(this)

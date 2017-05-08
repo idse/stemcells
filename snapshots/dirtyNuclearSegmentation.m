@@ -18,7 +18,7 @@ function nucseg = dirtyNuclearSegmentation(im, opts)
     if isfield(opts, 'absolutethresh')
         absolutethresh = opts.absolutethresh;
     else
-        absolutethresh = 1000;
+        absolutethresh = graythresh(mat2gray(im))*max(im(:));%1000;
         warning('absolute threshold was not provided, using default');
     end
     if isfield(opts, 'areacutoff')
@@ -34,16 +34,19 @@ function nucseg = dirtyNuclearSegmentation(im, opts)
     % actual code
     %-------------
     
-    imdil = imdilate(im,strel('disk',2*s));
-    imer = imerode(im,strel('disk',2*s));
-    imnormalized = single(im - imer)./single(imdil - imer);
-    clear imdil;
-    clear imer;
+    if ~isfield(opts, 'mask')
+        imdil = imdilate(im,strel('disk',2*s));
+        imer = imerode(im,strel('disk',2*s));
+        imnormalized = single(im - imer)./single(imdil - imer);
+        clear imdil;
+        clear imer;
     
-    mask = imnormalized > normalizedthresh & im > absolutethresh;
-    mask = imclose(mask, strel('disk',2));
-    mask = bwareaopen(mask, areacutoff);
-
+        mask = imnormalized > normalizedthresh & im > absolutethresh;
+        mask = imclose(mask, strel('disk',2));
+        mask = bwareaopen(mask, areacutoff);
+    else
+        mask = opts.mask;
+    end
     logim = imfilter(im, -fspecial('log',3*s, s));
     seeds = imextendedmax(logim, round(mean(logim(:))));
     
@@ -71,6 +74,7 @@ function nucseg = dirtyNuclearSegmentation(im, opts)
     % remove largest nuclei (probably segmentation error)
     stats = regionprops(nucseg,'Area');
     Acutoff = round(mean([stats.Area]) + opts.toobigNstd*std([stats.Area]));
+    disp(['A cutoff: ' num2str(Acutoff)]);
     toobig = bwareaopen(nucseg, Acutoff);
     nucseg(toobig) = 0;
 end
