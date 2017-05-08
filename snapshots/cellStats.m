@@ -16,11 +16,12 @@ classdef cellStats < handle
         
         % basic stats
         nucLevel 
+        cytLevel
         lim
         scale
         offset
         bins
-        histograms
+        histograms          % Nfiles x Nchannels
 
         % clusters
         clustermodel
@@ -51,6 +52,8 @@ classdef cellStats < handle
             % make table of nuclear values
             for i = 1:numel(allData)
                 
+                this.cytLevel{i} = allData{i}.cellData.cytLevel;
+                
                 if ~isempty(this.normalizeChannel)
                     N = allData{i}.cellData.nucLevel(:,normalizeChannel);
                     this.nucLevel{i} = bsxfun(@rdivide, allData{i}.cellData.nucLevel, N);
@@ -64,15 +67,17 @@ classdef cellStats < handle
             % determine intensity limits for distributions and plots
             
             nucLevelAll = [];
+            cytLevelAll = [];
             for i = 1:numel(this.nucLevel)
                 nucLevelAll = cat(1, nucLevelAll, this.nucLevel{i});
+                cytLevelAll = cat(1, cytLevelAll, this.cytLevel{i});
             end
     
             this.lim = {};
             this.scale = zeros([1 4]);
             this.offset = zeros([1 4]);
             for i = 1:size(nucLevelAll, 2)
-                A = nucLevelAll(:,i);
+                A = cat(1,nucLevelAll(:,i),cytLevelAll(:,i));
                 this.scale(i) = (max(A) - min(A));
                 this.offset(i) = min(A);
                 this.lim{i} = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
@@ -102,8 +107,13 @@ classdef cellStats < handle
                 for channelIndex = 1:numel(this.lim)
 
                     this.bins{channelIndex} = linspace(this.lim{channelIndex}(1), this.lim{channelIndex}(2), nBins);
-                    n = histc(this.nucLevel{fi}(:,channelIndex), this.bins{channelIndex});
-                    this.histograms{fi, channelIndex} = n;
+                    nn = histc(this.nucLevel{fi}(:,channelIndex), this.bins{channelIndex});
+                    this.histograms{fi, channelIndex, 1} = nn;
+                    
+                    if ~isempty(this.cytLevel{fi})
+                        nc = histc(this.cytLevel{fi}(:,channelIndex), this.bins{channelIndex});
+                        this.histograms{fi, channelIndex, 2} = nc;
+                    end
                 end
             end
         end
@@ -380,10 +390,13 @@ classdef cellStats < handle
         % visualization
         %-----------------------------------------------------------------
         
-        function makeScatterPlot(this, conditionIdx, channelIdx, showClusters)
+        function makeScatterPlot(this, conditionIdx, channelIdx, showClusters, cytoplasmic)
             
             if ~exist('showClusters','var')
                 showClusters = false;
+            end
+            if ~exist('cytoplasmic','var')
+                cytoplasmic = [false false];
             end
             
             c1 = channelIdx(1);
@@ -393,8 +406,20 @@ classdef cellStats < handle
             
             hold on
 
-            A = this.nucLevel{cdi}(:,c1);
-            B = this.nucLevel{cdi}(:,c2);
+            if cytoplasmic(1)
+                A = this.cytLevel{cdi}(:,c1);
+                xlabelstr = [this.channelLabel{c1} ' cytoplasmic'];
+            else
+                A = this.nucLevel{cdi}(:,c1);
+                xlabelstr = this.channelLabel{c1};
+            end
+            if cytoplasmic(2)
+                B = this.cytLevel{cdi}(:,c2);
+                ylabelstr = [this.channelLabel{c2} ' cytoplasmic'];
+            else
+                B = this.nucLevel{cdi}(:,c2);
+                ylabelstr = this.channelLabel{c2};
+            end
 
             colormap(lines(this.nClusters));
             %colors = lines(this.nClusters);
@@ -419,9 +444,9 @@ classdef cellStats < handle
                 legend(scatterlegend)
             end
 
-            xlabel(this.channelLabel{c1}, 'FontSize',fs, 'FontWeight','Bold');
-            ylabel(this.channelLabel{c2}, 'FontSize',fs, 'FontWeight','Bold');
-            title(this.conditions{cdi},...
+            xlabel(xlabelstr, 'FontSize',fs, 'FontWeight','Bold');
+            ylabel(ylabelstr, 'FontSize',fs, 'FontWeight','Bold');
+            title([this.conditions{cdi} ' (corr ' num2str(corr2(A,B),2) ')'],...
                 'Interpreter','none', 'FontSize',fs, 'FontWeight','Bold');
 
             axis([this.lim{c1}' this.lim{c2}']);
@@ -436,7 +461,7 @@ classdef cellStats < handle
         
         %-----------------------------------------------------------------
         
-        function plotDistributionComparison(this, channelIndex, cumulative, clusterLabel)
+        function plotDistributionComparison(this, channelIndex, cytoplasmic, cumulative, clusterLabel)
 
             if ~exist('cumulative','var')
                 cumulative = false;
@@ -444,14 +469,21 @@ classdef cellStats < handle
             if ~exist('clusterLabel','var')
                 clusterLabel = [];
             end
-
+            
             titlestr = this.channelLabel{channelIndex};
             
+            if ~exist('cytoplasmic', 'var') || cytoplasmic == false
+                j = 1;
+            else
+                j = 2;
+                titlestr = [titlestr ' cytoplasmic'];
+            end
+  
             if ~isempty(clusterLabel)
                 nall = [this.clusterHistograms{:, channelIndex, clusterLabel}];
                 titlestr = [titlestr ';  cluster ' num2str(clusterLabel)];
             else
-                nall = [this.histograms{:, channelIndex}];
+                nall = [this.histograms{:, channelIndex, j}];
             end
             
             if cumulative

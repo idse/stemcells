@@ -81,10 +81,10 @@ function dataCombined = combineQPCR(dataDir, filenames, tolerance)
             Nsamples = Nsamples + D.Nsamples;
             samples = cat(1, samples, D.samples);
 
-            CTmeanRaw = cat(2, CTmeanRaw, D.CTmeanRaw);
-            CTstdRaw = cat(2, CTstdRaw, D.CTstdRaw);
-            outliers = cat(2,outliers, D.outliers);
-            highstd = cat(2,highstd, D.highstd);
+            CTmeanRaw = cat(1, CTmeanRaw, D.CTmeanRaw);
+            CTstdRaw = cat(1, CTstdRaw, D.CTstdRaw);
+            outliers = cat(1,outliers, D.outliers);
+            highstd = cat(1,highstd, D.highstd);
             
             if i == 1
                 Ntargets = D.Ntargets;
