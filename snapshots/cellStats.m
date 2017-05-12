@@ -52,7 +52,9 @@ classdef cellStats < handle
             % make table of nuclear values
             for i = 1:numel(allData)
                 
-                this.cytLevel{i} = allData{i}.cellData.cytLevel;
+                if isfield(allData{i}.cellData,'cytLevel')
+                    this.cytLevel{i} = allData{i}.cellData.cytLevel;
+                end
                 
                 if ~isempty(this.normalizeChannel)
                     N = allData{i}.cellData.nucLevel(:,normalizeChannel);
@@ -70,7 +72,9 @@ classdef cellStats < handle
             cytLevelAll = [];
             for i = 1:numel(this.nucLevel)
                 nucLevelAll = cat(1, nucLevelAll, this.nucLevel{i});
-                cytLevelAll = cat(1, cytLevelAll, this.cytLevel{i});
+                if ~isempty(this.cytLevel)
+                    cytLevelAll = cat(1, cytLevelAll, this.cytLevel{i});
+                end
             end
     
             this.lim = {};
