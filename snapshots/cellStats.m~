@@ -81,9 +81,8 @@ classdef cellStats < handle
             this.scale = zeros([1 4]);
             this.offset = zeros([1 4]);
             for i = 1:size(nucLevelAll, 2)
-                if ~isempty(cytLevelAll)
-                    A = cat(1,nucLevelAll(:,i),cytLevelAll(:,i));
-                end
+                if ~isem
+                A = cat(1,nucLevelAll(:,i),cytLevelAll(:,i));
                 this.scale(i) = (max(A) - min(A));
                 this.offset(i) = min(A);
                 this.lim{i} = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
