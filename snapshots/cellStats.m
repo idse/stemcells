@@ -118,7 +118,7 @@ classdef cellStats < handle
                     nn = histc(this.nucLevel{fi}(:,channelIndex), this.bins{channelIndex});
                     this.histograms{fi, channelIndex, 1} = nn;
                     
-                    if ~isempty(this.cytLevel{fi})
+                    if ~isempty(this.cytLevel) && ~isempty(this.cytLevel{fi})
                         nc = histc(this.cytLevel{fi}(:,channelIndex), this.bins{channelIndex});
                         this.histograms{fi, channelIndex, 2} = nc;
                     end
