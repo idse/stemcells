@@ -83,6 +83,8 @@ classdef cellStats < handle
             for i = 1:size(nucLevelAll, 2)
                 if ~isempty(cytLevelAll)
                     A = cat(1,nucLevelAll(:,i),cytLevelAll(:,i));
+                else
+                    A = nucLevelAll(:,i);
                 end
                 this.scale(i) = (max(A) - min(A));
                 this.offset(i) = min(A);
