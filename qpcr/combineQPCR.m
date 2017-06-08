@@ -32,9 +32,7 @@ function dataCombined = combineQPCR(dataDir, filenames, tolerance)
     
     if numel(targetsComb) > numel(data{1}.targets) &&...
         numel(samplesComb) > numel(data{1}.samples)
-    
-        sort(samplesComb)
-        sort(targetsComb)
+
         error('either samples or targets have to match between plates');
         
     elseif numel(targetsComb) >= numel(data{1}.targets) &&...

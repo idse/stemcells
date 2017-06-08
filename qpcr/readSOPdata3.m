@@ -15,7 +15,9 @@ function data = readSOPdata3(filename, tolerance)
              end
         else
             if ~isempty(tline)
-                rawdata = cat(1, rawdata, strsplit(tline,'\t','CollapseDelimiters',false));
+                x = strsplit(tline,'\t','CollapseDelimiters',false);
+                L = min(size(rawdata,2), numel(x));
+                rawdata = cat(1, rawdata(:,1:L), x(1:L));
                 q = q + 1;
             else
                 break;

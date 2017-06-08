@@ -111,7 +111,8 @@ classdef cellStats < handle
             this.histograms = {};
             this.bins = {};
 
-            for fi = 1:numel(this.conditions)
+            nConditions = size(this.nucLevel, 2);
+            for fi = 1:nConditions
                 for channelIndex = 1:numel(this.lim)
 
                     this.bins{channelIndex} = linspace(this.lim{channelIndex}(1), this.lim{channelIndex}(2), nBins);
@@ -502,7 +503,7 @@ classdef cellStats < handle
                 %dist = bsxfun(@rdivide, nall, max(nall,[],1));
             end
 
-            nc = numel(this.conditions);
+            nc = size(this.nucLevel, 2);
             if nc < 8
                 colors = lines(nc);
             else
@@ -512,7 +513,7 @@ classdef cellStats < handle
             [x,y] = histForBarlikePlot(this.bins{channelIndex}, dist);
 
             hold on
-            fs = 15;
+            fs = 20;
             for i = 1:nc
                 plot(x,y(:,i),'LineWidth',2, 'Color',colors(i,:));
             end
@@ -530,10 +531,10 @@ classdef cellStats < handle
             xlim(this.lim{channelIndex});
 
             if cumulative
-                legend(this.conditions, 'Location','SouthEast');
+                legend(this.conditions, 'Location','SouthEast','FontSize',fs);
                 ylim([0 1.05]);
             else
-                legend(this.conditions, 'Location','NorthEast');
+                legend(this.conditions, 'Location','NorthEast','FontSize',fs);
                 ylim([0 0.3]);
                 %ylim([0 1.05]);
             end
