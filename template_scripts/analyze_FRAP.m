@@ -108,27 +108,32 @@ for fi = 1:numel(oibfiles)
     tcut = size(tracesnorm,2);
     tres = allresults{fi}.tres;
     
+    % filename
+    oibfile = oibfiles{fi};
+    [~,barefname,~] = fileparts(oibfile);
+    barefname = strrep(barefname,'.','dot');
+    
     % FRAP curves
     figure,
     t = repmat((1:tcut)*tres,[Nfrapped 1]);
     plot(t' ,tracesnorm');
-    xlim([0 t(end)]);
     xlabel('time (sec)');
     ylabel('intensity')
-    saveas(gcf,fullfile(dataDir, [barefname '_rawFRAPcurves']));
-    saveas(gcf,fullfile(dataDir, [barefname '_rawFRAPcurves.png']));
+    saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
+    saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname '.png']));
 
     plot(t' ,tracesnorm');
     xlabel('time (sec)');
     ylabel('normalized intensity')
-    saveas(gcf,fullfile(dataDir, [barefname '_normFRAPcurves']));
-    saveas(gcf,fullfile(dataDir, [barefname '_normFRAPcurves.png']));
+    saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname]));
+    saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname '.png']));
     close;
 
     % FRAP fit
-    visualizeFRAPfit(results)
-    saveas(gcf,fullfile(dataDir, [barefname '_FRAPfit']));
-    saveas(gcf,fullfile(dataDir, [barefname '_FRAPfit.png']));
+    visualizeFRAPfit(allresults{fi})
+    saveas(gcf,fullfile(dataDir, ['FRAPfit_' barefname]));
+    saveas(gcf,fullfile(dataDir, ['FRAPfit_' barefname '.png']));
     close;
 end
+
 

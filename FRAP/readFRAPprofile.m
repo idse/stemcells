@@ -9,8 +9,11 @@ function [traces, tracesnorm, maskall] = readFRAPprofile(data, x,y)
     for shapeIdx = 1:numel(x)
 
         mask = poly2mask(x{shapeIdx}, y{shapeIdx}, size(data,2), size(data,1));
-        mask = imerode(mask, strel('disk', 20));
-
+        
+        pixelArea = sum(mask(:));
+        s = round(sqrt(pixelArea)/8);
+        
+        mask = imerode(mask, strel('disk', s));
         maskall = maskall | mask;
 
         val = zeros([1 tcut]);

@@ -36,8 +36,8 @@ function visualizeFRAPfit(results)
     end
 
     hold off
-    xlim([0 tlim]);
-    ylim([0 0.6]); 
+    xlim([0 t(end)]);
+    ylim([0 1.1*max(results.A(:,1))]); 
     legend(legendstr, 'Location','SouthEast');
 
     fs = 20;

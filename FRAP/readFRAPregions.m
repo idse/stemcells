@@ -8,8 +8,8 @@ function [x,y, shapeTypes] = readFRAPregions(omeMeta)
 
     for shapeIdx = 1:Nfrapped
 
-        shapeType = omeMeta.getShapeType(ROIidx,shapeIdx-1);
-        shapeTypes{shapeIdx} = char(shapeType);
+        shapeType = char(omeMeta.getShapeType(ROIidx,shapeIdx-1));
+        shapeTypes{shapeIdx} = shapeType;
 
         if strcmp(shapeType, 'Polygon')
 
@@ -34,10 +34,10 @@ function [x,y, shapeTypes] = readFRAPregions(omeMeta)
 
         elseif strcmp(shapeType, 'Rectangle')
 
-            rx = double(omeMeta.getRectangleX(ROIidx, shapeIdx));
-            ry = double(omeMeta.getRectangleY(ROIidx, shapeIdx));
-            rh = double(omeMeta.getRectangleHeight(ROIidx, shapeIdx));
-            rw = double(omeMeta.getRectangleWidth(ROIidx, shapeIdx));
+            rx = double(omeMeta.getRectangleX(ROIidx, shapeIdx-1));
+            ry = double(omeMeta.getRectangleY(ROIidx, shapeIdx-1));
+            rh = double(omeMeta.getRectangleHeight(ROIidx, shapeIdx-1));
+            rw = double(omeMeta.getRectangleWidth(ROIidx, shapeIdx-1));
 
             x{shapeIdx} = [rx, rx + rw, rx + rw, rx, rx];
             y{shapeIdx} = [ry, ry, ry + rh, ry + rh, ry];
