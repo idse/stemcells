@@ -52,7 +52,9 @@ classdef cellStats < handle
             % make table of nuclear values
             for i = 1:numel(allData)
                 
-                this.cytLevel{i} = allData{i}.cellData.cytLevel;
+                if isfield(allData{i}.cellData,'cytLevel')
+                    this.cytLevel{i} = allData{i}.cellData.cytLevel;
+                end
                 
                 if ~isempty(this.normalizeChannel)
                     N = allData{i}.cellData.nucLevel(:,normalizeChannel);
@@ -70,14 +72,20 @@ classdef cellStats < handle
             cytLevelAll = [];
             for i = 1:numel(this.nucLevel)
                 nucLevelAll = cat(1, nucLevelAll, this.nucLevel{i});
-                cytLevelAll = cat(1, cytLevelAll, this.cytLevel{i});
+                if ~isempty(this.cytLevel)
+                    cytLevelAll = cat(1, cytLevelAll, this.cytLevel{i});
+                end
             end
     
             this.lim = {};
             this.scale = zeros([1 4]);
             this.offset = zeros([1 4]);
             for i = 1:size(nucLevelAll, 2)
-                A = cat(1,nucLevelAll(:,i),cytLevelAll(:,i));
+                if ~isempty(cytLevelAll)
+                    A = cat(1,nucLevelAll(:,i),cytLevelAll(:,i));
+                else
+                    A = nucLevelAll(:,i);
+                end
                 this.scale(i) = (max(A) - min(A));
                 this.offset(i) = min(A);
                 this.lim{i} = stretchlim(mat2gray(A),tol)*(max(A) - min(A)) + min(A);
@@ -103,14 +111,15 @@ classdef cellStats < handle
             this.histograms = {};
             this.bins = {};
 
-            for fi = 1:numel(this.conditions)
+            nConditions = size(this.nucLevel, 2);
+            for fi = 1:nConditions
                 for channelIndex = 1:numel(this.lim)
 
                     this.bins{channelIndex} = linspace(this.lim{channelIndex}(1), this.lim{channelIndex}(2), nBins);
                     nn = histc(this.nucLevel{fi}(:,channelIndex), this.bins{channelIndex});
                     this.histograms{fi, channelIndex, 1} = nn;
                     
-                    if ~isempty(this.cytLevel{fi})
+                    if ~isempty(this.cytLevel) && ~isempty(this.cytLevel{fi})
                         nc = histc(this.cytLevel{fi}(:,channelIndex), this.bins{channelIndex});
                         this.histograms{fi, channelIndex, 2} = nc;
                     end
@@ -494,7 +503,7 @@ classdef cellStats < handle
                 %dist = bsxfun(@rdivide, nall, max(nall,[],1));
             end
 
-            nc = numel(this.conditions);
+            nc = size(this.nucLevel, 2);
             if nc < 8
                 colors = lines(nc);
             else
@@ -504,7 +513,7 @@ classdef cellStats < handle
             [x,y] = histForBarlikePlot(this.bins{channelIndex}, dist);
 
             hold on
-            fs = 15;
+            fs = 20;
             for i = 1:nc
                 plot(x,y(:,i),'LineWidth',2, 'Color',colors(i,:));
             end
@@ -522,10 +531,10 @@ classdef cellStats < handle
             xlim(this.lim{channelIndex});
 
             if cumulative
-                legend(this.conditions, 'Location','SouthEast');
+                legend(this.conditions, 'Location','SouthEast','FontSize',fs);
                 ylim([0 1.05]);
             else
-                legend(this.conditions, 'Location','NorthEast');
+                legend(this.conditions, 'Location','NorthEast','FontSize',fs);
                 ylim([0 0.3]);
                 %ylim([0 1.05]);
             end
