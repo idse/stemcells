@@ -1,4 +1,4 @@
-function img = readStack2(fullfname, channels) 
+function [img, omeMeta] = readStack2(fullfname, channels, tmax) 
     % read the data from a single multichannel stack
             
     % load the Bio-Formats library into the MATLAB environment
@@ -36,16 +36,34 @@ function img = readStack2(fullfname, channels)
 %     nChannels = r.getSizeC();
 %     r.close();
 
-    [~,~,ext] = fileparts(fullfname);
+  %  [~,~,ext] = fileparts(fullfname);
 
+%     r = bfGetReader(fullfname);
+%     img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
+%     for cii = 1:numel(channels)
+%         for zi = 1:r.getSizeZ()
+%             time = 1; % intended for snapshots
+%             img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,time-1)+1);
+%         end
+%     end
+%     r.close();
+%     img = squeeze(img);
+    
     r = bfGetReader(fullfname);
-    img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
-    for cii = 1:numel(channels)
-        for zi = 1:r.getSizeZ()
-            time = 1; % intended for snapshots
-            img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,time-1)+1);
+    if ~exist('channels','var') || isempty(channels)
+        channels = 1:r.getSizeC();
+    end
+    if ~exist('tmax','var')
+        tmax = r.getSizeT();
+    end
+    img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ() tmax], 'uint16');
+    for ti = 1:tmax
+        for cii = 1:numel(channels)
+            for zi = 1:r.getSizeZ()
+                img(:,:,cii,zi,ti) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,ti-1)+1);
+            end
         end
     end
+    omeMeta = r.getMetadataStore();
     r.close();
-    img = squeeze(img);
 end

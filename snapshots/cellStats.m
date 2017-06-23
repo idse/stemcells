@@ -432,7 +432,7 @@ classdef cellStats < handle
 
             colormap(lines(this.nClusters));
             %colors = lines(this.nClusters);
-            fs = 15;
+            fs = 20;
             
             if ~showClusters
                 scatter(A, B, 1,'.');

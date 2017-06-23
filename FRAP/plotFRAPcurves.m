@@ -28,6 +28,7 @@ function plotFRAPcurves(dataDir, oibfile, results)
 
     % FRAP fit
     visualizeFRAPfit(results)
+    xlim([0 1600]);
     saveas(gcf,fullfile(dataDir, ['FRAPfit_' barefname]));
     saveas(gcf,fullfile(dataDir, ['FRAPfit_' barefname '.png']));
     close;

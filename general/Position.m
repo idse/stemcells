@@ -125,23 +125,24 @@ classdef Position < handle
                     img(:,:,cii) = imread(fname, channels(cii));
                 end
                 
-                if exist('time','var') && time > 1
+                if exist('time','var') || time > 1
                     error('todo : include reading for dynamic not Andor or epi');
                 end
                 
-            elseif strcmp(ext,'.vsi') || strcmp(ext, '.oif')
+            elseif strcmp(ext,'.vsi') || strcmp(ext, '.oif') || strcmp(ext, '.oib')
                 
                 r = bfGetReader(fname);
-                img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ()], 'uint16');
-                for cii = 1:numel(channels)
-                    for zi = 1:r.getSizeZ()
-                        img(:,:,cii,zi) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,time-1)+1);
+                img = zeros([r.getSizeY() r.getSizeX() numel(channels) r.getSizeZ() numel(time)], 'uint16');
+                for ti = 1%:numel(time)
+                    for cii = 1:numel(channels)
+                        for zi = 1:r.getSizeZ()
+                            img(:,:,cii,zi,ti) = bfGetPlane(r, r.getIndex(zi-1,channels(cii)-1,time(ti)-1)+1);
+                        end
                     end
                 end
                 r.close();
                 img = squeeze(img);
             end
-            
             %disp(['loaded image ' fname]);
         end
 
@@ -421,7 +422,7 @@ classdef Position < handle
             allChannels = unique([nucChannel opts.dataChannels]);
 
             % for the purpose of the current background subtraction
-            if isfield(opts, 'fgChannel');
+            if isfield(opts, 'fgChannel')
                 allChannels = unique([allChannels opts.fgChannel]);
             else
                 bgmask = [];
@@ -445,6 +446,13 @@ classdef Position < handle
                 error('nuclear segmentation missing');
             end
 
+            % make it more efficient to deal with e.g. oib
+            [~,~,ext] = fileparts(this.filename);
+            if strcmp(ext,'.oib')
+                disp('.oib: loading all data at once for speed');
+                imgdata = readStack2(fullfile(dataDir, this.filename), [], opts.tMax);
+            end
+            
             for ti = 1:opts.tMax
 
                 % progress indicator
@@ -481,7 +489,11 @@ classdef Position < handle
                     
                     disp('using dirty nuclear segmentation');
                     opts.dirtyOptions.mask = nucmaskraw;
-                    imc = this.loadImage(dataDir, nucChannel, ti);
+                    if strcmp(ext,'oib')
+                        imc = squeeze(imgdata(:,:,nucChannel,:,ti));
+                    else
+                        imc = this.loadImage(dataDir, nucChannel, ti);
+                    end
                     nucmask = dirtyNuclearSegmentation(imc, opts.dirtyOptions);
                 end
                 
@@ -596,7 +608,11 @@ classdef Position < handle
                 for cii = 1:numel(opts.dataChannels)
                     
                     %disp(['loading channel ' num2str(opts.dataChannels(cii))]);
-                    imc = this.loadImage(dataDir, opts.dataChannels(cii), ti);
+                    if strcmp(ext,'.oib')
+                        imc = squeeze(imgdata(:,:,opts.dataChannels(cii),:,ti));
+                    else
+                        imc = this.loadImage(dataDir, opts.dataChannels(cii), ti);
+                    end
                     %disp(['size: ' num2str(size(imc))]);
                     
                     if size(nucmask) ~= [size(imc,1) size(imc,2)]
@@ -730,6 +746,53 @@ classdef Position < handle
             this.timeTraces.cytLevelMed = cytLevelMed;
             
             this.timeTraces.background = bg;
+        end
+        
+        function makeTracks(this, minlength)
+            % makeTracks(minlength)
+            %
+            % minlength : minimal length of tracks kept (in frames)
+            
+            if ~exist('minlength','var')
+                minlength = 10;
+            end
+            
+            points = {this.cellData.XY};
+            
+            all_Icyt = cat(1, this.cellData.cytLevel);
+            all_Inuc = cat(1, this.cellData.nucLevel);
+            all_points = cat(1, points{:});
+            
+            max_linking_distance = 4;
+            max_gap_closing = Inf;
+            debug = true;
+
+            [tracks, adjacency_tracks] = simpletracker(points,...
+                'MaxLinkingDistance', max_linking_distance, ...
+                'MaxGapClosing', max_gap_closing, ...
+                'Debug', debug);
+            
+            good = [];
+            cyttraces = {};
+            nuctraces = {};
+            trackXY = {};
+            
+            for i = 1:numel(tracks)
+                if sum(~isnan(tracks{i})) > minlength
+
+                    good = [good i];
+                    track = adjacency_tracks{i};
+                    
+                    j = numel(good);
+                    nuctraces{j} = all_Inuc(track,:);
+                    cyttraces{j} = all_Icyt(track,:);
+                    trackXY{j} = all_points(track, :);
+                end
+            end
+            
+            this.timeTraces.cytLevel = cyttraces;
+            this.timeTraces.nucLevel = nuctraces;
+            this.timeTraces.trackXY = trackXY;
         end
         
         % getter for dependent properties
