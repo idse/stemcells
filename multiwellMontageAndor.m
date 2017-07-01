@@ -4,8 +4,8 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 % dataDir = '/Users/idse/data_tmp/';
 % filename = fullfile(dataDir, 'IH_96wellTest.xyz');
 
-dataDir = '/Volumes/STORENGO';
-filename = fullfile(dataDir,'160317_IH.xyz');
+dataDir = '/Volumes/Samsung USB';
+filename = fullfile(dataDir,'170627_IHgridseed.xyz');
 
 resolution = 0.325; % 40x
 micropattern  = false;
@@ -63,13 +63,13 @@ if ~isempty(positions.AutofocusPositions)
 end
 %positions.AutofocusPositions = autofocus;
 
-%% make grid out of single position (or average of two)
+%% make grid centered around single position (or average of two)
 
 % 3x3 grid will have length (2*(1024-overlap) + 1024-2*overlap)*resolution
 % at 40x that is 868 micron so large enough for a 700 micron colony
-overlapPixel = 100; 
+overlapPixel = 150; 
 
-gridSize = [5 5]; % ODD NUMBERS HERE FOR NOW
+gridSize = [4 4]; % ODD NUMBERS HERE FOR NOW
 nGridPositions = gridSize(1)*gridSize(2);
 
 gridXYZ = {};
@@ -126,11 +126,69 @@ newPositions = positions;
 newPositions.XYFields = newXYFields;
 newPositions.AutofocusPositions = newAF;
 
+
+%% make grid with position as upper left corner 
+
+% 3x3 grid will have length (2*(1024-overlap) + 1024-2*overlap)*resolution
+% at 40x that is 868 micron so large enough for a 700 micron colony
+overlapPixel = 150; 
+
+gridSize = [4 4]; % ODD NUMBERS HERE FOR NOW
+nGridPositions = gridSize(1)*gridSize(2);
+
+gridXYZ = {};
+AF = {};
+if micropattern
+    nColonies = size(XYZ,1)/2;
+else
+    nColonies = size(XYZ,1);
+end
+
+for pi = 1:nColonies
+
+    x = XYZ(pi,:);
+    af = autofocus(pi);
+
+    spacing = (1024 - overlapPixel)*resolution;
+
+    gridXYZ{pi} = zeros([nGridPositions 3]);
+    AF{pi} = zeros([nGridPositions 1]);
+
+    i = 1;
+    for n = 0:gridSize(1)-1
+        for m = 0:gridSize(2)-1
+            gridXYZ{pi}(i,:) = [x(1) + m*spacing, x(2) + n*spacing, x(3)];
+            AF{pi}(i) = af;
+            i = i+1;
+        end
+    end
+end
+%scatter(gridXYZ{1}(:,1), gridXYZ{1}(:,2));
+
+% convert XYZ back to string
+gridXYZcombined = cat(1,gridXYZ{:});
+AFCombined = cat(1,AF{:});
+newNPos = size(gridXYZcombined,1);
+posStrings = {};
+AFstrings = {};
+for i = 1:newNPos
+    AFstrings{i} = num2str(AFCombined(i));
+    posStrings{i} = sprintf('%d,%d,%.2f',gridXYZcombined(i,:));
+end
+newXYFields = strjoin([num2str(newNPos) posStrings],'\t');
+newAF = strjoin([num2str(newNPos) AFstrings],'\t');
+
+newPositions = positions;
+newPositions.XYFields = newXYFields;
+newPositions.AutofocusPositions = newAF;
+
+
 %% check
 
 scatter(gridXYZcombined(:,1), gridXYZcombined(:,2),'g');
 hold on
 scatter(XYZ(:,1),XYZ(:,2),'r');
+text(XYZ(1,1),XYZ(1,2),'1');
 hold off
 axis equal
 

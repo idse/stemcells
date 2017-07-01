@@ -1,35 +1,55 @@
 function plotFRAPcurves(dataDir, oibfile, results)
 
-    tracesnorm = results.tracesnorm;
-    tcut = size(tracesnorm,2);
-    Nfrapped = size(tracesnorm,1);
+    tracesNuc = results.tracesNuc;
+    tracesNucNorm = results.tracesNucNorm;
+
+    tcut = size(tracesNucNorm,2);
+    Nfrapped = size(tracesNucNorm,1);
     tres = results.tres;
-    
-    tres
+    colors = lines(Nfrapped);
+
     % filename
     [~,barefname,~] = fileparts(oibfile);
     barefname = strrep(barefname,'.','dot');
 
     % FRAP curves
     figure,
-    t = repmat((1:tcut)*tres,[Nfrapped 1]);
-    plot(t' ,tracesnorm');
+    hold on
+    t = (1:tcut)*tres;
+    for i = 1:Nfrapped
+        plot(t' ,tracesNuc(i,:)','Color',colors(i,:),'LineWidth',1.5);
+        if isfield(results,'tracesCyt')
+            plot(t' ,results.tracesCyt(i,:)','Color',colors(i,:)*0.8,'LineWidth',1);
+        end
+    end
+    hold off
     xlabel('time (sec)');
     ylabel('intensity')
-    saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
-    saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname '.png']));
-
-    plot(t' ,tracesnorm');
+    xlim([0 tcut*tres]);
+    saveas(gcf,fullfile(dataDir, [barefname '_FRAPcurvesRaw']));
+    saveas(gcf,fullfile(dataDir, [barefname '_FRAPcurvesRaw'  '.png']));
+    close;
+    
+    clf
+    hold on
+    t = (1:tcut)*tres;
+    for i = 1:Nfrapped
+        plot(t' ,tracesNucNorm(i,:)','Color',colors(i,:),'LineWidth',1.5);
+        if isfield(results,'tracesCyt')
+            plot(t' ,results.tracesCytNorm(i,:)','Color',colors(i,:)*0.8,'LineWidth',1);
+        end
+    end
+    hold off
     xlabel('time (sec)');
     ylabel('normalized intensity')
-    saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname]));
-    saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname '.png']));
-    close;
+    xlim([0 tcut*tres]);
+    saveas(gcf,fullfile(dataDir, [barefname '_FRAPcurvesNorm']));
+    saveas(gcf,fullfile(dataDir, [barefname '_FRAPcurvesNorm.png']));
 
     % FRAP fit
     visualizeFRAPfit(results)
-    xlim([0 1600]);
-    saveas(gcf,fullfile(dataDir, ['FRAPfit_' barefname]));
-    saveas(gcf,fullfile(dataDir, ['FRAPfit_' barefname '.png']));
+    xlim([0 tcut*tres]);
+    saveas(gcf,fullfile(dataDir, [barefname '_FRAPfit' ]));
+    saveas(gcf,fullfile(dataDir, [barefname '_FRAPfit.png']));
     close;
 end

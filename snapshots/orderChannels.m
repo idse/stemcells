@@ -4,6 +4,9 @@ function order = orderChannels(meta)
     preferredOrder = {'CY5','RFP','GFP','DAPI'};
     
     for i = 1:4
-        order(i) = find(strcmp(meta.channelNames,preferredOrder{i}));
+        j = find(strcmp(meta.channelNames,preferredOrder{i}));
+        if ~isempty(j)
+            order(i) = j;
+        end
     end
 end

@@ -1,16 +1,36 @@
-function [Aall, kall, frapframe, gof] = fitFRAP(tracesnorm, tmax, tres)
+function [Aall, kall, frapframe, gof] = fitFRAP(results)
     % [Aall, kall] = fitFRAP(tracesnorm, frapframe, tmax, tres)
     % 
     % function f to be fitted:
     % f = A*(1 - exp(-k t))
     % A recovery fraction
 
+    if ~isfield(results,'bleachType')
+        bleachType = 'nuclear';
+    else
+        bleachType = results.bleachType;
+    end
+    
+    if strcmp(bleachType,'nuclear')
+        tracesnorm = results.tracesNucNorm;
+    elseif strcmp(bleachType,'cytoplasmic')
+        tracesnorm = results.tracesCytNorm;
+    else
+        error('unknown bleach type');
+    end
+    
+    tmax = results.tmax;
+    tres = results.tres;
+    
     outfit = {};
     gof = {};
     Nfrapped = size(tracesnorm,1);
     Aall = zeros([Nfrapped 3]);
     kall = zeros([Nfrapped 3]);
     t = tres*(0:size(tracesnorm,2)-1);
+    
+    % for tracked nuclei the trace can end before tmax
+    tmax = min(tmax, size(tracesnorm,2)); 
     
     % detect the frap frame
     [~,frapframe] = min(tracesnorm(1,1:10));

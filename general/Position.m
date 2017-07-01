@@ -231,7 +231,7 @@ classdef Position < handle
                 while(isempty(listing))
                     i = i+1;
                     if i > numel(barefname)
-                        error(['segmentation ' [barefname '*h5'] ' for channel ' num2str(channel) ' not found in ' dataDir]);
+                        error(['segmentation for ' this.filename ' for channel ' num2str(channel) ' not found in ' dataDir]);
                     else
                         listing = dir(fullfile(dataDir,[barefname{i} '*h5']));    
                     end
@@ -468,7 +468,9 @@ classdef Position < handle
                     bgmask = imerode(~fgmask,strel('disk', opts.bgMargin));
                     fgmask = imerode(fgmask,strel('disk', opts.bgMargin));
                 else
-                    warning('not using background mask');
+                    if ti == 1
+                        warning('not using background mask');
+                    end
                 end
                 
                 % make clean nuclear mask
@@ -478,7 +480,7 @@ classdef Position < handle
                 %nucmaskraw(bgmask) = false;
                 if ~isfield(opts, 'nuclearSegmentation') && ~isfield(opts, 'dirtyOptions') 
                     
-                    disp('using nuclearCleanup');
+                    if ti == 1, disp('using nuclearCleanup'); end
                     nucmask = nuclearCleanup(nucmaskraw, opts.cleanupOptions);
                     
                 elseif isfield(opts, 'nuclearSegmentation')
@@ -495,6 +497,21 @@ classdef Position < handle
                         imc = this.loadImage(dataDir, nucChannel, ti);
                     end
                     nucmask = dirtyNuclearSegmentation(imc, opts.dirtyOptions);
+                end
+                
+                % save clean nuclear mask
+                if isfield(opts,'saveCleanNucMask') && opts.saveCleanNucMask
+                    
+                    segfname = [this.bareFilename '_seg.tif'];
+                    segrawfname = [this.bareFilename '_segRaw.tif'];
+                    
+                    if ti == 1
+                        imwrite(nucmask,fullfile(dataDir, segfname),'Compression','none');
+                        imwrite(nucmaskraw,fullfile(dataDir, segrawfname),'Compression','none');
+                    else
+                        imwrite(nucmask,fullfile(dataDir, segfname),'WriteMode','append','Compression','none');
+                        imwrite(nucmaskraw,fullfile(dataDir, segrawfname),'WriteMode','append','Compression','none');
+                    end
                 end
                 
                 % make cytoplasmic mask 
@@ -776,6 +793,7 @@ classdef Position < handle
             cyttraces = {};
             nuctraces = {};
             trackXY = {};
+            trackT = {};
             
             for i = 1:numel(tracks)
                 if sum(~isnan(tracks{i})) > minlength
@@ -787,12 +805,15 @@ classdef Position < handle
                     nuctraces{j} = all_Inuc(track,:);
                     cyttraces{j} = all_Icyt(track,:);
                     trackXY{j} = all_points(track, :);
+                    
+                    trackT{j} = find(~isnan(tracks{i}));
                 end
             end
-            
+
             this.timeTraces.cytLevel = cyttraces;
             this.timeTraces.nucLevel = nuctraces;
             this.timeTraces.trackXY = trackXY;
+            this.timeTraces.trackT = trackT;
         end
         
         % getter for dependent properties
