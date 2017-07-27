@@ -1,14 +1,22 @@
 function [Aall, kall, frapframe, gof] = fitFRAP(results)
-    % [Aall, kall] = fitFRAP(tracesnorm, frapframe, tmax, tres)
+    % [Aall, kall, frapframe, gof] = fitFRAP(tracesnorm, frapframe, tmax, tres)
     % 
+    % gof = goodness of fit, from function fit
+    %
     % function f to be fitted:
     % f = A*(1 - exp(-k t))
     % A recovery fraction
+    %
+    % or A + B e^(-kt) for bleaching the opposite compartment
 
     if ~isfield(results,'bleachType')
         bleachType = 'nuclear';
     else
         bleachType = results.bleachType;
+    end
+    
+    if ~isfield(results,'fitType')
+        results.fitType = 'recovery';
     end
     
     if strcmp(bleachType,'nuclear')
@@ -18,7 +26,7 @@ function [Aall, kall, frapframe, gof] = fitFRAP(results)
     else
         error('unknown bleach type');
     end
-    
+
     tmax = results.tmax;
     tres = results.tres;
     
@@ -35,9 +43,22 @@ function [Aall, kall, frapframe, gof] = fitFRAP(results)
     % detect the frap frame
     [~,frapframe] = min(tracesnorm(1,1:10));
     
-    func = @(p1,p2,x) p1*(1-exp(-x*p2));
+    % lower and upper bounds
+    lb(1) = 0;
+    ub(1) = 1;
+    lb(2) = 0;
+    ub(2) = Inf;
+            
+    if strcmp(results.fitType, 'decay')
+        func = @(p1,p2,p3,x) p1*exp(-x*p2) + p3;
+        % bound on extra parameter
+        lb(3) = 0;
+        ub(3) = 1;
+    else 
+        func = @(p1,p2,x) p1*(1-exp(-x*p2));
+    end
     ft = fittype(func); 
-        
+    
     for shapeIdx = 1:Nfrapped
 
         tdata = t(frapframe:tmax(shapeIdx));
@@ -45,21 +66,24 @@ function [Aall, kall, frapframe, gof] = fitFRAP(results)
         
         if ~any(isnan(fdata))
             
-            R0 = 0.5;
-            k0 = 0.01;
-
-            pinit = [R0 k0];
-
-            % lower and upper bounds
-            lb(1) = 0;
-            ub(1) = 1;
-            lb(2) = 0;
-            ub(2) = Inf;
+            if strcmp(results.fitType, 'decay')
+                A0 = 1;
+                k0 = 0.01;
+                B0 = 0;
+                pinit = [A0 k0 B0];
+            else
+                A0 = 0.5;
+                k0 = 0.01;
+                pinit = [A0 k0];
+            end
 
             [outfit{shapeIdx}, gof{shapeIdx}] = fit(tdata',fdata',ft,'Lower',lb,'Upper',ub,'StartPoint',pinit);
 
             A = outfit{shapeIdx}.p1;
             k = outfit{shapeIdx}.p2;
+            if strcmp(results.fitType, 'decay')
+                B = outfit{shapeIdx}.p3;
+            end
             tau=1/(60*k);
 
             CI = confint(outfit{shapeIdx})';

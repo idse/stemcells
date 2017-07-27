@@ -7,6 +7,7 @@ function visualizeFRAPfit(results)
         tracesnorm = results.tracesCytNorm;
     else
         traces = results.tracesNuc;
+        tracesnorm = results.tracesNucNorm;
     end
     
     t = results.tres*(0:size(traces,2)-1);

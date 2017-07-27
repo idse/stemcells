@@ -338,7 +338,7 @@ classdef Position < handle
             
             %disp(['loaded MIPidx ' fname]);
         end
-        
+
         % process data
         %---------------------------------
 
@@ -588,6 +588,7 @@ classdef Position < handle
                 this.cellData(ti).XY = centroids;
                 this.cellData(ti).area = areas;
                 this.cellData(ti).nucLevel = zeros([nCells numel(opts.dataChannels)]);
+                this.cellData(ti).nucZ = zeros([nCells 1]);
                 this.cellData(ti).nucLevelAvg = zeros([1 numel(opts.dataChannels)]);
                 this.cellData(ti).nucLevelStd = zeros([1 numel(opts.dataChannels)]);
                 this.cellData(ti).background = zeros([1 numel(opts.dataChannels)]);
@@ -681,6 +682,7 @@ classdef Position < handle
                         nucPixIdx = nucCC.PixelIdxList{cellidx};
                         nucPixIdx = double(zi-1)*size(imc,1)*size(imc,2) + nucPixIdx;
                         this.cellData(ti).nucLevel(cellidx, cii) = mean(imc(nucPixIdx));
+                        this.cellData(ti).nucZ(cellidx) = zi;
                         
                         if opts.cytoplasmicLevels
                             cytPixIdx = cytCC.PixelIdxList{cellidx};
@@ -779,6 +781,12 @@ classdef Position < handle
             all_Icyt = cat(1, this.cellData.cytLevel);
             all_Inuc = cat(1, this.cellData.nucLevel);
             all_points = cat(1, points{:});
+            
+            % empty time points crash the tracker but this prevents it
+            emptyTimes = cellfun(@isempty, points);
+            for i = find(emptyTimes)
+                points{i} = [NaN NaN];
+            end
             
             max_linking_distance = 4;
             max_gap_closing = Inf;

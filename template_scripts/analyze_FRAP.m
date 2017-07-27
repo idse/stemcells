@@ -24,7 +24,7 @@ for fi = 1:numel(oibfiles)
     oibfile = oibfiles{fi};
     [~,barefname,~] = fileparts(oibfile);
     barefname = strrep(barefname,'.','dot');
-
+    
     r = bfGetReader(fullfile(dataDir,oibfile));
     omeMeta = r.getMetadataStore();
 
@@ -51,6 +51,7 @@ for fi = 1:numel(oibfiles)
     results = struct('description', descriptions{fi}, 'tmax', tmaxall(fi));
     results.tres = tres;
     results.xyres = double(omeMeta.getPixelsPhysicalSizeX(0).value);
+    results.barefname = barefname;
     
     % read FRAP regions
     [x,y,shapeTypes] = readFRAPregions(omeMeta);

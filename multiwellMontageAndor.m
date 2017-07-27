@@ -5,11 +5,10 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 % filename = fullfile(dataDir, 'IH_96wellTest.xyz');
 
 dataDir = '/Volumes/Samsung USB';
-filename = fullfile(dataDir,'170627_IHgridseed.xyz');
+filename = fullfile(dataDir,'160724_IH_montageMP.xyz');
 
-resolution = 0.325; % 40x
-micropattern  = false;
-
+resolution = 0.41; %0.41; 30x 0.325; % 40x
+micropattern  = true;
 
 %% read positions from XYZ file
 
@@ -67,9 +66,9 @@ end
 
 % 3x3 grid will have length (2*(1024-overlap) + 1024-2*overlap)*resolution
 % at 40x that is 868 micron so large enough for a 700 micron colony
-overlapPixel = 150; 
+overlapPixel = 450; 
 
-gridSize = [4 4]; % ODD NUMBERS HERE FOR NOW
+gridSize = [3 3]; % ODD NUMBERS HERE FOR NOW
 nGridPositions = gridSize(1)*gridSize(2);
 
 gridXYZ = {};
@@ -84,7 +83,7 @@ for pi = 1:nColonies
 
     if micropattern
         x = mean(XYZ(2*pi-1:2*pi,:),1);
-        af = mean(autofocus(2*pi-1:2*pi));
+        af = round(mean(autofocus(2*pi-1:2*pi)));
     else
         x = XYZ(pi,:);
         af = autofocus(pi);
@@ -115,12 +114,31 @@ AFCombined = cat(1,AF{:});
 newNPos = size(gridXYZcombined,1);
 posStrings = {};
 AFstrings = {};
+
+j = 1;
 for i = 1:newNPos
-    AFstrings{i} = num2str(AFCombined(i));
-    posStrings{i} = sprintf('%d,%d,%.2f',gridXYZcombined(i,:));
+    
+    if mod(i-1,27) == 0
+        AFstrings{j} = num2str(AFCombined(i));
+        if i > 1
+            k = i-1;
+        else
+            k = newNPos;
+        end
+        XYZavg = (gridXYZcombined(i,:) + gridXYZcombined(k,:))/2;
+        
+        posStrings{j} = sprintf('%d,%d,%.2f', XYZavg);
+        j = j+1;
+        disp(['adding extra before: ' num2str(i)]);
+    end
+
+    AFstrings{j} = num2str(AFCombined(i));
+    posStrings{j} = sprintf('%d,%d,%.2f',gridXYZcombined(i,:));
+    j = j+1;
 end
-newXYFields = strjoin([num2str(newNPos) posStrings],'\t');
-newAF = strjoin([num2str(newNPos) AFstrings],'\t');
+j = j-1;
+newXYFields = strjoin([num2str(j) posStrings],'\t');
+newAF = strjoin([num2str(j) AFstrings],'\t');
 
 newPositions = positions;
 newPositions.XYFields = newXYFields;
@@ -131,7 +149,7 @@ newPositions.AutofocusPositions = newAF;
 
 % 3x3 grid will have length (2*(1024-overlap) + 1024-2*overlap)*resolution
 % at 40x that is 868 micron so large enough for a 700 micron colony
-overlapPixel = 150; 
+overlapPixel = 200; 
 
 gridSize = [4 4]; % ODD NUMBERS HERE FOR NOW
 nGridPositions = gridSize(1)*gridSize(2);
@@ -195,7 +213,7 @@ axis equal
 %% write back to file
 
 [~,barefname,~] = fileparts(filename);
-outFilename = fullfile(dataDir, [barefname '_montage.xyz']);
+outFilename = fullfile(dataDir, [barefname '_montage2.xyz']);
 fileID = fopen(outFilename,'w');
 
 fields = fieldnames(newPositions);
