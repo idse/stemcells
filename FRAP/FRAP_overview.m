@@ -139,27 +139,27 @@ untreated_input = input;
 peak_input = input;
 adapted_input = input;
 
-untreated_output = fitKineticModel(untreated_input);
-peak_output = fitKineticModel(untreated_input);
-adapted_output = fitKineticModel(untreated_input);
+untreated_out = fitKineticModel(untreated_input);
+peak_out = untreated_out;
+adapted_out = untreated_out;
 
 %% visualize model fit
 
+name = 'ns';
+
+errname = ['sig' name];
 fs = 26;
-bar([0.4 0.1 0.1]);
+vals = [untreated_out.(name) peak_out.(name) adapted_out.(name)];
+errorvals = [untreated_out.(errname) peak_out.(errname) adapted_out.(errname)];
+bar(vals,'FaceColor',[0.1 0.5 0.1]);
+hold on
+errorbar(vals, errorvals,...
+                        'k','linestyle','none','linewidth',2);
+hold off
 set(gcf,'color','w');
 set(gca, 'LineWidth', 2);
 set(gca,'FontSize', fs)
 set(gca,'FontWeight', 'bold')
 box off
-set(gca,'XTickLabel', {'untreated', 'peak', 'adapt'})
+set(gca,'XTickLabel', {'untreated', 'peak', 'adapt'});
 
-%%
-
-bar([1/0.1 1/0.4 1/0.4]);
-set(gcf,'color','w');
-set(gca, 'LineWidth', 2);
-set(gca,'FontSize', fs)
-set(gca,'FontWeight', 'bold')
-box off
-set(gca,'XTickLabel', {'before', 'peak', 'adapt'})

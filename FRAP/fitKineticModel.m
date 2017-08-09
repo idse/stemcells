@@ -76,4 +76,10 @@ output.sigcs = sqrt(Sp(3,3));
 output.signs = sqrt(Sp(4,4));
 output.sigkin = sqrt(Sp(5,5));
 
+disp(['kappa:   ' num2str(output.kap,'%.1e') ' (' num2str(output.sigkap,'%.1e') ')']);
+disp(['kappap:  ' num2str(output.kapp,'%.1e') ' (' num2str(output.sigkapp,'%.1e') ')']);
+disp(['cs:      ' num2str(output.cs,'%.1e') ' (' num2str(output.sigcs,'%.1e') ')']);
+disp(['ns:      ' num2str(output.ns,'%.1e') ' (' num2str(output.signs,'%.1e') ')']);
+disp(['kin:     ' num2str(output.kin,'%.1e') ' (' num2str(output.sigkin,'%.1e') ')']);
+
 end
