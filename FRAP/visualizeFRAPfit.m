@@ -1,15 +1,25 @@
-function visualizeFRAPfit(results)
+function visualizeFRAPfit(results,labels)
 
-    func = @(p1,p2,x) p1*(1-exp(-x*p2));
+    if ~exist('labels','var')
+        labels = [];
+    end
 
-    if strcmp(results.bleachType,'cytoplasmic')
+    if strcmp(results.fitType, results.bleachType)
+            func = @(p1,p2,x) p1*(1-exp(-x*p2));
+            decay = false;
+    else 
+            func = @(p1,p2,p3,x) p1*exp(-x*p2) + p3;
+            decay = true;
+    end
+    
+    if strcmp(results.fitType,'cytoplasmic')
         traces = results.tracesCyt;
         tracesnorm = results.tracesCytNorm;
     else
         traces = results.tracesNuc;
         tracesnorm = results.tracesNucNorm;
     end
-    
+
     t = results.tres*(0:size(traces,2)-1);
     tmax = results.tmax;
     tlim = round(max(tmax)*results.tres);
@@ -36,15 +46,35 @@ function visualizeFRAPfit(results)
         Aerr = results.A(shapeIdx,3)-results.A(shapeIdx,1);
         tau=1/(60*k);
         tauerr = kerr/(60*k^2);
-        plot(t(frapframe:tmax(shapeIdx)),func(A,k,t(frapframe:tmax(shapeIdx))),...
+        
+        legendstr{shapeIdx} = ['A = ' num2str(A,2)...% '(' num2str(Aerr,1) ')'...
+                                ', \tau=' num2str(tau,2) '(' num2str(tauerr,1) ') min'];
+        
+        if ~decay
+            fitcurve = func(A,k,t(frapframe:tmax(shapeIdx)));
+        else
+            B = results.B(shapeIdx,1);
+            Berr = results.B(shapeIdx,3) - results.B(shapeIdx,1);
+            fitcurve = func(A,k,B,t(frapframe:tmax(shapeIdx)));
+            legendstr{shapeIdx} = [legendstr{shapeIdx} ', B = ' num2str(B,2)];
+        end
+        plot(t(frapframe:tmax(shapeIdx)),fitcurve,...
                         'Color', colors(shapeIdx,:),'LineWidth',lw)
-        legendstr{shapeIdx} = ['A = ' num2str(A,2) '(' num2str(Aerr,1)...
-                            '), \tau=' num2str(tau,2) '(' num2str(tauerr,1) ') min'];
+        
+    end
+    if ~isempty(labels)
+        for shapeIdx = 1:Nfrapped
+            legendstr{shapeIdx} = [labels{shapeIdx} ': ' legendstr{shapeIdx}];
+        end
     end
 
     hold off
     xlim([0 t(end)]);
-    ylim([0 1.2*max(results.A(:,1))]); 
+    if decay
+        ylim([0 1.2*max(results.A(:,1)+results.B(:,1))]); 
+    else
+        ylim([0 1.2*max(results.A(:,1))]); 
+    end
     legend(legendstr, 'Location','SouthEast');
 
     fs = 20;

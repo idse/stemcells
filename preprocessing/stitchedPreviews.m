@@ -1,4 +1,4 @@
-function stitchedPreviews(dataDir, meta, type)
+function upperleft = stitchedPreviews(dataDir, meta, type)
 
 if ~exist('type', 'var')
 	type = 'MIP';
@@ -50,7 +50,7 @@ for wellnr = 1:meta.nWells
                 imgs{j,i} = double(imread(fname,ti));
             end
 
-            % stitch together
+            % stitch together: OFFSET ONLY DETERMINED FOR T=1
             if ci == 1
                 if ti == 1 && ~isempty(pixelOverlap)
                     % get register positions of upper left corner

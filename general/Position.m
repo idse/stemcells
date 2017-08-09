@@ -717,7 +717,7 @@ classdef Position < handle
                 end
             end
             fprintf('\n');
-            debugInfo = struct('bgmask', bgmask, 'nucmask', nucmask, 'cytCC', {cytCC});
+            debugInfo = struct('bgmask', bgmask, 'nucmaskraw', nucmaskraw, 'nucmask', nucmask, 'cytCC', {cytCC},'segall',{seg});
         end
         
         function makeTimeTraces(this)

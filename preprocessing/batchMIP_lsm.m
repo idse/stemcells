@@ -1,13 +1,15 @@
 function batchMIP_lsm(inputdir, outputdir, channels, saveidx, tmax, positions)
 
-    if ~isempty(dir(fullfile(inputdir,'*oib')))
+    dirstruct = cat(1,  dir(fullfile(inputdir,'*oib')),...
+                        dir(fullfile(inputdir,'*oif'))  );
+                    
+    if ~isempty(dirstruct)
         % just a bunch of oib file case (FRAP)
         
         if ~exist(outputdir,'dir')
             mkdir(outputdir);
         end
-        
-        dirstruct = dir(fullfile(inputdir,'*oib'));
+
         oibfiles = {dirstruct.name};
     
         for fi = 1:numel(oibfiles)
