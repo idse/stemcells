@@ -119,27 +119,28 @@ saveas(gcf, fullfile(dataDir, 'FRAPcombined.fig'));
 % recovery amplitudes A
 % nuc:cyt ratios R
 % inverse recovery time k
-input.Am = 0.3;
-input.Apm = 0.2;
-input.Rm = 0.5;
-input.Rpm = 3;
-input.km = 0.003;
-input.kpm = 0.0008;
+input.A = 0.3;
+input.Ap = 0.2;
+input.R = 0.5;
+input.Rp = 3;
+input.k = 0.003;
+input.kp = 0.0008;
 
 % measured standard errors
-input.sigAm = 0.1;
-input.sigApm = 0.1;
-input.sigRm = 0.1;
-input.sigRpm = 0.1;
-input.sigkm = 0.01;
-input.sigkpm = 0.001;
+input.sigA = 0.1;
+input.sigAp = 0.1;
+input.sigR = 0.1;
+input.sigRp = 0.1;
+input.sigk = 0.0001;
+input.sigkp = 0.00001;
 
 % just to run the framework for now
-untreated_input = input;
-peak_input = input;
-adapted_input = input;
+untreated_in = input;
+peak_in = input;
+adapted_in = input;
 
-untreated_out = fitKineticModel(untreated_input);
+% fitKineticModel2 same as fitKineticModel but with kappa -> kout
+untreated_out = fitKineticModel2(untreated_in);
 peak_out = untreated_out;
 adapted_out = untreated_out;
 

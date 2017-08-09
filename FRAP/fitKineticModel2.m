@@ -1,4 +1,4 @@
-function output = fitKineticModel(input)
+function output = fitKineticModel2(input)
 % fit Smad4 kinetic model to FRAP data
 % 
 % output = fitKineticModel(input)
@@ -9,31 +9,32 @@ function output = fitKineticModel(input)
 lb = [0 0 0 0 0];
 ub = [1 1 1 1 1];
 
-A = @(kap,cs,ns) kap*(1-kap)*(1-ns-cs)/(ns + kap*(1-ns-cs));
-R = @(kap,cs,ns) (ns + kap*(1-ns-cs))/(cs + (1-kap)*(1-ns-cs));
-k = @(kap, kin) kin/kap;
+kap = @(kin, kout) kin/(kin+kout);
+A = @(kin, kout, cs,ns) kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs)/(ns + kap(kin,kout)*(1-ns-cs));
+R = @(kin, kout, cs,ns) (ns + kap(kin,kout)*(1-ns-cs))/(cs + (1-kap(kin,kout))*(1-ns-cs));
+k = @(kin, kout) kin/kap(kin,kout);
 
 % weighed vector of differences 
 % (E ~ sum f.^2, so terms are weighted by the inverse variance)
-f = @(p) [  (A(p(1),p(3),p(4)) - input.A)/input.sigA,...
-            (R(p(1),p(3),p(4)) - input.R)/input.sigR,...
-            (A(p(2),p(3),p(4)) - input.Ap)/input.sigAp,...
-            (R(p(2),p(3),p(4)) - input.Rp)/input.sigRp,...
-            (k(p(1),p(5)) - input.k)/input.sigk,...
-            (k(p(2),p(5)) - input.kp)/input.sigkp ];
+f = @(p) [  (A(p(1),p(2),p(3),p(4)) - input.A)/input.sigA,...
+            (R(p(1),p(2),p(3),p(4)) - input.R)/input.sigR,...
+            (A(p(1),p(5),p(3),p(4)) - input.Ap)/input.sigAp,...
+            (R(p(1),p(5),p(3),p(4)) - input.Rp)/input.sigRp,...
+            (k(p(1),p(2)) - input.k)/input.sigk,...
+            (k(p(1),p(5)) - input.kp)/input.sigkp ];
 % is everything properly normalized? (i.e. it seems to compare different
 % parameters the coefficient of variation would be better than the variance
 % but also the terms in the energy function should be normalized in that
 % case so the normalizations drop out in the weighted sum?)
 
 % initial values
-kap0 = 0.5;
-kapp0 = 0.5;
+kout0 = 0.003;
+koutp0 = kout0/10;
 cs0 = 0.5;
 ns0 = 0.5;
 kin0 = 0.001;
 
-pinit = [kap0 kapp0 cs0 ns0 kin0];
+pinit = [kout0 kin0 cs0 ns0 koutp0];
 
 % actual fitting
 options.Algorithm = 'trust-region-reflective';
@@ -41,11 +42,11 @@ options.TolFun = 1e-10;
 options.Display = 'off';
 [pfit,~,~,~,~,~,jacobian] = lsqnonlin(f, pinit, lb, ub, options);
 
-output.kap = pfit(1);
-output.kapp = pfit(2);
+output.kin = pfit(1);
+output.kout = pfit(2);
 output.cs = pfit(3);
 output.ns = pfit(4);
-output.kin = pfit(5);
+output.koutp = pfit(5);
 
 % error bars 
 %
@@ -70,18 +71,18 @@ output.kin = pfit(5);
 J = full(jacobian);
 Sp = inv(J'*J);
 
-output.sigkap = sqrt(Sp(1,1));
-output.sigkapp = sqrt(Sp(2,2));
+output.sigkin = sqrt(Sp(1,1));
+output.sigkout = sqrt(Sp(2,2));
 output.sigcs = sqrt(Sp(3,3));
 output.signs = sqrt(Sp(4,4));
-output.sigkin = sqrt(Sp(5,5));
+output.sigkoutp = sqrt(Sp(5,5));
 
 disp('inferred parameter values: ');
 disp('---------------------------');
-disp(['kappa:   ' num2str(output.kap,'%.1e') ' (' num2str(output.sigkap,'%.1e') ')']);
-disp(['kappap:  ' num2str(output.kapp,'%.1e') ' (' num2str(output.sigkapp,'%.1e') ')']);
-disp(['cs:      ' num2str(output.cs,'%.1e') ' (' num2str(output.sigcs,'%.1e') ')']);
-disp(['ns:      ' num2str(output.ns,'%.1e') ' (' num2str(output.signs,'%.1e') ')']);
-disp(['kin:     ' num2str(output.kin,'%.1e') ' (' num2str(output.sigkin,'%.1e') ')']);
+disp(['kin:   ' num2str(output.kin,'%.1e') ' (' num2str(output.sigkin,'%.1e') ')']);
+disp(['kout:  ' num2str(output.kout,'%.1e') ' (' num2str(output.sigkout,'%.1e') ')']);
+disp(['cs:    ' num2str(output.cs,'%.1e') ' (' num2str(output.sigcs,'%.1e') ')']);
+disp(['ns:    ' num2str(output.ns,'%.1e') ' (' num2str(output.signs,'%.1e') ')']);
+disp(['koutp: ' num2str(output.koutp,'%.1e') ' (' num2str(output.sigkoutp,'%.1e') ')']);
 
 end

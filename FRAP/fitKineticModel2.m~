@@ -1,4 +1,4 @@
-function output = fitKineticModel(input)
+function output = fitKineticModel2(input)
 % fit Smad4 kinetic model to FRAP data
 % 
 % output = fitKineticModel(input)
@@ -9,18 +9,19 @@ function output = fitKineticModel(input)
 lb = [0 0 0 0 0];
 ub = [1 1 1 1 1];
 
-A = @(kap,cs,ns) kap*(1-kap)*(1-ns-cs)/(ns + kap*(1-ns-cs));
-R = @(kap,cs,ns) (ns + kap*(1-ns-cs))/(cs + (1-kap)*(1-ns-cs));
-k = @(kap, kin) kin/kap;
+kap = @(kin, kout) kin/(kin+kout);
+A = @(kin, kout, cs,ns) kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs)/(ns + kap(kin,kout)*(1-ns-cs));
+R = @(kin, kout, cs,ns) (ns + kap(kin,kout)*(1-ns-cs))/(cs + (1-kap(kin,kout))*(1-ns-cs));
+k = @(kin, kout) kin/kap(kin,kout);
 
-% weighed vector of differences 
+% weighed vector of differences (m means measured)
 % (E ~ sum f.^2, so terms are weighted by the inverse variance)
-f = @(p) [  (A(p(1),p(3),p(4)) - input.A)/input.sigA,...
-            (R(p(1),p(3),p(4)) - input.R)/input.sigR,...
-            (A(p(2),p(3),p(4)) - input.Ap)/input.sigAp,...
-            (R(p(2),p(3),p(4)) - input.Rp)/input.sigRp,...
-            (k(p(1),p(5)) - input.k)/input.sigk,...
-            (k(p(2),p(5)) - input.kp)/input.sigkp ];
+f = @(p) [  (A(p(1),p(2),p(3),p(4)) - input.Am)/input.sigAm,...
+            (R(p(1),p(2),p(3),p(4)) - input.Rm)/input.sigRm,...
+            (A(p(1),p(5),p(3),p(4)) - input.Apm)/input.sigApm,...
+            (R(p(1),p(5),p(3),p(4)) - input.Rpm)/input.sigRpm,...
+            (k(p(1),p(2)) - input.km)/input.sigkm,...
+            (k(p(2),p(2)) - input.kpm)/input.sigkpm ];
 % is everything properly normalized? (i.e. it seems to compare different
 % parameters the coefficient of variation would be better than the variance
 % but also the terms in the energy function should be normalized in that
