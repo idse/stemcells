@@ -59,15 +59,18 @@ for fi = 1:numel(oibfiles)
 
     % read out profile in the mask
     data = squeeze(img(:,:,S4Channel,zi,:));
-    [traces, tracesnorm, maskall] = readFRAPprofile(data,x,y);
-    results.traces = traces;
-    results.tracesnorm = tracesnorm;
+    [tracesNuc, tracesNucNorm, maskall] = readFRAPprofile(data,x,y);
+    results.tracesNuc = tracesNuc;
+    results.tracesNucNorm = tracesNucNorm;
     
     % fitting
-    tmax = tmaxall{fi};
-    [A, k, frapframe] = fitFRAP(tracesnorm, tmax, tres);
-    results.A = A;
-    results.k = k;
+    results.bleachType = 'nuclear';
+    results.fitType = 'nuclear';
+    results.tmax = tmaxall{fi};
+    
+    [parameters, frapframe, gof] = fitFRAP(results);
+    results.A = parameters.A;
+    results.k = parameters.k;
     results.frapframe = frapframe;
     
     % store results of this video
@@ -105,7 +108,7 @@ save(fullfile(dataDir,'results'),'allresults');
 
 for fi = 1:numel(oibfiles)
     
-    tracesnorm = allresults{fi}.tracesnorm;
+    tracesnorm = allresults{fi}.tracesNucNorm;
     tcut = size(tracesnorm,2);
     tres = allresults{fi}.tres;
     

@@ -37,7 +37,7 @@ classdef Colony < Position
     methods
         
         % constructor
-        function this = Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox, well, time)
+        function this = Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox, well, nTime)
 
             % matlab sucks
             if nargin == 0

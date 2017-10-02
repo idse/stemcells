@@ -79,8 +79,13 @@ function [parameters, frapframe, gof] = fitFRAP(results)
     
     for shapeIdx = 1:Nfrapped
 
-        tdata = t(frapframe:tmax(shapeIdx));
-        fdata = tracesnorm(shapeIdx, frapframe:tmax(shapeIdx));
+        if ~isempty(tmax)
+            tmaxs = tmax(shapeIdx);
+        else
+            tmaxs = length(t);
+        end
+        tdata = t(frapframe:tmaxs);
+        fdata = tracesnorm(shapeIdx, frapframe:tmaxs);
         
         if ~any(isnan(fdata))
             

@@ -5,9 +5,10 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 % filename = fullfile(dataDir, 'IH_96wellTest.xyz');
 
 dataDir = '/Volumes/Samsung USB';
-filename = fullfile(dataDir,'160724_IH_montageMP.xyz');
+%filename = fullfile(dataDir,'160724_IH_montageMP.xyz');
+filename = fullfile(dataDir,'170819_IH.xyz');
 
-resolution = 0.41;%0.65; %20x         %0.41; 30x           0.325; % 40x
+resolution = 0.65;%0.65; %20x         %0.41; 30x           0.325; % 40x
 micropattern  = true;
 
 %% read positions from XYZ file
@@ -66,9 +67,9 @@ end
 
 % 3x3 grid will have length (2*(1024-overlap) + 1024-2*overlap)*resolution
 % at 40x that is 868 micron so large enough for a 700 micron colony
-overlapPixel = 500;  % 600 for 20x
+overlapPixel = 600;  % 600 for 20x, 500 for 30x
 
-gridSize = [3 3]; % ODD NUMBERS HERE FOR NOW [2 2] for 20x
+gridSize = [2 2]; % [2 2] for 20x
 nGridPositions = gridSize(1)*gridSize(2);
 
 gridXYZ = {};
@@ -214,7 +215,7 @@ axis equal
 %% write back to file
 
 [~,barefname,~] = fileparts(filename);
-outFilename = fullfile(dataDir, [barefname '_montage2.xyz']);
+outFilename = fullfile(dataDir, [barefname '_montage.xyz']);
 fileID = fopen(outFilename,'w');
 
 fields = fieldnames(newPositions);

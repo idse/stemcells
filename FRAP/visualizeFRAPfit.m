@@ -13,24 +13,21 @@ function visualizeFRAPfit(results,labels)
     end
     
     if strcmp(results.fitType,'cytoplasmic')
-        traces = results.tracesCyt;
         tracesnorm = results.tracesCytNorm;
     else
-        traces = results.tracesNuc;
         tracesnorm = results.tracesNucNorm;
     end
 
-    t = results.tres*(0:size(traces,2)-1);
+    t = results.tres*(0:size(tracesnorm,2)-1);
     tmax = results.tmax;
     tlim = round(max(tmax)*results.tres);
     frapframe = results.frapframe;
     
-    Nfrapped = size(traces,1);
+    Nfrapped = size(tracesnorm,1);
     
     lw = 2;
     colors = lines(Nfrapped);
-    
-    clf
+
     hold on 
     
     for shapeIdx = 1:Nfrapped
@@ -48,7 +45,7 @@ function visualizeFRAPfit(results,labels)
         tauerr = kerr/(60*k^2);
         
         legendstr{shapeIdx} = ['A = ' num2str(A,2)...% '(' num2str(Aerr,1) ')'...
-                                ', \tau=' num2str(tau,2) '(' num2str(tauerr,1) ') min'];
+                                ', \tau=' num2str(tau,2) ' min'];% '(' num2str(tauerr,1) ') min'];
         
         if ~decay
             fitcurve = func(A,k,t(frapframe:tmax(shapeIdx)));
@@ -60,7 +57,6 @@ function visualizeFRAPfit(results,labels)
         end
         plot(t(frapframe:tmax(shapeIdx)),fitcurve,...
                         'Color', colors(shapeIdx,:),'LineWidth',lw)
-        
     end
     if ~isempty(labels)
         for shapeIdx = 1:Nfrapped

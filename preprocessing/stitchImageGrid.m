@@ -1,4 +1,4 @@
-function stitched = stitchImageGrid(upperleft, imgs)
+function [stitched, upperleft] = stitchImageGrid(upperleft, imgs)
     % combine image grid into single image
     %
     % stitched = stitchImageGrid(upperleft, imgs)
@@ -30,7 +30,7 @@ function stitched = stitchImageGrid(upperleft, imgs)
 
     % again assuming square images
     N = size(imgs{1,1},1);
-    totalSize = max(UL) + N;
+    totalSize = max(cat(1,upperleft{:})) + N;
 
     stitched = zeros(totalSize,'uint16');
     for i = 1:size(imgs,1)
@@ -38,7 +38,7 @@ function stitched = stitchImageGrid(upperleft, imgs)
             if ~isempty(upperleft{i,j})
                 I = upperleft{i,j}(1):upperleft{i,j}(1)+N-1;
                 J = upperleft{i,j}(2):upperleft{i,j}(2)+N-1;
-                stitched(I,J) = imgs{i,j};
+                stitched(I,J) = max(stitched(I,J), imgs{i,j});
             end
         end
     end
