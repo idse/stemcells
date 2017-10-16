@@ -29,18 +29,23 @@ for i = 1:numel(FRAPdirs)
 %     end
 end
 
-%%
-results{3}{3}.good = [1 1];
-results{3}{4}.good = [1 1];
-results{2}{3}.good = [1 0];
+save(fullfile(dataDir, 'FRAPresults.mat'), 'results');
 
-for i = 1:numel(FRAPdirs)
-	allresults = results{i};
-    save(fullfile(dataDir,FRAPdirs{i},'results2.mat'),'allresults');
-end
-
+% %%
+% 
+% results{3}{3}.good = [1 1];
+% results{3}{4}.good = [1 1];
+% results{2}{3}.good = [1 0];
+% 
+% for i = 1:numel(FRAPdirs)
+% 	allresults = results{i};
+%     save(fullfile(dataDir,FRAPdirs{i},'results2.mat'),'allresults');
+% end
+% 
 
 %% combine similar condition measurements
+
+load(fullfile(dataDir, 'FRAPresults.mat'));
 
 untrIdx = [6 2; 2 4];
 peakIdx = [1 1; 6 1];
@@ -171,7 +176,7 @@ for i = 1:size(adaptIdxLMB,1)
     adaptedLMB_in.errk = cat(1, adaptedLMB_in.errk, result.k(goodidx,1)-result.k(goodidx,2));
 end
 
-% display measured parameters
+disp('display measured parameters');
 
 measured = {'A','k','rinit','rfin'}; % w and w/o LMB
 legloc = {'NorthWest','NorthEast','NorthWest','NorthWest'};
