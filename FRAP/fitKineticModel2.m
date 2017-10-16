@@ -8,10 +8,11 @@ function output = fitKineticModel2(input)
 % lower and upper bounds
 lb = [0 0 0 0 0];
 ub = [1 1 1 1 1];
+alpha = 1.2;
 
 kap = @(kin, kout) kin/(kin+kout);
 A = @(kin, kout, cs,ns) kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs)/(ns + kap(kin,kout)*(1-ns-cs));
-R = @(kin, kout, cs,ns) (ns + kap(kin,kout)*(1-ns-cs))/(cs + (1-kap(kin,kout))*(1-ns-cs));
+R = @(kin, kout, cs,ns) alpha*(ns + kap(kin,kout)*(1-ns-cs))/(cs + (1-kap(kin,kout))*(1-ns-cs));
 k = @(kin, kout) kin/kap(kin,kout);
 
 % weighed vector of differences 

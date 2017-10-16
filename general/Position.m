@@ -125,10 +125,10 @@ classdef Position < handle
                     img(:,:,cii) = imread(fname, channels(cii));
                 end
                 
-                if exist('time','var') || time > 1
+                if exist('time','var') && time > 1
                     error('todo : include reading for dynamic not Andor or epi');
                 end
-                
+
             elseif strcmp(ext,'.vsi') || strcmp(ext, '.oif') || strcmp(ext, '.oib')
                 
                 r = bfGetReader(fname);
@@ -143,7 +143,7 @@ classdef Position < handle
                 r.close();
                 img = squeeze(img);
             end
-            %disp(['loaded image ' fname]);
+            disp(['loaded image ' fname]);
         end
 
         function seg = loadSegmentation(this, dataDir, channel, segfileformat)
@@ -174,8 +174,9 @@ classdef Position < handle
                 
                 fname = sprintf(segfilenameformat, channel-1);
             else
-                % guessing filename based on conventions
-                %------------------------------------------
+                
+            % guessing filename based on conventions
+            %------------------------------------------
                 
 %                 % convention, batchMIP_epi renames MIPs to Andor
 %                 % convention with barefname the dataDir name, which is 
@@ -224,7 +225,7 @@ classdef Position < handle
                 
                 s = strsplit(this.filename,'_[fwptm][0-9]+','DelimiterType','RegularExpression');
                 barefname{3} = sprintf([s{1}  '_MIP_p%.4d'], this.ID-1);
-
+                
                 % find the first barefname for which there is an h5 file
                 i = 0;
                 listing = [];
@@ -242,8 +243,13 @@ classdef Position < handle
                     % DON'T COMMENT THE IF STATEMENT BELOW, IT WILL LOAD THE WRONG
                     % CHANNEL
                     if ~isempty(strfind(listing(i).name,sprintf('_w%.4d',channel-1)))... 
-                            || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))
-
+                            || ~isempty(strfind(listing(i).name,sprintf('_c%d',channel)))...
+                            || numel(listing) == 1
+                        
+                        if numel(listing) == 1
+                            warning('found only on segmentation file, assuming it is the right channel');
+                        end
+                        
                         fname = fullfile(dataDir,listing(i).name);
                     end
                 end
@@ -254,7 +260,7 @@ classdef Position < handle
             
             if ~exist(fname,'file')
                 
-                warning(['segmentation for channel ' num2str(channel) ' not found in ' dataDir, ', may be naming convention problem']);
+                error(['segmentation for channel ' num2str(channel) ' not found in ' dataDir, ', may be naming convention problem']);
                 seg = [];
                 
             else
@@ -433,6 +439,9 @@ classdef Position < handle
             seg = {};
             for ci = allChannels
                 seg{ci} = this.loadSegmentation(opts.segmentationDir, ci);
+                if isfield(opts, 'segFG')
+                    seg{ci} = seg{ci} == opts.segFG;
+                end
             end
             
             % pass nuclear segmentation manually or load Ilastik standard

@@ -520,6 +520,8 @@ classdef cellStats < handle
             title(titlestr, 'FontSize',fs, 'FontWeight','Bold');
             hold off
             
+            error('bla');
+            
             xlabel('Intensity', 'FontSize',fs, 'FontWeight','Bold');
             ylabel('Frequency', 'FontSize',fs, 'FontWeight','Bold');
 
