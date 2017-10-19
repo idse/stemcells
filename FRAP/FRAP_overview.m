@@ -2,13 +2,10 @@ clear all; close all;
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
+addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 dataDir = '/Users/idse/data_tmp/0_kinetics/';
 
-FRAPdirs = {'170209_FRAP','170302_FRAPagain','170510_FRAPafterA',...
-            '170519_FRAPctrl','170524_FRAP','170525_FRAP','170529_FRAPAvB',...
-            '170530_FRAP','170817'};%,'170605_Frap'};
-
-%FRAPdirs = FRAPdirs(6);
+FRAPmetadata
 
 %% load FRAP data from different experiments
 
@@ -16,9 +13,9 @@ results = {};
 
 for i = 1:numel(FRAPdirs)
 	
-    S = load(fullfile(dataDir,FRAPdirs{i},'results2.mat'));
+    S = load(fullfile(dataDir,FRAPdirs{i},'results.mat'));
     results{i} = S.allresults;
-    
+
 %     % hack because I'm loading old files, fix
 %     for j = 1:numel(results{i})
 %         if ~isempty(results{i}{j})
@@ -29,8 +26,17 @@ for i = 1:numel(FRAPdirs)
 %     end
 end
 
+results{3}{3}.good = [1 1];
+results{3}{4}.good = [1 1];
+results{2}{3}.good = [1 0];
+results{7}{1}.good = [1 1];
+results{7}{2}.good = [1 1 1 1 1 1];
+results{12}{1}.good = [0 1];
+
+%%
 save(fullfile(dataDir, 'FRAPresults.mat'), 'results');
 
+%%
 % %%
 % 
 % results{3}{3}.good = [1 1];
@@ -45,137 +51,36 @@ save(fullfile(dataDir, 'FRAPresults.mat'), 'results');
 
 %% combine similar condition measurements
 
-load(fullfile(dataDir, 'FRAPresults.mat'));
+%load(fullfile(dataDir, 'FRAPresults.mat'));
 
-untrIdx = [6 2; 2 4];
-peakIdx = [1 1; 6 1];
-adaptIdx = [3 3; 3 4; 9 2; 9 4; 9 5];
+untrIdx = [6 2; 2 4; 10 4; 10 5; 11 4]; % 5 2 if I want to make square work
+peakIdx = [1 1; 6 1; 7 1; 12 1];
+adaptIdx = [3 3; 3 4; 9 2; 9 4; 9 5; 7 2];
 
-untrIdxLMB = [2 3; 9 6; 9 7];
-peakIdxLMB = [9 1];
-adaptIdxLMB = [9 3];
+untrIdxLMB = [2 3; 9 6; 9 7; 11 3];
+peakIdxLMB = [9 1; 10 2; 11 2];
+adaptIdxLMB = [9 3; 10 1];
 
-instruct = struct(  'A',[],'errA',[],'k',[],'errk',[],...
-                    'Nmovies',0, 'Ncells',0,...
-                    'rinit',[],'rfin',[]);
+allIdx = {untrIdx, peakIdx, adaptIdx, untrIdxLMB, peakIdxLMB, adaptIdxLMB};
+allOut = {};
+allLabels = {'untreated', 'peak', 'adapted',...
+                    'untreatedLMB', 'peakLMB', 'adaptedLMB'};
 
-untreated_in = instruct;
-peak_in = instruct;
-adapted_in = instruct;
-
-untreatedLMB_in = instruct;
-peakLMB_in = instruct;
-adaptedLMB_in = instruct;
-
-disp('reading untreated values');
-for i = 1:size(untrIdx,1)
-    
-    result = results{untrIdx(i,1)}{untrIdx(i,2)};
-    goodidx = logical(result.good);
-    xr = getNCR(result);
-    
-    untreated_in.Nmovies = untreated_in.Nmovies + 1;
-    untreated_in.Ncells = untreated_in.Ncells + sum(goodidx);
-
-    untreated_in.rinit = cat(1, untreated_in.rinit, xr(:,2));
-    untreated_in.rfin = cat(1, untreated_in.rfin, xr(:,3));
-    untreated_in.A = cat(1, untreated_in.A, result.A(goodidx,1));
-    untreated_in.errA = cat(1, untreated_in.errA, result.A(goodidx,1)-result.A(goodidx,2));
-    untreated_in.k = cat(1, untreated_in.k, result.k(goodidx,1));
-    untreated_in.errk = cat(1, untreated_in.errk, result.k(goodidx,1)-result.k(goodidx,2));
+for i = 1:numel(allIdx)
+    legendstr = FRAPdirs(allIdx{i}(:,1));
+    allOut{i} = makeInStruct(results, allIdx{i}, legendstr, dataDir, allLabels{i});
+    close all;
 end
 
-disp('reading peak values');
-for i = 1:size(peakIdx,1)
-    
-    result = results{peakIdx(i,1)}{peakIdx(i,2)};
-    goodidx = logical(result.good);
-    xr = getNCR(result);
-    
-    peak_in.Nmovies = peak_in.Nmovies + 1;
-    peak_in.Ncells = peak_in.Ncells + sum(goodidx);
-    
-    peak_in.rinit = cat(1, peak_in.rinit, xr(:,2));
-    peak_in.rfin = cat(1, peak_in.rfin, xr(:,3));
-	peak_in.A = cat(1, peak_in.A, result.A(goodidx,1));
-    peak_in.errA = cat(1, peak_in.errA, result.A(goodidx,1)-result.A(goodidx,2));
-    peak_in.k = cat(1, peak_in.k, result.k(goodidx,1));
-    peak_in.errk = cat(1, peak_in.errk, result.k(goodidx,1)-result.k(goodidx,2));
-end
+untreated_in = allOut{1};
+peak_in = allOut{2}; 
+adapted_in = allOut{3}; 
 
-disp('reading adapted values');
-for i = 1:size(adaptIdx,1)
-    
-    result = results{adaptIdx(i,1)}{adaptIdx(i,2)};
-    goodidx = logical(result.good);
-    xr = getNCR(result);
-    
-    adapted_in.Nmovies = adapted_in.Nmovies + 1;
-    adapted_in.Ncells = adapted_in.Ncells + sum(goodidx);
-    
-    adapted_in.rinit = cat(1, adapted_in.rinit, xr(:,2));
-    adapted_in.rfin = cat(1, adapted_in.rfin, xr(:,3));
-	adapted_in.A = cat(1, adapted_in.A, result.A(goodidx,1));
-    adapted_in.errA = cat(1, adapted_in.errA, result.A(goodidx,1)-result.A(goodidx,2));
-    adapted_in.k = cat(1, adapted_in.k, result.k(goodidx,1));
-    adapted_in.errk = cat(1, adapted_in.errk, result.k(goodidx,1)-result.k(goodidx,2));
-end
-% ---------------LMB------------
+untreatedLMB_in = allOut{4};
+peakLMB_in = allOut{5};
+adaptedLMB_in = allOut{6};
 
-disp('reading untreated LMB values');
-for i = 1:size(untrIdxLMB,1)
-    
-    result = results{untrIdxLMB(i,1)}{untrIdxLMB(i,2)};
-    goodidx = logical(result.good);
-    xr = getNCR(result);
-    
-    untreatedLMB_in.Nmovies = untreatedLMB_in.Nmovies + 1;
-    untreatedLMB_in.Ncells = untreatedLMB_in.Ncells + sum(goodidx);
-    
-    untreatedLMB_in.rinit = cat(1, untreatedLMB_in.rinit, xr(:,2));
-    untreatedLMB_in.rfin = cat(1, untreatedLMB_in.rfin, xr(:,3));
-	untreatedLMB_in.A = cat(1, untreatedLMB_in.A, result.A(goodidx,1));
-    untreatedLMB_in.errA = cat(1, untreatedLMB_in.errA, result.A(goodidx,1)-result.A(goodidx,2));
-    untreatedLMB_in.k = cat(1, untreatedLMB_in.k, result.k(goodidx,1));
-    untreatedLMB_in.errk = cat(1, untreatedLMB_in.errk, result.k(goodidx,1)-result.k(goodidx,2));
-end
-
-disp('reading LMB peak values');
-for i = 1:size(peakIdxLMB,1)
-    
-    result = results{peakIdxLMB(i,1)}{peakIdxLMB(i,2)};
-    goodidx = logical(result.good);
-    xr = getNCR(result);
-    
-    peakLMB_in.Nmovies = peakLMB_in.Nmovies + 1;
-    peakLMB_in.Ncells = peakLMB_in.Ncells + sum(goodidx);
-    
-    peakLMB_in.rinit = cat(1, peakLMB_in.rinit, xr(:,2));
-    peakLMB_in.rfin = cat(1, peakLMB_in.rfin, xr(:,3));
-	peakLMB_in.A = cat(1, peakLMB_in.A, result.A(goodidx,1));
-    peakLMB_in.errA = cat(1, peakLMB_in.errA, result.A(goodidx,1)-result.A(goodidx,2));
-    peakLMB_in.k = cat(1, peakLMB_in.k, result.k(goodidx,1));
-    peakLMB_in.errk = cat(1, peakLMB_in.errk, result.k(goodidx,1)-result.k(goodidx,2));
-end
-
-disp('reading adapted LMB values');
-for i = 1:size(adaptIdxLMB,1)
-    
-    result = results{adaptIdxLMB(i,1)}{adaptIdxLMB(i,2)};
-    goodidx = logical(result.good);
-    xr = getNCR(result);
-    
-    adaptedLMB_in.Nmovies = adaptedLMB_in.Nmovies + 1;
-    adaptedLMB_in.Ncells = adaptedLMB_in.Ncells + sum(goodidx);
-	
-    adaptedLMB_in.rinit = cat(1, adaptedLMB_in.rinit, xr(:,2));
-    adaptedLMB_in.rfin = cat(1, adaptedLMB_in.rfin, xr(:,3));
-    adaptedLMB_in.A = cat(1, adaptedLMB_in.A, result.A(goodidx,1));
-    adaptedLMB_in.errA = cat(1, adaptedLMB_in.errA, result.A(goodidx,1)-result.A(goodidx,2));
-    adaptedLMB_in.k = cat(1, adaptedLMB_in.k, result.k(goodidx,1));
-    adaptedLMB_in.errk = cat(1, adaptedLMB_in.errk, result.k(goodidx,1)-result.k(goodidx,2));
-end
-
+%%
 disp('display measured parameters');
 
 measured = {'A','k','rinit','rfin'}; % w and w/o LMB
@@ -184,6 +89,8 @@ yranges = {[],[],[0 20],[0 5]};
 
 for j = 1:2%1:3
 
+    figure, 
+    
     name = measured{j};
     colors = lines(2);
     fs = 30;
@@ -227,63 +134,66 @@ end
 %%
 % compare rinit and rfin
 
-colors = lines(2);
-fs = 30;
-LMB = true;
+for LMB = [true false]
+    figure,
+    colors = lines(2);
+    fs = 30;
+    %  LMB = true;
 
-if ~LMB 
-    titlestr = 'no LMB';
-    yrange = [0 1.3];
-    
-    name = 'rinit';
-    vals = [mean(untreated_in.(name)) mean(peak_in.(name)) mean(adapted_in.(name))]; 
-    errorvals = [   std(untreated_in.(name))/sqrt(untreated_in.Ncells-1)...
-                    std(peak_in.(name))/sqrt(peak_in.Ncells-1)...
-                    std(adapted_in.(name))/sqrt(adapted_in.Ncells-1)]; 
-    name = 'rfin';
-    vals2 = [mean(untreated_in.(name)) mean(peak_in.(name)) mean(adapted_in.(name))]; 
-    errorvals2 = [  std(untreated_in.(name))/sqrt(untreated_in.Ncells-1)...
-                    std(peak_in.(name))/sqrt(peak_in.Ncells-1)... 
-                    std(adapted_in.(name))/sqrt(adapted_in.Ncells-1)]; 
-else
-    titlestr = 'LMB';
-    yrange = [0 20];
-    
-    name = 'rinit';
-    vals = [mean(untreatedLMB_in.(name)) mean(peakLMB_in.(name)) mean(adaptedLMB_in.(name))]; 
-    errorvals = [   std(untreatedLMB_in.(name))/sqrt(untreatedLMB_in.Ncells-1)...
-                    std(peakLMB_in.(name))/sqrt(peakLMB_in.Ncells-1)...
-                    std(adaptedLMB_in.(name))/sqrt(adaptedLMB_in.Ncells-1)]; 
-    
-    name = 'rfin';
-    vals2 = [mean(untreatedLMB_in.(name)) mean(peakLMB_in.(name)) mean(adaptedLMB_in.(name))]; 
-    errorvals2 = [  std(untreatedLMB_in.(name))/sqrt(untreatedLMB_in.Ncells-1)...
-                    std(peakLMB_in.(name))/sqrt(peakLMB_in.Ncells-1)...
-                    std(adaptedLMB_in.(name))/sqrt(adaptedLMB_in.Ncells-1)]; 
+    if ~LMB 
+        titlestr = 'no LMB';
+        yrange = [0 1.3];
+
+        name = 'rinit';
+        vals = [mean(untreated_in.(name)) mean(peak_in.(name)) mean(adapted_in.(name))]; 
+        errorvals = [   std(untreated_in.(name))/sqrt(untreated_in.Ncells-1)...
+                        std(peak_in.(name))/sqrt(peak_in.Ncells-1)...
+                        std(adapted_in.(name))/sqrt(adapted_in.Ncells-1)]; 
+        name = 'rfin';
+        vals2 = [mean(untreated_in.(name)) mean(peak_in.(name)) mean(adapted_in.(name))]; 
+        errorvals2 = [  std(untreated_in.(name))/sqrt(untreated_in.Ncells-1)...
+                        std(peak_in.(name))/sqrt(peak_in.Ncells-1)... 
+                        std(adapted_in.(name))/sqrt(adapted_in.Ncells-1)]; 
+    else
+        titlestr = 'LMB';
+        yrange = [0 20];
+
+        name = 'rinit';
+        vals = [mean(untreatedLMB_in.(name)) mean(peakLMB_in.(name)) mean(adaptedLMB_in.(name))]; 
+        errorvals = [   std(untreatedLMB_in.(name))/sqrt(untreatedLMB_in.Ncells-1)...
+                        std(peakLMB_in.(name))/sqrt(peakLMB_in.Ncells-1)...
+                        std(adaptedLMB_in.(name))/sqrt(adaptedLMB_in.Ncells-1)]; 
+
+        name = 'rfin';
+        vals2 = [mean(untreatedLMB_in.(name)) mean(peakLMB_in.(name)) mean(adaptedLMB_in.(name))]; 
+        errorvals2 = [  std(untreatedLMB_in.(name))/sqrt(untreatedLMB_in.Ncells-1)...
+                        std(peakLMB_in.(name))/sqrt(peakLMB_in.Ncells-1)...
+                        std(adaptedLMB_in.(name))/sqrt(adaptedLMB_in.Ncells-1)]; 
+    end
+
+    clf
+    b = bar(cat(1,vals,vals2)',0.9);%,'FaceColor',[0.1 0.5 0.1]);
+    b(1).FaceColor = colors(1,:);
+    b(2).FaceColor = colors(2,:);
+    hold on
+    bins = (1:3);
+    errorbar(bins-0.15, vals, errorvals,'k','LineStyle','none','linewidth',3);
+    errorbar(bins+0.15, vals2, errorvals2,'k','LineStyle','none','linewidth',3);
+    hold off
+    set(gcf,'color','w');
+    set(gca, 'LineWidth', 2);
+    set(gca,'FontSize', fs)
+    set(gca,'FontWeight', 'bold')
+    box off
+    xlim([0.5 max(bins)+0.5]);
+    ylim(yrange);
+    axis square
+    xticks([1 2 3]);
+    set(gca,'XTickLabel', {'ctrl', 'peak', 'adapt'});
+    legend({'rinit', 'rfin'},'Location',legloc{j})
+    title(titlestr);
+    saveas(gcf, fullfile(dataDir,['rcompare' titlestr '.png']));
 end
-
-clf
-b = bar(cat(1,vals,vals2)',0.9);%,'FaceColor',[0.1 0.5 0.1]);
-b(1).FaceColor = colors(1,:);
-b(2).FaceColor = colors(2,:);
-hold on
-bins = (1:3);
-errorbar(bins-0.15, vals, errorvals,'k','LineStyle','none','linewidth',3);
-errorbar(bins+0.15, vals2, errorvals2,'k','LineStyle','none','linewidth',3);
-hold off
-set(gcf,'color','w');
-set(gca, 'LineWidth', 2);
-set(gca,'FontSize', fs)
-set(gca,'FontWeight', 'bold')
-box off
-xlim([0.5 max(bins)+0.5]);
-ylim(yrange);
-axis square
-xticks([1 2 3]);
-set(gca,'XTickLabel', {'ctrl', 'peak', 'adapt'});
-legend({'rinit', 'rfin'},'Location',legloc{j})
-title(titlestr);
-saveas(gcf, fullfile(dataDir,['rcompare' titlestr '.png']));
 
 %% display amounts of input data
 
@@ -421,11 +331,11 @@ for i = 1:3
     input{i}.sigRp = std(instructp{i}.rinit)/sqrt(instructp{i}.Ncells-1);
     input{i}.sigk = std(instruct{i}.k)/sqrt(instruct{i}.Ncells-1);
     input{i}.sigkp = std(instructp{i}.k)/sqrt(instructp{i}.Ncells-1);
-    if i == 3
-        input{i}.sigAp = 0.1;
-        input{i}.sigRp = 0.1;
-        input{i}.sigkp = 0.01;
-    end
+%     if i == 3
+%         input{i}.sigAp = 0.1;
+%         input{i}.sigRp = 0.1;
+%         input{i}.sigkp = 0.01;
+%     end
     
     output{i} = fitKineticModel2(input{i});
 end
@@ -436,7 +346,7 @@ outputcomb = cat(2,output{:});
 inferred = {'kin','kout','cs','ns'};
 
 for i = 1:4
-    
+    figure,
     name = inferred{i};
 
     errname = ['sig' name];

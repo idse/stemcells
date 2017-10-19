@@ -1,4 +1,8 @@
-function res = readFRAPprofile2(data, omeMeta, res)
+function res = readFRAPprofile2(data, omeMeta, res, tmax)
+
+    if ~exist('tmax','var') || isempty(tmax)
+       tmax = size(data,3)-1; 
+    end
 
     % res = results structure
     tcut = size(data,3);
@@ -23,7 +27,7 @@ function res = readFRAPprofile2(data, omeMeta, res)
         if isempty(res.nucxend) || numel(res.nucxend) < shapeIdx
         
             disp('select final nuclear mask');
-            imshow(imadjust(data(:,:,end-1)),[],'InitialMagnification',200)
+            imshow(imadjust(data(:,:,tmax)),[],'InitialMagnification',200)
             hold on
             plot(x{shapeIdx},y{shapeIdx},'LineWidth',2);
             h = impoly(gca);
@@ -40,7 +44,7 @@ function res = readFRAPprofile2(data, omeMeta, res)
             hold off
 
             disp('select final cytoplasmic mask');
-            imshow(imadjust(data(:,:,end-1)),[])
+            imshow(imadjust(data(:,:,tmax)),[])
             hold on
             plot(x{shapeIdx},y{shapeIdx},'LineWidth',2);
             plot(res.cytxstart{shapeIdx}(:,1), res.cytxstart{shapeIdx}(:,2));
