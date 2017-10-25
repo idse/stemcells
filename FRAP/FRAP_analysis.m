@@ -4,13 +4,12 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 mainDataDir = '/Users/idse/data_tmp/0_kinetics/';
 
 FRAPmetadata
-
-idx = [12 1];
+idx = [14 1];
 
 % from metadata
 fi = idx(2);
 frapframe = frapframes(idx(1));
-dataDir = FRAPdirs{idx(1)};
+dataDir = fullfile(mainDataDir, FRAPdirs{idx(1)});
 oibfile = oibfiles{idx(1)}{idx(2)};
 tm = tmaxall{idx(1)}{idx(2)};
 
@@ -24,7 +23,7 @@ omeMeta = r.getMetadataStore();
 
 tcut = r.getSizeT()-1; % cutoff time
 tres = double(omeMeta.getPixelsTimeIncrement(0).value);
-Nfrapped = omeMeta.getShapeCount(0)/2;
+Nfrapped = 2;%omeMeta.getShapeCount(0)/2;
 if isempty(tm)
     tm = tcut*ones([1 Nfrapped]);
 end
@@ -48,10 +47,10 @@ results = struct(   'description', oibfile,...
 results.tres = tres;
 results.xyres = double(omeMeta.getPixelsPhysicalSizeX(0).value);
 results.meanI = squeeze(mean(mean(img(:,:,S4Channel,1,:),1),2));
-
+%%
 % read out profile in the mask
 data = squeeze(img(:,:,S4Channel,zi,:));
-results = readFRAPprofile2(data, omeMeta, results);
+results = readFRAPprofile2(data, omeMeta, results); % override : [], 2);
 
 % bleach factor
 bg = min(results.tracesNuc(:,frapframe));
@@ -108,8 +107,10 @@ save(fullfile(dataDir,'results'),'allresults');
 
 load(fullfile(dataDir,'results'),'allresults');
 
+tm = tm*0 + round(1000/results.tres);
+
 results = allresults{fi};
-results.tmax = [1 1]*120;
+results.tmax = tm;
 
 results.bleachType = 'nuclear';
 results.fitType = 'nuclear';
@@ -166,11 +167,11 @@ end
 % filename
 [~,barefname,~] = fileparts(oibfile);
 barefname = strrep(barefname,'.','dot');
+Nfrapped = size(allresults{fi}.tracesNuc,1);
+t = repmat((1:tcut)*tres,[Nfrapped 1]);
 %     
 %     % FRAP curves
 %     figure,
-%     Nfrapped = size(allresults{fi}.tracesNuc,1);
-%     t = repmat((1:tcut)*tres,[Nfrapped 1]);
 %     plot(t' ,traces');
 %     xlabel('time (sec)');
 %     ylabel('intensity')
@@ -199,15 +200,15 @@ barefname = strrep(barefname,'.','dot');
 %     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
 %     saveas(gcf,fullfile(dataDir, ['BleachCurve_' barefname '.png']));
 %     close;
-%     
-%     % bleach factor
-%     figure,
-%     plot(t' ,allresults{fi}.bleachFactor');
-%     xlabel('time (sec)');
-%     ylabel('intensity')
-%     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
-%     saveas(gcf,fullfile(dataDir, ['BleachFactor_' barefname '.png']));
-%     close;
+    
+    % bleach factor
+    figure,
+    plot(t' ,allresults{fi}.bleachFactor');
+    xlabel('time (sec)');
+    ylabel('intensity')
+    %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
+    saveas(gcf,fullfile(dataDir, ['BleachFactor_' barefname '.png']));
+    close;
 
 % FRAP fit
 clf
@@ -215,7 +216,7 @@ visualizeFRAPfit(allresults{fi})
 xlim([0 min(size(results.meanI,1)*tres, max(results.tres*tm)*2)])
 %saveas(gcf,fullfile(dataDir, ['FRAPfit_' barefname]));
 saveas(gcf,fullfile(dataDir, ['FRAPfitNuc_' barefname '.png']));
-close;
+%close;
 
 resultsBC = allresults{fi};
 resultsBC.A = resultsBC.Ab;

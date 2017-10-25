@@ -1,4 +1,4 @@
-function res = readFRAPprofile2(data, omeMeta, res, tmax)
+function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
 
     if ~exist('tmax','var') || isempty(tmax)
        tmax = size(data,3)-1; 
@@ -16,22 +16,43 @@ function res = readFRAPprofile2(data, omeMeta, res, tmax)
         res.cytx = {};
         res.shrink = 0.5; 
     end
+    
+    if ~exist('override','var') % to define initial bleach polygon by hand
+        override = false;
+    end
 
     % read FRAP regions
-    [x,y,shapeTypes] = readFRAPregions(omeMeta);
-    results.shapeTypes = shapeTypes;
+    if ~override
+        [x,y,shapeTypes] = readFRAPregions(omeMeta);
+        results.shapeTypes = shapeTypes;
+        Nfrapped = numel(x);
+    else
+        Nfrapped = override;
+    end
 
     % get all the masks
-    for shapeIdx = 1:numel(x)
+    for shapeIdx = 1:Nfrapped
         
         if isempty(res.nucxend) || numel(res.nucxend) < shapeIdx
         
+            if ~override
+                res.nucxstart{shapeIdx} = [x{shapeIdx},y{shapeIdx}];
+            else
+                disp('select initial nuclear mask');
+                imshow(imadjust(data(:,:,1)),[],'InitialMagnification',200)
+                hold on
+                h = impoly(gca);
+                res.nucxstart{shapeIdx} = getPosition(h);
+                x{shapeIdx} = res.nucxstart{shapeIdx}(:,1);
+                y{shapeIdx} = res.nucxstart{shapeIdx}(:,2);
+                hold off
+            end
+            
             disp('select final nuclear mask');
             imshow(imadjust(data(:,:,tmax)),[],'InitialMagnification',200)
             hold on
             plot(x{shapeIdx},y{shapeIdx},'LineWidth',2);
             h = impoly(gca);
-            res.nucxstart{shapeIdx} = [x{shapeIdx},y{shapeIdx}];
             res.nucxend{shapeIdx} = getPosition(h);
             hold off
 

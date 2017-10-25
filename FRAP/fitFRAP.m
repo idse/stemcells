@@ -1,5 +1,5 @@
 function [parameters, frapframe, gof] = fitFRAP(results)
-    % [parameters, frapframe, gof] = fitFRAP(tracesnorm, frapframe, tmax, tres)
+    % [parameters, frapframe, gof] = fitFRAP(results)
     % 
     % gof = goodness of fit, from function fit
     %

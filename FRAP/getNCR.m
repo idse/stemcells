@@ -1,9 +1,12 @@
-function out = getNCR(result)
-    % out = getNCR(result)
-    % out ~ [x, rinit, rfin]
+function outstruct = getNCR(result)
+    % outstruct = getNCR(result)
 
     out = [];
+    outstruct = struct('x',[],'ncrinit',[],'ncrfin',[],...
+                        'nr',[],'cr',[],...
+                        'Ninit',[],'Nfin',[],'Cinit',[],'Cfin',[],'bg',[]);
     
+	k = 1;
     for j = find(result.good)
         
         nucBeforeBleach = mean(result.tracesNuc(j,1:result.frapframe-1));
@@ -31,9 +34,17 @@ function out = getNCR(result)
 
         bg = 160;%min(result.tracesNuc(:,result.frapframe))%nucAfterBleach;
         x = (cytAfterBleach - bg)/(cytBeforeBleach - bg);
-        rinit = (nucBeforeBleach - bg)/(cytBeforeBleach - bg);
-        rfin = (nucAfterRecovery - bg)/(cytAfterRecovery - bg); 
+        ncrinit = (nucBeforeBleach - bg)/(cytBeforeBleach - bg);
+        ncrfin = (nucAfterRecovery - bg)/(cytAfterRecovery - bg); 
         
-        out = cat(1, out, [x, rinit, rfin]);
+        nr = (nucAfterRecovery - bg)/(nucBeforeBleach - bg);
+        cr = (cytAfterRecovery - bg)/(cytBeforeBleach - bg); 
+        
+        outstruct(k) = struct('x',x,'ncrinit',ncrinit,'ncrfin',ncrfin,...
+                                'nr',nr,'cr',cr,...
+                        'Ninit',nucBeforeBleach,'Nfin',nucAfterRecovery,...
+                        'Cinit',cytBeforeBleach,'Cfin',cytAfterRecovery,...
+                        'bg', bg);
+        k = k+1;
     end
 end
