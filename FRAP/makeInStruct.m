@@ -10,12 +10,11 @@ function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, l
 
     if debugplots
         h = [];
-        h(1) = figure; hold on
-        h(2) = figure; hold on
-        h(3) = figure; hold on
-        h(4) = figure; hold on
+        for i = 1:6
+            h(i) = figure; hold on
+        end
     end
-    
+
     for i = 1:size(idx,1)
 
         result = results{idx(i,1)}{idx(i,2)};
@@ -25,16 +24,23 @@ function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, l
         instruct.Nmovies = instruct.Nmovies + 1;
         instruct.Ncells = instruct.Ncells + sum(goodidx);
 
-        instruct.A = cat(1, instruct.A, result.A(goodidx,1));
-        instruct.errA = cat(1, instruct.errA, result.A(goodidx,1)-result.A(goodidx,2));
-        instruct.k = cat(1, instruct.k, result.k(goodidx,1));
-        instruct.errk = cat(1, instruct.errk, result.k(goodidx,1)-result.k(goodidx,2));
+        % SLOPPY NEEDS WORK
+        if isfield(result,'bc') && result.bc 
+            disp(['using bleach correct for ' result.description]);
+            instruct.k = cat(1, instruct.k, result.kb(goodidx,1));
+            instruct.errk = cat(1, instruct.errk, result.kb(goodidx,1)-result.kb(goodidx,2));
+        else
+            instruct.A = cat(1, instruct.A, result.A(goodidx,1));
+            instruct.errA = cat(1, instruct.errA, result.A(goodidx,1)-result.A(goodidx,2));
+            instruct.k = cat(1, instruct.k, result.k(goodidx,1));
+            instruct.errk = cat(1, instruct.errk, result.k(goodidx,1)-result.k(goodidx,2));
+        end
         
         % correct amplitude for cytoplasmic bleaching
-        x = result.cytobleachFactor;
-        if numel(x) == numel(goodidx)
-            x = result.cytobleachFactor(goodidx);%(goodidx,1);
-        else
+        x = [ncrstruct.x]';
+        if numel(x) ~= sum(goodidx)
+            %x = result.cytobleachFactor(goodidx);%(goodidx,1);
+        %else
             warning(['seg for ' result.description ' not up to date']);
         end
         instruct.Acorr = cat(1, instruct.A, result.A(goodidx,1)./x);
@@ -67,11 +73,19 @@ function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, l
 
             figure(h(4))
             scatter(0*result.k(goodidx,1) + i, result.k(goodidx,1),500,'.');
+            
+            nr = [ncrstruct.nr]';
+            figure(h(5))
+            scatter(0*nr + i, nr,500,'.');
+            
+            cr = [ncrstruct.cr]';
+            figure(h(6))
+            scatter(0*cr + i, cr,500,'.');
         end
     end
     if debugplots
-        varnames = {'rin','rfin','A','k'};
-        ylimvals = {[0 1.2],[0 1.2],[0 0.6],[0 0.025]};
+        varnames = {'rin','rfin','A','k','nr','cr'};
+        ylimvals = {[0 1.2],[0 1.2],[0 0.6],[0 0.025],[0 1],[0 1]};
         for i = 1:numel(h)
             figure(h(i))
             title(varnames(i));
@@ -80,8 +94,8 @@ function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, l
             xlim([0.5 size(idx,1)+0.5]);
             ylim(ylimvals{i});
             hold off
-            saveas(h(i), fullfile(dataDir,['debug_' varnames{i} label '.png']));
-            saveas(h(i), fullfile(dataDir,['debug_' varnames{i} label '.fig']));
+            saveas(h(i), fullfile(dataDir,'debug',['debug_' varnames{i} label '.png']));
+            saveas(h(i), fullfile(dataDir,'debug',['debug_' varnames{i} label '.fig']));
         end
     end
 end

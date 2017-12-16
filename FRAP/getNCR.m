@@ -7,13 +7,16 @@ function outstruct = getNCR(result)
                         'Ninit',[],'Nfin',[],'Cinit',[],'Cfin',[],'bg',[]);
     
 	k = 1;
+    
     for j = find(result.good)
+        
+        tm = result.tmax(j);
         
         nucBeforeBleach = mean(result.tracesNuc(j,1:result.frapframe-1));
         %nucAfterBleach = mean(result.tracesNuc(j,result.frapframe:result.frapframe+1));
-        nucAfterRecovery = mean(result.tracesNuc(j,end-10:end));
-        tm = result.tmax(j);
-
+        %nucAfterRecovery = mean(result.tracesNuc(j,tm-10:tm));
+        nucAfterRecovery = mean(result.tracesNuc(j,tm-10:tm));
+        
         if isfield(result, 'tracesCyt')
             cytBeforeBleach = mean(result.tracesCyt(j,1:result.frapframe-1));
             cytAfterBleach = mean(result.tracesCyt(j,result.frapframe:result.frapframe+1));
@@ -32,7 +35,9 @@ function outstruct = getNCR(result)
             cytAfterRecovery = result.cytend{j};
         end
 
-        bg = 160;%min(result.tracesNuc(:,result.frapframe))%nucAfterBleach;
+        %bg = 120;%min(result.tracesNuc(:,result.frapframe))%nucAfterBleach;
+        bg = min(min(result.tracesNuc(:,1:10)));
+        
         x = (cytAfterBleach - bg)/(cytBeforeBleach - bg);
         ncrinit = (nucBeforeBleach - bg)/(cytBeforeBleach - bg);
         ncrfin = (nucAfterRecovery - bg)/(cytAfterRecovery - bg); 

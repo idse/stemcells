@@ -45,7 +45,7 @@ function visualizeFRAPfit(results,labels)
         tauerr = kerr/(60*k^2);
         
         legendstr{shapeIdx} = ['A = ' num2str(A,2)...% '(' num2str(Aerr,1) ')'...
-                                ', \tau=' num2str(tau,2) ' min'];% '(' num2str(tauerr,1) ') min'];
+                                ';\tau=' num2str(tau,2) ';k=' num2str(k,2)];% '(' num2str(tauerr,1) ') min'];
         
         if ~decay
             fitcurve = func(A,k,t(frapframe:tmax(shapeIdx)));

@@ -1,4 +1,4 @@
-function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
+function res = readFRAPprofile2(data, omeMeta, res, LMB, tmax, override)
 
     if ~exist('tmax','var') || isempty(tmax)
        tmax = size(data,3)-1; 
@@ -6,7 +6,7 @@ function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
 
     % res = results structure
     tcut = size(data,3);
-    
+
     if ~isfield(res, 'cytx')
         res.nucxstart = {};
         res.nucxend = {};
@@ -14,9 +14,9 @@ function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
         res.cytxend = {};
         res.nucx = {};
         res.cytx = {};
-        res.shrink = 0.5; 
+        res.shrink = 0.3; 
     end
-    
+
     if ~exist('override','var') % to define initial bleach polygon by hand
         override = false;
     end
@@ -24,15 +24,41 @@ function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
     % read FRAP regions
     if ~override
         [x,y,shapeTypes] = readFRAPregions(omeMeta);
-        results.shapeTypes = shapeTypes;
+        res.shapeTypes = shapeTypes;
         Nfrapped = numel(x);
     else
         Nfrapped = override;
+        res.shapeTypes = {};
+        for i=1:Nfrapped
+            res.shapeTypes = [res.shapeTypes, 'Polygon'];
+        end
     end
 
+    % get background levels
+    Iraw = data(:,:,1);
+    I = mat2gray(Iraw);
+
+    if LMB
+        B = I > graythresh(I);
+        I(B) = 0;
+        mask = (I > graythresh(I)) +  B;
+    else
+        mask = I > graythresh(I);
+    end
+    mask = imclose(mask,strel('disk',3));
+    mask = imopen(imfill(mask,'holes'), strel('disk',3));
+    mask = bwareaopen(mask,1000);
+    bgmask = imerode(~mask,strel('disk',40));
+    assert(sum(bgmask(:)) > 100, 'cant determine background');
+    
+    bg = mean(Iraw(bgmask));% std(double(Iraw(bgmask)))]
+    res.bgempty = bg;
+    
     % get all the masks
     for shapeIdx = 1:Nfrapped
         
+        if strcmp(res.shapeTypes{shapeIdx}, 'Polygon')
+            
         if isempty(res.nucxend) || numel(res.nucxend) < shapeIdx
         
             if ~override
@@ -47,7 +73,7 @@ function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
                 y{shapeIdx} = res.nucxstart{shapeIdx}(:,2);
                 hold off
             end
-            
+
             disp('select final nuclear mask');
             imshow(imadjust(data(:,:,tmax)),[],'InitialMagnification',200)
             hold on
@@ -77,25 +103,31 @@ function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
         end
         
         % dynamic polygons
+        tic
         res.nucx{shapeIdx} = polymorph(res.nucxstart{shapeIdx}, res.nucxend{shapeIdx}, tcut);
         res.cytx{shapeIdx} = polymorph(res.cytxstart{shapeIdx}, res.cytxend{shapeIdx}, tcut);
+        toc
+        
+        end
     end
 
     % read the profile
-    tracesNuc = zeros([numel(x) tcut]);
-    tracesNucNorm = zeros([numel(x) tcut]);
-    tracesCyt = zeros([numel(x) tcut]);
-    tracesCytNorm = zeros([numel(x) tcut]);
+    tracesNuc = zeros([Nfrapped tcut]);
+    tracesNucNorm = zeros([Nfrapped tcut]);
+    tracesCyt = zeros([Nfrapped tcut]);
+    tracesCytNorm = zeros([Nfrapped tcut]);
     
-    for shapeIdx = 1:numel(x)
+    for shapeIdx = 1:Nfrapped
         
+        if strcmp(res.shapeTypes{shapeIdx}, 'Polygon')
+            
         nucval = zeros([1 tcut]);
         cytval = zeros([1 tcut]);
         
         for ti = 1:tcut
 
             nucp = res.nucx{shapeIdx}(:,:,ti);
-            nucp = nucp - res.shrink*(nucp - mean(nucp));
+            nucp = nucp - res.shrink*(nucp - repmat(mean(nucp),[size(nucp,1) 1]));
             
             cytp = res.cytx{shapeIdx}(:,:,ti);
             %cytp = cytp - prof.shrink*(cytp - mean(cytp));
@@ -108,12 +140,25 @@ function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
             cytval(ti) = mean(im(cytmask));
         end
         
-        bg = min(nucval);
+        %bg = min(nucval);
         
         tracesNuc(shapeIdx,:) = nucval;
-        tracesNucNorm(shapeIdx,:) = (nucval - bg)/(mean(nucval(1:2)) - bg);
-        
         tracesCyt(shapeIdx,:) = cytval;
+        end
+    end
+
+    traceMin = min(min(tracesNuc));
+    if traceMin < bg
+        warning(['bg from empty space ' num2str(bg) ' was higher than FRAP curve ' num2str(traceMin)]);
+        bg = traceMin;
+    end
+
+    % normalize the traces
+    for shapeIdx = 1:Nfrapped
+        
+        nucval = tracesNuc(shapeIdx,:);
+        tracesNucNorm(shapeIdx,:) = (nucval - bg)/(mean(nucval(1:2)) - bg);
+        cytval = tracesCyt(shapeIdx,:);
         tracesCytNorm(shapeIdx,:) = (cytval - bg)/(mean(cytval(1:2)) - bg);
     end
 
@@ -121,4 +166,5 @@ function res = readFRAPprofile2(data, omeMeta, res, tmax, override)
     res.tracesNucNorm = tracesNucNorm;
     res.tracesCyt = tracesCyt;
     res.tracesCytNorm = tracesCytNorm;
+    res.bg = bg;
 end
