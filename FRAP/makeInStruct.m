@@ -1,4 +1,4 @@
-function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, label)
+function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, label,bleachCorrect)
     
     instruct = struct(  'A',[],'errA',[],'k',[],'errk',[],...
                     'Nmovies',0, 'Ncells',0,...
@@ -25,8 +25,10 @@ function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, l
         instruct.Ncells = instruct.Ncells + sum(goodidx);
 
         % SLOPPY NEEDS WORK
-        if isfield(result,'bc') && result.bc 
+        if bleachCorrect{idx(i,1)}(idx(i,2))
             disp(['using bleach correct for ' result.description]);
+            instruct.A = cat(1, instruct.A, result.Ab(goodidx,1));
+            instruct.errA = cat(1, instruct.errA, result.Ab(goodidx,1)-result.Ab(goodidx,2));
             instruct.k = cat(1, instruct.k, result.kb(goodidx,1));
             instruct.errk = cat(1, instruct.errk, result.kb(goodidx,1)-result.kb(goodidx,2));
         else

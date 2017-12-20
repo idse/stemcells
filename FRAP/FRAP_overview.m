@@ -10,7 +10,7 @@ FRAPmetadata
 %% load FRAP data from different experiments
 
 results = {};
-pf = '171214';
+pf = '171217c';%'171214';
 
 for i = 1:numel(FRAPdirs)
 	
@@ -51,6 +51,8 @@ results{9}{7}.good = [1 1 0];
 results{10}{4}.good = 0*[1 0 1 1 0]; 
 results{10}{5}.good = [0 1 1 1]; 
 
+results{11}{4}.good = [1 1 0 1 1];
+
 results{12}{1}.good = [0 1];
 
 results{13}{1}.good = [1]; % A50 LMB 2h movie that didn't fully bleach
@@ -78,13 +80,19 @@ results{21}{4}.good = [1 1]; % adapt
 results{21}{5}.good = [1 1 1 0 0]; %peak LMB
 results{21}{6}.good = [1 1 1 1];
 results{21}{8}.good = [1 1 1]; % adapt LMB
-results{21}{10}.good = [1 1 1 1 1]; % untreat
-
-for i = 1:10
-    results{21}{i}.bc = false;
-end
+results{21}{10}.good = [0 1 1 1 1]; % untreat CHANGED
 
 save(fullfile(dataDir, ['FRAPresults' pf '.mat']), 'results');
+
+% 
+% for i = 1:numel(FRAPdirs)
+% 	
+%     fname = fullfile(dataDir,FRAPdirs{i},['results' pf '.mat']);
+%     if exist(fname,'file')
+%         allresults = results{i};
+%         save(fname, 'allresults');
+%     end
+% end
 
 %%
 % %%
@@ -105,13 +113,15 @@ whiskerlength = 1.5;
 
 load(fullfile(dataDir, ['FRAPresults' pf '.mat']));
 
-%short time res: 6 2; 11 4; 
-untrIdx = [2 4; 4 1; 6 2; 11 4; 10 5;  18 4; 19 4; 21 10];  % 10 4 is too short
-peakIdx = [1 1; 3 1; 3 2; 6 1; 7 1; 12 1; 19 2; 21 1; 21 2]; % 8 2 but some RI mistake
+%short time res: 6 2; 11 4; NOW 10 5; 
+untrIdx = [2 4; 4 1; 6 2; 11 4; 18 4; 19 4; 21 10];  % 10 4 is too short
+peakIdx = [1 1; 3 2; 6 1; 7 1; 12 1; 19 2; 21 1; 21 2]; % 8 2 but some RI mistake
 adaptIdx = [3 3; 3 4; 9 2; 7 2; 21 4]; % 19 3 
 
-untrIdxLMB = [2 3; 9 6; 9 7; 11 3; 16 3];
-peakIdxLMB = [9 1; 10 2; 11 2; 13 1; 14 1; 19 1; 21 5; 21 6];% 2 1, but that one recoveres very little and too fast
+%untrIdxLMB = [2 3; 9 6; 9 7; 11 3; 16 3];
+%peakIdxLMB = [9 1; 10 2; 11 2; 13 1; 14 1; 19 1; 21 5; 21 6];% 2 1, but that one recoveres very little and too fast
+untrIdxLMB = [2 3; 9 6; 9 7; 11 2; 11 3; 16 3];
+peakIdxLMB = [9 1; 10 2; 11 1; 13 1; 14 1; 19 1; 21 5; 21 6];% 2 1, but that one recoveres very little and too fast
 adaptIdxLMB = [9 3; 10 1; 16 2; 17 1; 21 8];
 
 allIdx = {untrIdx, peakIdx, adaptIdx, untrIdxLMB, peakIdxLMB, adaptIdxLMB};
@@ -123,8 +133,7 @@ debugplots = false;
 
 for i = 1:numel(allIdx)
     legendstr = FRAPdirs(allIdx{i}(:,1));
-    allOut{i} = makeInStruct(results, allIdx{i}, debugplots, legendstr, dataDir, allLabels{i});
-    close all;
+    allOut{i} = makeInStruct(results, allIdx{i}, debugplots, legendstr, dataDir, allLabels{i},bleachCorrect);
     
     bg = allOut{i}.bg;
 %     if i == 5
@@ -142,44 +151,62 @@ untreatedLMB_in = allOut{4};
 peakLMB_in = allOut{5};
 adaptedLMB_in = allOut{6};
 
+%%
+name = 'ArawCyt';
+figure,
+hold on
+for j = 1:3
+    N = numel(allOut{j}.(name));
+    scatter(allOut{j}.(name)*0 + j, allOut{j}.(name))
+    [mean(allOut{j}.(name)) std(allOut{j}.(name)) 2*std(allOut{j}.(name))/sqrt(N-1)]
+end
+for j = 1:3
+    N = numel(allOut{j+3}.k);
+    scatter(allOut{j+3}.(name)*0 + j+1/2, allOut{j+3}.(name))
+    [mean(allOut{j+3}.(name)) std(allOut{j+3}.(name)) 2*std(allOut{j+3}.(name))/sqrt(N-1)]
+end
+hold off
+title(name);
+
 %% TEST how raw nuclear intensity ratios before and after 
 % compare to fitting the recovery amplitude
-
+figure,
 clf
 hold on
 disp('---')
 for j = 1:6
     
     X = allOut{j};
-    bg = 120;%
-    %bg = X.bg;
     bla = [X.A X.Araw];
 
     scatter(bla(:,1),bla(:,2))
     xlabel('fit');
     ylabel('raw');
     axis equal
-    %axis([0 0.8 0 0.8]);
+    axis([0 0.8 0 0.8]);
     C = corrcoef(bla(:,1),bla(:,2));
     disp(C(1,2))
+    %disp([num2str([mean(X.Araw) std(X.Araw)]) '     fit: ' num2str([mean(X.A) std(X.A)])])
     %cov(bla(:,1),bla(:,2))
 end
 legend({'untreat','peak','adapt','untreatLMB','peakLMB','adaptLMB'})
-saveas(gcf,fullfile(dataDir,'results', 'fitVraw.png'));
+saveas(gcf,fullfile(dataDir,'results', 'fitVrawB.png'));
 
 % look at recovery curves to explain lack of correlation in 
 % untreated LMB
 
+% exponential in fit starts at 0, not at FRAP frame?~!
+
 %%
 disp('---')
-for j = 5%1:6
+for j = 4%1:6
 
     Aall = [];
     Acall = [];
     Nall = [];
     Call = [];
 
-    for i = 8%:size(allIdx{j},1)
+    for i = 1:size(allIdx{j},1)
 
         R = results{allIdx{j}(i,1)}{allIdx{j}(i,2)};
         T = R.tracesNuc';
@@ -261,7 +288,7 @@ measured = {'A','Acorr','k','x'};% 'rinit','rfin', % w and w/o LMB
 legloc = {'NorthWest','NorthEast','NorthWest','NorthWest'};
 yranges = {[],[],[]};%[0 20],[0 5]};
 
-for j = 1:3%1:3
+for j = 3%1:3
 
     figure, 
     
@@ -271,14 +298,14 @@ for j = 1:3%1:3
 
     vals = {untreated_in.(name), peak_in.(name), adapted_in.(name)}; 
     means = [mean(untreated_in.(name)) mean(peak_in.(name)) mean(adapted_in.(name))]; 
-    errorvals = 4*[   std(untreated_in.(name))/sqrt(untreated_in.Ncells-1)...
+    errorvals = 2*[   std(untreated_in.(name))/sqrt(untreated_in.Ncells-1)...
                     std(peak_in.(name))/sqrt(peak_in.Ncells-1)...
                     std(adapted_in.(name))/sqrt(adapted_in.Ncells-1)]; 
                 %[std(untreated_in.(name)) std(peak_in.(name)) std(adapted_in.(name))]; 
     
     vals2 = {untreatedLMB_in.(name), peakLMB_in.(name), adaptedLMB_in.(name)}; 
     means2 = [mean(untreatedLMB_in.(name)) mean(peakLMB_in.(name)) mean(adaptedLMB_in.(name))]; 
-    errorvals2 = 4*[  std(untreatedLMB_in.(name))/sqrt(untreatedLMB_in.Ncells-1)...
+    errorvals2 = 2*[  std(untreatedLMB_in.(name))/sqrt(untreatedLMB_in.Ncells-1)...
                     std(peakLMB_in.(name))/sqrt(peakLMB_in.Ncells-1)...
                     std(adaptedLMB_in.(name))/sqrt(adaptedLMB_in.Ncells-1)]; 
                 %[std(untreatedLMB_in.(name)) std(peakLMB_in.(name)) std(adaptedLMB_in.(name))]; 
@@ -304,7 +331,7 @@ for j = 1:3%1:3
     xticks([1 2 3]);
     set(gca,'XTickLabel', {'ctrl', 'peak', 'adapt'});
     legend({name, [name '+LMB']},'Location',legloc{j})
-    saveas(gcf, fullfile(dataDir,[name '_bargraph.png']));
+    %saveas(gcf, fullfile(dataDir,[name '_bargraph.png']));
     
     
     % box plots
@@ -318,7 +345,7 @@ for j = 1:3%1:3
         valsvec = cat(1,valsvec, vals{i}, vals2{i});
         coloridx = cat(1,coloridx, vals{i}*0+1, vals2{i}*0 + 2);
         idxvec = cat(1,idxvec, vals{i}*0+2*i-1, vals2{i}*0+2*i);
-    end 
+    end
     h = boxplot(valsvec, idxvec,'notch','off','Widths',0.3,...
                             'ColorGroup',coloridx,'Colors',lines(2),...
                             'Whisker',whiskerlength); % 1.5 default
@@ -334,7 +361,7 @@ for j = 1:3%1:3
     set(gca,'FontWeight', 'bold')
     box off
     axis square
-    saveas(gcf, fullfile(dataDir,[name '_boxplot.png']));
+    %saveas(gcf, fullfile(dataDir,[name '_boxplot.png']));
 end
 
 %%

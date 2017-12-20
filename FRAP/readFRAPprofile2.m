@@ -14,6 +14,8 @@ function res = readFRAPprofile2(data, omeMeta, res, LMB, tmax, override)
         res.cytxend = {};
         res.nucx = {};
         res.cytx = {};
+    end
+    if ~isfield(res, 'shrink')
         res.shrink = 0.3; 
     end
 
@@ -49,7 +51,14 @@ function res = readFRAPprofile2(data, omeMeta, res, LMB, tmax, override)
     mask = imopen(imfill(mask,'holes'), strel('disk',3));
     mask = bwareaopen(mask,1000);
     bgmask = imerode(~mask,strel('disk',40));
-    assert(sum(bgmask(:)) > 100, 'cant determine background');
+    if sum(bgmask(:)) < 100
+        warning('cant determine background with standard margin');
+        bgmask = imerode(~mask,strel('disk',10));
+    end
+    if sum(bgmask(:)) < 100
+        warning('cant determine background');
+        bgmask = imerode(~mask,strel('disk',10));
+    end
     
     bg = mean(Iraw(bgmask));% std(double(Iraw(bgmask)))]
     res.bgempty = bg;
@@ -116,6 +125,8 @@ function res = readFRAPprofile2(data, omeMeta, res, LMB, tmax, override)
     tracesNucNorm = zeros([Nfrapped tcut]);
     tracesCyt = zeros([Nfrapped tcut]);
     tracesCytNorm = zeros([Nfrapped tcut]);
+    
+    disp(['shrink mask :' num2str(res.shrink)]);
     
     for shapeIdx = 1:Nfrapped
         
