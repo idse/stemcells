@@ -1,12 +1,12 @@
 function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, label,bleachCorrect)
     
-    instruct = struct(  'A',[],'errA',[],'k',[],'errk',[],...
-                    'Nmovies',0, 'Ncells',0,...
+    instruct = struct(  'A',[],'Ac',[],'k',[],...%'errk',[],...%'errA',[],
+                    'Nmovies',0, 'Ncells',[],...
                     'ncrinit',[],'ncrfin',[],...
                     'nr',[],'cr',[],...
-                    'Ninit',[],'Nfin',[],...
-                    'Cinit',[],'Cfin',[],...
-                    'bg',[],'x',[]);
+                    'Ninit',[],'Nbleach',[],'Nfin',[],...
+                    'Cinit',[],'Cbleach',[],'Cfin',[],...
+                    'bg',[],'movieIdx',[]);
 
     if debugplots
         h = [];
@@ -18,34 +18,34 @@ function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, l
     for i = 1:size(idx,1)
 
         result = results{idx(i,1)}{idx(i,2)};
+        if ~isfield(result,'good')
+            warning('missing good index');
+            result.good = true([1 size(result.tracesNuc,1)]);
+        end
         goodidx = logical(result.good);
-        ncrstruct = getNCR(result);
+        ncrstruct = getNCR(result,bleachCorrect{idx(i,1)}(idx(i,2)));
 
         instruct.Nmovies = instruct.Nmovies + 1;
-        instruct.Ncells = instruct.Ncells + sum(goodidx);
-
+        instruct.Ncells = [instruct.Ncells sum(goodidx)];
+        
+        instruct.movieIdx = cat(1, instruct.movieIdx, repmat(idx(i,:), [sum(goodidx) 1]));
+        
         % SLOPPY NEEDS WORK
         if bleachCorrect{idx(i,1)}(idx(i,2))
             disp(['using bleach correct for ' result.description]);
             instruct.A = cat(1, instruct.A, result.Ab(goodidx,1));
-            instruct.errA = cat(1, instruct.errA, result.Ab(goodidx,1)-result.Ab(goodidx,2));
+            instruct.Ac = cat(1, instruct.Ac, result.Acb(goodidx,1));
+            %instruct.errA = cat(1, instruct.errA, result.Ab(goodidx,1)-result.Ab(goodidx,2));
             instruct.k = cat(1, instruct.k, result.kb(goodidx,1));
-            instruct.errk = cat(1, instruct.errk, result.kb(goodidx,1)-result.kb(goodidx,2));
+            %instruct.errk = cat(1, instruct.errk, result.kb(goodidx,1)-result.kb(goodidx,2));
         else
+            disp(result.description);
             instruct.A = cat(1, instruct.A, result.A(goodidx,1));
-            instruct.errA = cat(1, instruct.errA, result.A(goodidx,1)-result.A(goodidx,2));
+            instruct.Ac = cat(1, instruct.Ac, result.Ac(goodidx,1));
+            %instruct.errA = cat(1, instruct.errA, result.A(goodidx,1)-result.A(goodidx,2));
             instruct.k = cat(1, instruct.k, result.k(goodidx,1));
-            instruct.errk = cat(1, instruct.errk, result.k(goodidx,1)-result.k(goodidx,2));
+            %instruct.errk = cat(1, instruct.errk, result.k(goodidx,1)-result.k(goodidx,2));
         end
-        
-        % correct amplitude for cytoplasmic bleaching
-        x = [ncrstruct.x]';
-        if numel(x) ~= sum(goodidx)
-            %x = result.cytobleachFactor(goodidx);%(goodidx,1);
-        %else
-            warning(['seg for ' result.description ' not up to date']);
-        end
-        instruct.Acorr = cat(1, instruct.A, result.A(goodidx,1)./x);
         
         instruct.ncrinit = cat(1, instruct.ncrinit, ncrstruct.ncrinit);
         instruct.ncrfin = cat(1, instruct.ncrfin, ncrstruct.ncrfin);
@@ -54,12 +54,12 @@ function instruct = makeInStruct(results, idx, debugplots, legendstr, dataDir, l
         instruct.cr = cat(1, instruct.cr, ncrstruct.cr);
         
         instruct.Ninit = cat(1, instruct.Ninit, ncrstruct.Ninit);
+        instruct.Nbleach = cat(1, instruct.Nbleach, ncrstruct.Nbleach);
         instruct.Nfin = cat(1, instruct.Nfin, ncrstruct.Nfin);
         instruct.Cinit = cat(1, instruct.Cinit, ncrstruct.Cinit);
+        instruct.Cbleach = cat(1, instruct.Cbleach, ncrstruct.Cbleach);
         instruct.Cfin = cat(1, instruct.Cfin, ncrstruct.Cfin);
         instruct.bg = cat(1, instruct.bg, ncrstruct.bg);
-        
-        instruct.x = cat(1, instruct.x, ncrstruct.x);
         
         if debugplots
             xr = [ncrstruct.ncrinit]';

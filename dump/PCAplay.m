@@ -27,13 +27,15 @@
 % another
 
 nTime = 50;
-nTraces = 100;
+nTraces = 500;
 T = linspace(1,4,nTime);
 timeTrace = zeros([nTraces nTime]);
 
 for i = 1:nTraces
-    a = 0.2*randn(1);
-    timeTrace(i,:) = sin(2*pi*T+a);
+    a = 0*randn(1);
+    b = 0*randn(1);
+    c = 0.3*randn(1);
+    timeTrace(i,:) = c*sin(2*pi*T+a) + b;
 end
     
 plot(timeTrace')
@@ -42,12 +44,12 @@ plot(timeTrace')
 
 % nTime x nTime covariance matrix
 S = cov(timeTrace);
-[V,D] = eigs(S);
+[V,D] = eigs(S); % returns largest 6, could do more
 
 % the first two principal components
-plot(V(:,1)')
+plot(V(:,1)','b')
 hold on 
-plot(V(:,2)')
+plot(V(:,2)','r')
 hold off
 axis([0 50 -1/4 1/4])
 
@@ -58,13 +60,17 @@ axis([0 50 -1/4 1/4])
 
 % normalize to compare to eigenvector
 meanTrace = mean(timeTrace)/sqrt(sum(mean(timeTrace).^2));
+
 dMeanTrace = conv(meanTrace,[1 -1]/2);
 dMeanTrace = -dMeanTrace/sqrt(sum(dMeanTrace.^2));
 
-figure,
+%figure,
 plot(meanTrace,'g')
 hold on
-plot(dMeanTrace,'g')
+plot(V(:,2)','m')
+plot(-V(:,3)','y')
+plot(-V(:,1)','b')
+plot(dMeanTrace,'r')
 hold off
 axis([0 50 -1/4 1/4])
 

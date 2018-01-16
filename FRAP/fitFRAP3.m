@@ -98,14 +98,25 @@ function [parameters, frapframe, gof] = fitFRAP3(results)
         if ~any(isnan(fdata))
 
             endval = mean(tracesnorm(shapeIdx, tmaxs-10:tmaxs));
-            minval = mean(tracesnorm(shapeIdx, frapframe:frapframe+1));
+            postfrapval = mean(tracesnorm(shapeIdx, frapframe:frapframe+1));
 
-            A0 = endval - minval;
-            B0 = minval;
+            if decay
+                A0 = postfrapval - endval;
+                B0 = endval;
+            else
+                A0 = endval - postfrapval;
+                B0 = postfrapval;
+            end
             k0 = 0.01;
             
+            % CUTOFF: enforce that the temporal cutoff is within 10% of
+            % equilibrium (typically I pick the cutoff when I think it is
+            % at equilibrium, but for bad traces the fit can occasionally
+            % deviate from that so this is a way to enforce it)
+            kcut = -log(0.1)/(tmaxs*results.tres);
+            
             [outfit{shapeIdx}, gof{shapeIdx}] = fit(tdata',fdata',ft,...
-                                'Lower',0,'Upper',Inf,'StartPoint',k0,...
+                                'Lower',kcut,'Upper',Inf,'StartPoint',k0,...
                                 'problem',{A0,B0});
 
             k = outfit{shapeIdx}.p1;

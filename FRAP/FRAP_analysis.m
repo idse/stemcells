@@ -7,14 +7,28 @@ FRAPmetadata
 
 %% copied from FRAP_overview
 
-%short time res: 6 2; 11 4; 
-untrIdx = [2 4; 4 1; 6 2; 11 4; 10 5;  18 4; 19 4; 21 10];  % 10 4 is too short
-peakIdx = [1 1; 3 1; 3 2; 6 1; 7 1; 12 1; 19 2; 21 1; 21 2]; % 8 2 but some RI mistake
-adaptIdx = [3 3; 3 4; 9 2; 7 2; 21 4]; % 19 3 
+%short time res: 6 2; 11 4; NOW 10 5; 
+untrIdx = [6 2; 11 4; 18 4; 19 4; 21 10];  
+%4 1; 
+% 10 4 is too short
+% 2 4 is outlier in terms of speed, but also taken with totally different
+% imaging conditions (zoom), so excluded bc perhaps we're seeing strong diffusive
+% recovery
+peakIdx = [1 1; 3 2; 6 1; 7 1; 19 2; 21 1]; 
+% 21 2
+% 8 2 but some RI mistake
+% 12 1; looks pretty adapted already
+adaptIdx = [3 4; 9 2; 19 3; 21 4; 22 3; 22 4]; % 19 3  
+% 7 2 starts with n:c too high, seems not fully adapted, and recovers less
+% 3 3 drifts out of focus, ok for nucleus but makes cytoplasmic 
+% readout bad right away
 
+%untrIdxLMB = [2 3; 9 6; 9 7; 11 3; 16 3];
+%peakIdxLMB = [9 1; 10 2; 11 2; 13 1; 14 1; 19 1; 21 5; 21 6];% 2 1, but that one recoveres very little and too fast
 untrIdxLMB = [2 3; 9 6; 9 7; 11 2; 11 3; 16 3];
 peakIdxLMB = [9 1; 10 2; 11 1; 13 1; 14 1; 19 1; 21 5; 21 6];% 2 1, but that one recoveres very little and too fast
-adaptIdxLMB = [9 3; 10 1; 16 2; 17 1; 21 8];
+adaptIdxLMB = [9 3; 10 1; 17 1; 21 8; 23 5; 23 6]; %16 2; 
+
 
 allIdx = {untrIdx, peakIdx, adaptIdx, untrIdxLMB, peakIdxLMB, adaptIdxLMB};
 
@@ -22,12 +36,14 @@ allIdx = {untrIdx, peakIdx, adaptIdx, untrIdxLMB, peakIdxLMB, adaptIdxLMB};
 
 % NEXT all fits for complete time interval, see if that is better
 
-for j = 1%:6
+redo = [3];
 
-for i = 1:size(allIdx{j},1)
+for j = 5%1:3%6
+
+for i = 1%:size(allIdx{j},1)
 % 21 6; 23 4; 1 1; 2 2; 2 3
-idx = allIdx{j}(i,:);
-
+%idx = allIdx{j}(i,:);
+idx = [9 1];
 % k = 24;
 % for i = 6:numel(oibfiles{k})
 %     idx = [k i];
@@ -94,7 +110,7 @@ if ~exist('results','var')
 end
 
 % for seeing how this will affect things 
-results.shrink = 0.1;
+results.shrink = 0.2;
 
 % read out profile in the mask
 data = squeeze(img(:,:,S4Channel,zi,:));
@@ -102,7 +118,7 @@ if j == 5 && i == 4
     % override for a file where ROI are corrupted
     results = readFRAPprofile2(data, omeMeta, results, LMB{idx(1)}(idx(2)), [], 2); % override : [], 2);
 else
-    results = readFRAPprofile2(data, omeMeta, results, LMB{idx(1)}(idx(2))); % override : [], 2);
+    results = readFRAPprofile2(data, omeMeta, results, LMB{idx(1)}(idx(2)), max(tmaxall{idx(1)}{idx(2)}), [], redo); % override : [], 2);
 end
 
 % bleach factor
@@ -249,12 +265,12 @@ end
 
 pf = '171217';
 
-for j = 1:6
+for j = 5%:6
 
-for i = 1:size(allIdx{j},1)
+for i = 1%:size(allIdx{j},1)
     % 21 6; 23 4; 1 1; 2 2; 2 3
-    idx = allIdx{j}(i,:);
-
+    %idx = allIdx{j}(i,:);
+    idx = [21 5]
 % k = 24;
 % for i = 1:numel(oibfiles{k})
 %     idx = [k i];
@@ -309,21 +325,32 @@ for i = 1:size(allIdx{j},1)
     results.Ab = parameters.A;
     results.Bb = parameters.B;
     results.kb = parameters.k;
-    results.tracesNucBC = resultsb.tracesNuc;
+    results.tracesNucBC = (results.tracesNuc - results.bg)./results.bleachFactor + results.bg;
     results.tracesNucNormBC = resultsb.tracesNucNorm;
     results.gofn = gof;
 
-%     disp('fit cytoplasmic levels');
-%     resultsb  = results;
-%     resultsb.tracesCytNormBC = results.tracesCytNorm./results.bleachFactor;
-%     resultsb.tracesCytNorm = resultsb.tracesCytNormBC;
-%     resultsb.fitType = 'cytoplasmic';
-%     [parameters, ~, gof] = fitFRAP(resultsb);
-%     results.Acb = parameters.A;
-%     results.kcb = parameters.k;
-%     results.Bcb = parameters.B;
-%     results.gofc = gof;
+    disp('fit cytoplasmic levels----------------------------------');
+    resultsb  = results;
+    resultsb.fitType = 'cytoplasmic';
+    [parameters, ~, gof] = fitFRAP3(resultsb);
+    results.Ac = parameters.A;
+    results.kc = parameters.k;
+    results.Bc = parameters.B;
+    results.gofc = gof;
 
+    disp('cytoplasmic bleach corrected');
+    resultsb  = results;
+    resultsb.tracesCytNormBC = results.tracesCytNorm./results.bleachFactor;
+    resultsb.tracesCytNorm = resultsb.tracesCytNormBC;
+    resultsb.fitType = 'cytoplasmic';
+    [parameters, ~, gof] = fitFRAP3(resultsb);
+    results.Acb = parameters.A;
+    results.kcb = parameters.k;
+    results.Bcb = parameters.B;
+    results.tracesCytBC = (results.tracesCyt - results.bg)./results.bleachFactor + results.bg;
+    results.tracesCytNormBC = resultsb.tracesCytNormBC;
+
+%     
     % store results of this video
     fname = ['results' pf 'c' '.mat'];
     if exist(fullfile(dataDir,fname),'file')
@@ -350,11 +377,12 @@ for j = 1:numel(subDirs)
     end
 end
 
-for j = 1:6
+for j = 5%:3
 
-for i = 1:size(allIdx{j},1)
-    idx = allIdx{j}(i,:);
-
+for i = 1%:size(allIdx{j},1)
+    
+    %idx = allIdx{j}(i,:);
+idx = [21 5];
 % k = 24;
 % for i = 8:numel(oibfiles{k})
 %     idx = [k i]; 
@@ -367,7 +395,7 @@ for i = 1:size(allIdx{j},1)
     oibfile = oibfiles{idx(1)}{idx(2)};
     load(fullfile(dataDir,['results' pf]),'allresults');
     results = allresults{fi};
-    tm = results.tmax;
+    tm = tmaxall{idx(1)}{idx(2)};%results.tmax;
     disp(oibfile);
 
     traces = allresults{fi}.tracesNuc;
@@ -388,68 +416,69 @@ for i = 1:size(allIdx{j},1)
     t = repmat((1:tcut)*tres,[Nfrapped 1]);
     pref = pf;%'171214';
         
-%     % FRAP curves
-%     figure,
-%     plot(t' ,traces');
-%     hold on 
-%     plot(t' ,0*allresults{fi}.tracesNuc'+allresults{fi}.bgempty);
-%     hold off
-%     xlabel('time (sec)');
-%     ylabel('intensity')
-%     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
-%     saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesRaw_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
-%     
-%     plot(t' ,allresults{fi}.tracesCyt');
-%     hold on 
-%     plot(t' ,0*allresults{fi}.tracesCyt'+allresults{fi}.bgempty);
-%     hold off
-%     xlabel('time (sec)');
-%     ylabel('intensity')
-%     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
-%     saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesCytRaw_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
-%     close;
-%     
-%     plot(t' ,tracesnorm');
-%     xlabel('time (sec)');
-%     ylabel('normalized intensity')
-%     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname]));
-%     saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesNorm_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
-%     close;
-%     
-%     plot(t' ,allresults{fi}.tracesCytNorm');
-%     xlabel('time (sec)');
-%     ylabel('normalized intensity')
-%     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname]));
-%     saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesCytNorm_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
-%     close;
-%     
-%     plot(t' ,tracesnormBC');
-%     xlabel('time (sec)');
-%     ylabel('normalized intensity')
-%     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname]));
-%     saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesNormBC_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
-%     close;
-%     %     
-%     %     % bleach curve
-%     %     figure,
-%     %     plot(t' ,allresults{fi}.meanI');
-%     %     xlabel('time (sec)');
-%     %     ylabel('intensity')
-%     %     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
-%     %     saveas(gcf,fullfile(dataDir, ['BleachCurve_' barefname '.png']));
-%     %     close;
-% 
-%     % bleach factor
-%     figure,
-%     plot(t' ,allresults{fi}.bleachFactor');
-%     xlabel('time (sec)');
-%     ylabel('intensity')
-%     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
-%     saveas(gcf,fullfile(subDirs{j}, ['BleachFactor_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
-%     close;
+    % FRAP curves
+    figure,
+    plot(t' ,traces');
+    hold on 
+    plot(t' ,0*allresults{fi}.tracesNuc'+allresults{fi}.bgempty);
+    hold off
+    xlabel('time (sec)');
+    ylabel('intensity')
+    %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
+    saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesRaw_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
+    
+    plot(t' ,allresults{fi}.tracesCyt');
+    hold on 
+    plot(t' ,0*allresults{fi}.tracesCyt'+allresults{fi}.bgempty);
+    hold off
+    xlabel('time (sec)');
+    ylabel('intensity')
+    %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
+    saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesCytRaw_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
+    close;
+    
+    plot(t' ,tracesnorm');
+    xlabel('time (sec)');
+    ylabel('normalized intensity')
+    %saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname]));
+    saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesNorm_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
+    close;
+    
+    plot(t' ,allresults{fi}.tracesCytNorm');
+    xlabel('time (sec)');
+    ylabel('normalized intensity')
+    %saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname]));
+    saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesCytNorm_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
+    close;
+    
+    plot(t' ,tracesnormBC');
+    xlabel('time (sec)');
+    ylabel('normalized intensity')
+    %saveas(gcf,fullfile(dataDir, ['FRAPcurvesNorm_' barefname]));
+    saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPcurvesNormBC_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
+    close;
+    %     
+    %     % bleach curve
+    %     figure,
+    %     plot(t' ,allresults{fi}.meanI');
+    %     xlabel('time (sec)');
+    %     ylabel('intensity')
+    %     %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
+    %     saveas(gcf,fullfile(dataDir, ['BleachCurve_' barefname '.png']));
+    %     close;
+
+    % bleach factor
+    figure,
+    plot(t' ,allresults{fi}.bleachFactor');
+    xlabel('time (sec)');
+    ylabel('intensity')
+    %saveas(gcf,fullfile(dataDir, ['FRAPcurvesRaw_' barefname]));
+    saveas(gcf,fullfile(subDirs{j}, ['BleachFactor_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
+    close;
 
     % FRAP fit
     clf
+    %allresults{fi}.good = [1 0 1 0 1];
     visualizeFRAPfit2(allresults{fi},[],true)
     %xlim([0 min(size(results.meanI,1)*tres, max(results.tres*tm)*2)])
     %saveas(gcf,fullfile(dataDir, ['FRAPfit_' barefname]));
@@ -467,16 +496,28 @@ for i = 1:size(allIdx{j},1)
     saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPfitNucBC_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
     close;
 
-%     % cytoplasmic fit
-%     resultsCyt = allresults{fi};
-%     resultsCyt.A = resultsCyt.Acb;
-%     resultsCyt.B = resultsCyt.Bcb;
-%     resultsCyt.k = resultsCyt.kcb;
-%     resultsCyt.fitType = 'cytoplasmic';
-%     clf
-%     visualizeFRAPfit(resultsCyt)
-%     saveas(gcf,fullfile(dataDir, ['FRAPfitCytBC_' barefname]));
-%     saveas(gcf,fullfile(dataDir, ['FRAPfitCytBC_' barefname '.png']));
-%     close;
+    % cytoplasmic fit
+    resultsCyt = allresults{fi};
+    resultsCyt.A = resultsCyt.Ac;
+    resultsCyt.B = resultsCyt.Bc;
+    resultsCyt.k = resultsCyt.kc;
+    resultsCyt.fitType = 'cytoplasmic';
+    clf
+    visualizeFRAPfit2(resultsCyt,[],true)
+    %saveas(gcf,fullfile(dataDir, ['FRAPfitCytBC_' barefname]));
+    saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPfitCyt_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
+
+    % cytoplasmic fit BC
+    resultsCyt = allresults{fi};
+    resultsCyt.A = resultsCyt.Acb;
+    resultsCyt.B = resultsCyt.Bcb;
+    resultsCyt.k = resultsCyt.kcb;
+    resultsCyt.tracesCytNorm = resultsCyt.tracesCytNormBC;
+    resultsCyt.fitType = 'cytoplasmic';
+    clf
+    visualizeFRAPfit2(resultsCyt,[],true)
+    %saveas(gcf,fullfile(dataDir, ['FRAPfitCytBC_' barefname]));
+    saveas(gcf,fullfile(subDirs{j}, [pref '_FRAPfitCytBC_' FRAPdirs{idx(1)}(1:6) '_' barefname '.png']));
+    %close;
 end
 end

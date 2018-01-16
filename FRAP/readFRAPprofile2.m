@@ -1,4 +1,4 @@
-function res = readFRAPprofile2(data, omeMeta, res, LMB, tmax, override)
+function res = readFRAPprofile2(data, omeMeta, res, LMB, tmax, override, redo)
 
     if ~exist('tmax','var') || isempty(tmax)
        tmax = size(data,3)-1; 
@@ -18,13 +18,16 @@ function res = readFRAPprofile2(data, omeMeta, res, LMB, tmax, override)
     if ~isfield(res, 'shrink')
         res.shrink = 0.3; 
     end
+    if ~exist('redo','var')
+        redo = [];
+    end
 
     if ~exist('override','var') % to define initial bleach polygon by hand
-        override = false;
+        override = [];
     end
 
     % read FRAP regions
-    if ~override
+    if isempty(override) 
         [x,y,shapeTypes] = readFRAPregions(omeMeta);
         res.shapeTypes = shapeTypes;
         Nfrapped = numel(x);
@@ -68,9 +71,9 @@ function res = readFRAPprofile2(data, omeMeta, res, LMB, tmax, override)
         
         if strcmp(res.shapeTypes{shapeIdx}, 'Polygon')
             
-        if isempty(res.nucxend) || numel(res.nucxend) < shapeIdx
+        if isempty(res.nucxend) || numel(res.nucxend) < shapeIdx || any(redo==shapeIdx)
         
-            if ~override
+            if isempty(override)
                 res.nucxstart{shapeIdx} = [x{shapeIdx},y{shapeIdx}];
             else
                 disp('select initial nuclear mask');

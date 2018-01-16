@@ -47,7 +47,7 @@ function res = readFRAPprofileCytbleach(img, res, tmax)
     
     R = imadjust(data(:,:,1));
     B = imadjust(data(:,:,res.frapframe));
-    G = imadjust(squeeze(img(:,:,nucChannel,zi,1)));
+    G = imadjust(squeeze(img(:,:,nucChannel,zi,res.frapframe)));
     initim = cat(3,R,R+G,R+B);
     
     R = imadjust(data(:,:,tmax));
