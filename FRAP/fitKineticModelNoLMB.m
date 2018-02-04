@@ -1,4 +1,4 @@
-function output = fitKineticModelNoLMB(input)
+function output = fitKineticModelNoLMBFixCs(input, cs)
 % fit Smad4 kinetic model to FRAP data
 % 
 % new, avoid alpha by not using R
@@ -11,8 +11,8 @@ function output = fitKineticModelNoLMB(input)
 output = {};
 
 % lower and upper bounds
-lb = [0 0 0 0 0];
-ub = [1 1 1 1 1];
+lb = [-1 -1 -1];% 0 0];
+ub = [1 1 1];% 1 1];
 
 lb = [lb lb lb]; 
 ub = [ub ub ub];
@@ -22,7 +22,6 @@ An = @(kin, kout, cs, ns) kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs)/(ns + kap(ki
 Ac = @(kin, kout, cs, ns) kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs)/(cs + (1-kap(kin,kout))*(1-ns-cs));
 k = @(kin, kout) kin/kap(kin,kout);
 
-cs = [0 0 0];
 % weighed vector of differences 
 % (E ~ sum f.^2, so terms are weighted by the inverse variance)
 f = @(p) [  ( An(p(1),p(2),cs(1),p(3))      - input{1}.A)/input{1}.sigA,...

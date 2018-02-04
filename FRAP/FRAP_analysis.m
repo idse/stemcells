@@ -265,12 +265,12 @@ end
 
 pf = '171217';
 
-for j = 5%:6
+for j = 1:3%:6
 
-for i = 1%:size(allIdx{j},1)
+for i = 1:size(allIdx{j},1)
     % 21 6; 23 4; 1 1; 2 2; 2 3
-    %idx = allIdx{j}(i,:);
-    idx = [21 5]
+    idx = allIdx{j}(i,:);
+    %idx = [21 5]
 % k = 24;
 % for i = 1:numel(oibfiles{k})
 %     idx = [k i];
@@ -377,12 +377,12 @@ for j = 1:numel(subDirs)
     end
 end
 
-for j = 5%:3
+for j = 1:3
 
-for i = 1%:size(allIdx{j},1)
+for i = 1:size(allIdx{j},1)
     
-    %idx = allIdx{j}(i,:);
-idx = [21 5];
+    idx = allIdx{j}(i,:);
+%idx = [21 5];
 % k = 24;
 % for i = 8:numel(oibfiles{k})
 %     idx = [k i]; 

@@ -196,7 +196,7 @@ adaptedLMB_in = allOut{6};
 names = {'Araw','Braw','ArawCyt','BrawCyt','bc','Acorr','AcorrCyt','k',...
             'Rinit','Rfin','Rrat','tau'};
 fs = 15;
-for i = 8%[1 3 8]%9:10%1:8
+for i = 7%[3 7]%[1 3 8]%9:10%1:8
     name = names{i};
     disp(['--' name '--']);
     figure,
@@ -331,6 +331,7 @@ for i = 1:3
 	allOutCyt{i}.bc = (allOutCyt{i}.Cbleach - bg)./(allOutCyt{i}.Cinit-bg);
     
     allOutCyt{i}.Acorr = allOutCyt{i}.Araw./(allOutCyt{i}.bn - allOutCyt{i}.bc);
+    allOutCyt{i}.AcorrCyt = allOutCyt{i}.ArawCyt./(allOutCyt{i}.bn - allOutCyt{i}.bc);
     
     allOutCyt{i}.Rfin = (allOutCyt{i}.Nfin-bg)./(allOutCyt{i}.Cfin-bg);
     allOutCyt{i}.Rinit = (allOutCyt{i}.Ninit-bg)./(allOutCyt{i}.Cinit-bg);
@@ -343,6 +344,39 @@ end
 % i = 1
 % r = (allOutCyt{i}.Cfin - allOutCyt{i}.Cbleach)./(allOutCyt{i}.Cinit-allOutCyt{i}.bg);
 % [r allOutCyt{i}.Cfin allOutCyt{i}.Cbleach allOutCyt{i}.Cinit allOutCyt{i}.bg]
+
+
+%% display relevant values for cleanup cytoplasm
+
+% k is nuclear recovery time??
+% A is the nuclear amplitude
+
+names = {'Araw','Braw','ArawCyt','BrawCyt','bc','Acorr','AcorrCyt','k',...
+            'Rinit','Rfin','Rrat','tau'};
+fs = 15;
+for i = 8%[3 7]%[1 3 8]%9:10%1:8
+    name = names{i};
+    disp(['--' name '--']);
+    figure,
+    hold on
+    for j = 1:3
+        N = numel(allOutCyt{j}.(name));
+        scatter(allOutCyt{j}.(name)*0 + j + 0.1, allOutCyt{j}.(name),'LineWidth',2)
+        disp([nanmean(allOutCyt{j}.(name)) nanstd(allOutCyt{j}.(name)) 2*nanstd(allOutCyt{j}.(name))/sqrt(N-1)])
+        for k = 1:N
+            text(j+0.1, allOutCyt{j}.(name)(k),...
+                [FRAPdirs{allOutCyt{j}.movieIdx(k,1)}(3:6) '.' num2str(allOutCyt{j}.movieIdx(k,:))],'LineWidth',2)
+        end
+    end
+    hold off
+    title(name);
+    set(gcf,'color','w');
+    set(gca, 'LineWidth', 2);
+    set(gca,'FontSize', fs)
+    set(gca,'FontWeight', 'bold')
+    saveas(gcf,fullfile(dataDir, ['measuredVals_' names{i} '.png']));
+    %close;
+end
 
 %%
 disp('compare nuclear:cytoplasmic recovery');
@@ -380,38 +414,6 @@ for i = 1:3
     scatter(allOutCyt{i}.Rrat*0 + i+0.5, allOutCyt{i}.Rrat);
     
     disp(num2str([Rinit_CBmean Rinit_NBmean Rfin_CBmean Rfin_NBmean Rrat_CBmean Rrat_NBmean],2))
-end
-
-%% display relevant values for cleanup cytoplasm
-
-% k is nuclear recovery time??
-% A is the nuclear amplitude
-
-names = {'Araw','Braw','ArawCyt','BrawCyt','bc','Acorr','AcorrCyt','k',...
-            'Rinit','Rfin','Rrat','tau'};
-fs = 15;
-for i = 11%[1 3 8]%9:10%1:8
-    name = names{i};
-    disp(['--' name '--']);
-    figure,
-    hold on
-    for j = 1:3
-        N = numel(allOutCyt{j}.(name));
-        scatter(allOutCyt{j}.(name)*0 + j + 0.1, allOutCyt{j}.(name),'LineWidth',2)
-        disp([nanmean(allOutCyt{j}.(name)) nanstd(allOutCyt{j}.(name)) 2*nanstd(allOutCyt{j}.(name))/sqrt(N-1)])
-        for k = 1:N
-            text(j+0.1, allOutCyt{j}.(name)(k),...
-                [FRAPdirs{allOutCyt{j}.movieIdx(k,1)}(3:6) '.' num2str(allOutCyt{j}.movieIdx(k,:))],'LineWidth',2)
-        end
-    end
-    hold off
-    title(name);
-    set(gcf,'color','w');
-    set(gca, 'LineWidth', 2);
-    set(gca,'FontSize', fs)
-    set(gca,'FontWeight', 'bold')
-    saveas(gcf,fullfile(dataDir, ['measuredVals_' names{i} '.png']));
-    %close;
 end
 
 %% box plots for R'/R
@@ -484,64 +486,9 @@ hold off
 saveas(gcf, fullfile(dataDir,['rcompareJustNuclear' titlestr '_boxplot.png']));
 
 
-%%
-%LMB
-for i = 4:6
-    
-    %[allOut{i}.ncrinit allOut{i}.ncrfin allOut{i}.ncrfin./allOut{i}.ncrinit]
-    Rinit_NBmean = nanmean(allOut{i}.ncrinit);
-    Rfin_NBmean = nanmean(allOut{i}.ncrfin);
-    Rrat_NBmean = nanmean(allOut{i}.Rrat);
-    
-    scatter(allOut{i}.Rrat*0 + i, allOut{i}.Rrat);
-    
-    disp(num2str([ Rinit_NBmean  Rfin_NBmean  Rrat_NBmean],2))
-end
 
-%[allOutCyt{i}.Nfin allOutCyt{i}.Cfin bg Rfin];
+%% plot parameter values
 
-%% list all movies in each set 
-
-for i = 1:numel(allIdx)
-    
-    disp('------------');
-    condIdx = allIdx{i};
-    
-    for j = 1:size(condIdx,1)
-        idx = condIdx(j,:);
-        oibfile = oibfiles{idx(1)}{idx(2)};
-        fprintf([num2str(idx(1)) ' ' num2str(idx(2)) '\t' oibfile '(' num2str(sum(results{idx(1)}{idx(2)}.good)) ') \t\t\t(' FRAPdirs{idx(1)} ')\n']);
-    end
-end
-
-%% display amounts of input data
-
-Nmovies = [untreated_in.Nmovies peak_in.Nmovies adapted_in.Nmovies]
-NmoviesLMB = [untreatedLMB_in.Nmovies peakLMB_in.Nmovies adaptedLMB_in.Nmovies]
-
-Ncells = [sum(untreated_in.Ncells) sum(peak_in.Ncells) sum(adapted_in.Ncells)]
-NcellsLMB = [sum(untreatedLMB_in.Ncells) sum(peakLMB_in.Ncells) sum(adaptedLMB_in.Ncells)]
-
-
-%% is measured time scale related to time resolution?
-
-j = 1;
-N = size(allIdx{j},1);
-x = zeros([1 N]);
-y = x; e = x; nt = x; xres = x;
-for i = 1:N
-    x(i) = mean(results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.k(:,1));
-    e(i) = std(results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.k(:,1));
-    y(i) = results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.tres;
-    nt(i) = size(results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.meanI,1)*y(i);
-    xres(i) = results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.xyres;
-end
-u = nt;
-[~,sorti] = sort(u);
-errorbar(u(sorti),x(sorti),e(sorti),'-x')
-
-
-%%
 whiskerlength = Inf;
 
 disp('display measured parameters');
@@ -653,6 +600,73 @@ for j = 1:3%1:3
     axis square
     saveas(gcf, fullfile(dataDir,[name '_boxplotreduced.png']));
 end
+
+
+%%
+%LMB
+for i = 4:6
+    
+    %[allOut{i}.ncrinit allOut{i}.ncrfin allOut{i}.ncrfin./allOut{i}.ncrinit]
+    Rinit_NBmean = nanmean(allOut{i}.ncrinit);
+    Rfin_NBmean = nanmean(allOut{i}.ncrfin);
+    Rrat_NBmean = nanmean(allOut{i}.Rrat);
+    
+    scatter(allOut{i}.Rrat*0 + i, allOut{i}.Rrat);
+    
+    disp(num2str([ Rinit_NBmean  Rfin_NBmean  Rrat_NBmean],2))
+end
+
+%[allOutCyt{i}.Nfin allOutCyt{i}.Cfin bg Rfin];
+
+%% list all movies in each set 
+
+for i = 1:numel(allIdx)
+    
+    disp('------------');
+    condIdx = allIdx{i};
+    k = 1;
+    
+    for j = 1:size(condIdx,1)
+        
+        idx = condIdx(j,:);
+        oibfile = oibfiles{idx(1)}{idx(2)};
+        ngood = sum(results{idx(1)}{idx(2)}.good);
+        fprintf([num2str(idx(1)) ' ' num2str(idx(2)) '\t' oibfile '(' num2str(ngood) ') \t\t\t(' FRAPdirs{idx(1)} ')\n']);
+        
+        krange = k:k+ngood-1;
+        disp(num2str([allOut{i}.Ninit(krange,:) allOut{i}.Nbleach(krange,:) allOut{i}.Nfin(krange,:)...
+            allOut{i}.Cinit(krange,:) allOut{i}.Cbleach(krange,:) allOut{i}.Cfin(krange,:) allOut{i}.bg(krange,:)],4))
+        k = k+ngood;
+    end
+    %disp('-');
+    %fprintf('Ninit \t Nbleach \t Nfin \t Cinit \t Cbleach \t Cfin \t bg\n');
+    
+end
+
+%% display amounts of input data
+
+Nmovies = [untreated_in.Nmovies peak_in.Nmovies adapted_in.Nmovies]
+NmoviesLMB = [untreatedLMB_in.Nmovies peakLMB_in.Nmovies adaptedLMB_in.Nmovies]
+
+Ncells = [sum(untreated_in.Ncells) sum(peak_in.Ncells) sum(adapted_in.Ncells)]
+NcellsLMB = [sum(untreatedLMB_in.Ncells) sum(peakLMB_in.Ncells) sum(adaptedLMB_in.Ncells)]
+
+%% is measured time scale related to time resolution?
+
+j = 1;
+N = size(allIdx{j},1);
+x = zeros([1 N]);
+y = x; e = x; nt = x; xres = x;
+for i = 1:N
+    x(i) = mean(results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.k(:,1));
+    e(i) = std(results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.k(:,1));
+    y(i) = results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.tres;
+    nt(i) = size(results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.meanI,1)*y(i);
+    xres(i) = results{allIdx{j}(i,1)}{allIdx{j}(i,2)}.xyres;
+end
+u = nt;
+[~,sorti] = sort(u);
+errorbar(u(sorti),x(sorti),e(sorti),'-x')
 
 %%
 % compare rinit and rfin
@@ -1038,23 +1052,57 @@ measuredInput = input;
 % output2 = fitKineticModelFixKin(input);
 % output2 = fitKineticModelFixKinNoCytSeq(input);
 
-%% try fitting cs = 0 model to data without LMB
+%%
+for i = 1:3
+    br = mean(allOut{i}.bn./allOut{i}.bc);
+    [mean(br) max(br)]
+    a = 1/3;
+    [allOut{i}.ncrfin  (allOut{i}.ncrfin + br*a)./(1 + br.*allOut{i}.ncrfin)]
+end
+
+%% try fitting different models holding some parameter fixed
+% to data without LMB
 
 input = measuredInput;
 %input{1}.Ac = input{1}.Ac*1.3;
 %input{2}.A = 0.4;
-%input{2}.A = 0.4;
-%input{3}.A = 0.65;
-input{3}.Ac = 0.17;
-% ARE THESE ADJUSTMENTS PLAUSIBLE?
-% CAN I JUST FIT TO ADJUSTED AMPLITUDES? THINK SO
+%input{2}.A = 0.5;
+%input{2}.k = 0.0034;
+%input{3}.A = 0.8;
+%input{3}.Ac = 0.17;
 
 % predicted Rrat should be adjusted for bn bc bleaching
 
-output = fitKineticModelNoLMB(input);
+kap = @(kin, kout) kin/(kin+kout);
+An = @(kin, kout, cs, ns) kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs)/(ns + kap(kin,kout)*(1-ns-cs));
+Ac = @(kin, kout, cs, ns) kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs)/(cs + (1-kap(kin,kout))*(1-ns-cs));
+k = @(kin, kout) kin + kout;
+R = @(kin, kout, cs, ns) (ns + kap(kin,kout)*(1-ns-cs))/(cs + (1-kap(kin,kout))*(1-ns-cs));
+
+% Rnb = R nuclear bleach, as in R after recovery, or R' in some of the notes
+Rnb = @(kin, kout, cs, ns) (kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs))/(cs + (1-kap(kin,kout))^2*(1-ns-cs));
+Rcb = @(kin, kout, cs, ns) (ns + kap(kin,kout)^2*(1-ns-cs))/((1-kap(kin,kout))*kap(kin,kout)*(1-ns-cs));
+% bleach corrected version of this
+%Tfbc = @(kin,kout,cs,ns,bn,bc) (bc - kap(kin,kout)*(bc-bn))*(1-ns-cs);
+%RnbBC = @(kin, kout, cs, ns, bn, bc) kap(kin,kout)*Tfbc(kin,kout,cs,ns,bn,bc)/(cs + (1-kap(kin,kout))*Tfbc(kin,kout,cs,ns,bn,bc));
+
+Rnb2 = @(kin, kout, cs, ns) (kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs))/(cs + (1-kap(kin,kout))^2*(1-ns-cs));
+
+%input{1}.A/(1-input{1}.Ac)
+
 % also try ns = 0, cs = free
+cs = 0*[1 1 1];
+ns = 0.03*[1 1 1];
+kin = 0.001*[1 1 1]; % 6 - 12 * 10-4
+%output = fitKineticModelNoLMBFixCs(input, cs);
+%output = fitKineticModelNoLMBnoSeq(input);
+output = fitKineticModelNoLMBFixCsFitAlpha(input, cs);
+%output = fitKineticModelNoLMBFixNsFitAlpha(input, ns);
+%output = fitKineticModelNoLMBFixKinFitAlpha(input, kin);
+% kin fixed doesn't work? why not?
 
 for i = 1:3
+
     N = 2;
     disp('--------------------------');
     fprintf('var \tfit \t measure\n');
@@ -1062,18 +1110,50 @@ for i = 1:3
     fprintf(['An:\t' num2str([An(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns) input{i}.A],N) '\n']);
     fprintf(['Ac:\t' num2str([Ac(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns) input{i}.Ac],N) '\n']);
     fprintf(['k:\t' num2str([k(output{i}.kin, output{i}.kout) input{i}.k],N) '\n']);
-    
+
     % predicted R before bleach
     Rfit = R(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns);
     % predicted R after bleach
     Rnbfit = Rnb(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns);
+    Rcbfit = Rcb(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns);
     Rrat = Rnbfit/Rfit;
-    fprintf(['R:\t' num2str([Rfit input{i}.R Rfit/input{i}.R],N)  '\n']);
-    fprintf(['Rnb:\t' num2str([Rnbfit input{i}.Rnb Rnbfit/input{i}.Rnb],N) '\n']);
+    
+    %fprintf(['R:\t' num2str([Rfit input{i}.R Rfit/input{i}.R],N)  '\n']);
+    fprintf(['R:\t' num2str([Rfit*output{i}.alpha input{i}.R],N)  '\n']);
+    %fprintf(['Rnb:\t' num2str([Rnbfit input{i}.Rnb Rnbfit/input{i}.Rnb],N) '\n']);
+    fprintf(['Rnb:\t' num2str([Rnbfit*output{i}.alpha input{i}.Rnb],N) '\n']);
+    fprintf(['Rcb:\t' num2str([Rcbfit*output{i}.alpha],N) '\n']);
+    fprintf(['Rcbrat:\t' num2str(Rcbfit/Rfit,N) '\n']);
     fprintf(['Rrat:\t' num2str([Rrat input{i}.Rnb/input{i}.R],N) '\n']);
 end
 
-%% amplitude based model
+%% more consistency of fixed cs
+
+csvals = 0:0.05:1;
+nsvals = [];
+kinvals = [];
+koutvals = [];
+
+for k = 1:5%numel(csvals)
+    cs = csvals(k)*[1 1 1];
+    output{k} = fitKineticModelNoLMBFixCs(input, cs);
+    for i = 1:3
+        nsvals(k,i) = output{k}{i}.ns;
+        kinvals(k,i) = output{k}{i}.kin;
+        koutvals(k,i) = output{k}{i}.kout;
+    end
+end
+
+good = all(koutvals > 0 & kinvals > 0 & (nsvals > 0 & nsvals < 1),2);
+csvals(good)
+
+plot(csvals,nsvals)
+ylim([0 1]);
+plot(csvals,kinvals.*good)
+plot(csvals,koutvals.*good)
+ylim([0 0.01]);
+
+%% fit full model using LMB
 
 manualInput = {};
 manualInput{3} = struct('A',0.65, 'Ac',0.15,'k',0.004,'Ap',0.3,'Acp',0.3,'kp',0.001,...
@@ -1083,9 +1163,22 @@ manualInput{1} = manualInput{3};
 manualInput{2} = manualInput{3};
 
 input = measuredInput;
+%input{1}.Ac = 0.1;
 % input{3}.Ac = 0.17;
 % input{3}.Ap = 0.1;
 % input{3}.kp = 0.0005;
+
+% input{1}.Ap = 0.15;
+%input{2}.Ap = 0.05;
+input{2}.Acp = 0.6;
+%input{2}.kp = 0.001;
+% 
+% input{3}.Ap = 0.15;
+%input{3}.Acp = 0.3;
+%input{3}.kp = 0.0015;
+%input{3}.A =0.8;
+%input{3}.Acp =0.4;
+
 %input = manualInput;
 output = fitKineticModelNew(input);
 
@@ -1110,13 +1203,24 @@ for i = 1:3
     fprintf(['An:\t' num2str([An(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns) input{i}.A],N) '\n']);
     fprintf(['Ac:\t' num2str([Ac(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns) input{i}.Ac],N) '\n']);
     fprintf(['k:\t' num2str([k(output{i}.kin, output{i}.kout) input{i}.k],N) '\n']);
-    fprintf(['Ap:\t' num2str([An(output{i}.kin, output{i}.koutp, output{i}.cs, output{i}.ns) input{i}.Ap],N) '\n']);
-    fprintf(['Acp:\t' num2str([Ac(output{i}.kin, output{i}.koutp, output{i}.cs, output{i}.ns) input{i}.Acp],N) '\n']);
-    fprintf(['kp:\t' num2str([k(output{i}.kin, output{i}.koutp) input{i}.kp],N) '\n']);
+    fprintf(['Almb:\t' num2str([An(output{i}.kin, output{i}.koutp, output{i}.cs, output{i}.ns) input{i}.Ap],N) '\n']);
+    fprintf(['Aclmb:\t' num2str([Ac(output{i}.kin, output{i}.koutp, output{i}.cs, output{i}.ns) input{i}.Acp],N) '\n']);
+    fprintf(['klmb:\t' num2str([k(output{i}.kin, output{i}.koutp) input{i}.kp],N) '\n']);
+    
+    % predicted R before bleach
+    Rfit = R(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns);
+    % predicted R after bleach
+    Rnbfit = Rnb(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns);
+    
+    Rcbfit = Rcb(output{i}.kin, output{i}.kout, output{i}.cs, output{i}.ns);
+    
+    Rrat = Rnbfit/Rfit;
     fprintf(['R:\t' num2str([Rfit input{i}.R Rfit/input{i}.R],N)  '\n']);
-    fprintf(['Rnb:\t' num2str([Rnbfit input{i}.Rnb Rnbfit/input{i}.Rnb],N) '\n']);
+    fprintf(['Rp:\t' num2str([Rnbfit input{i}.Rnb Rnbfit/input{i}.Rnb],N) '\n']);
     fprintf(['Rrat:\t' num2str([Rrat input{i}.Rnb/input{i}.R],N) '\n']);
-    fprintf(['Rp:\t' num2str([R(output{i}.kin, output{i}.koutp, output{i}.cs, output{i}.ns) input{i}.Rp],N) '\n']);
+    fprintf(['Rcb:\t' num2str(Rcbfit,N) '\n']);
+    fprintf(['Rcbrat:\t' num2str(Rcbfit/Rfit,N) '\n']);
+    fprintf(['Rlmb:\t' num2str([R(output{i}.kin, output{i}.koutp, output{i}.cs, output{i}.ns) input{i}.Rp],N) '\n']);
 end
 
 %% consistency check R-based model
@@ -1129,7 +1233,6 @@ kap = @(kin, kout) kin/(kin+kout);
 A = @(kin, kout, cs, ns) kap(kin,kout)*(1-kap(kin,kout))*(1-ns-cs)/(ns + kap(kin,kout)*(1-ns-cs));
 R = @(kin, kout, cs, ns) alpha*(kout*ns + kin*(1-cs))/(kin*cs + kout*(1-ns));
 k = @(kin, kout) kin + kout;
-
 R = @(kin, kout, cs, ns) alpha*(ns + kap(kin,kout)*(1-ns-cs))/(cs + (1-kap(kin,kout))*(1-ns-cs));
 
 for i = 1:3
@@ -1143,22 +1246,74 @@ for i = 1:3
     disp(['kp: ' num2str([k(output{i}.kin, output{i}.koutp) input{i}.kp],N)]);
 end
 
-%% visualize model fit
+% %% visualize model fit
+% 
+% outputcomb = cat(2,output{:});
+% inferred = {'kin','kout','cs','ns'};
+% 
+% for i = 1:4
+%     figure,
+%     name = inferred{i};
+% 
+%     errname = ['sig' name];
+%     fs = 26;
+%     vals = [outputcomb.(name)];
+%     errorvals = 2*[outputcomb.(errname)];
+%     bar(vals,'FaceColor',[0.1 0.5 0.1]);
+%     hold on
+%     errorbar(vals, errorvals,...
+%                             'k','linestyle','none','linewidth',2);
+%     hold off
+%     set(gcf,'color','w');
+%     set(gca, 'LineWidth', 2);
+%     set(gca,'FontSize', fs)
+%     set(gca,'FontWeight', 'bold')
+%     box off
+%     title(name)
+%     set(gca,'XTickLabel', {'untreated', 'peak', 'adapt'});
+%     
+%     %saveas(gcf, fullfile(dataDir, [name '_values.png']));
+% end
 
+%% visualize model fit differently
+
+prefix = 'kinfixed0.001_';
 outputcomb = cat(2,output{:});
 inferred = {'kin','kout','cs','ns'};
+vals = {};
+errorvals = {};
+ylabelstr = {'rate (10^{-3} sec^{-1})', 'Smad4 fraction'};
+titlestr = {'nuclear exchange','sequestration'};
+legendpos = {'NorthEast','NorthWest'};
+legendstr = {{'export','import'},{'nuclear','cytoplasm'}};
+ylimval = {[0 7],[0 0.6]};
 
-for i = 1:4
+for j = 1:2
+    
     figure,
-    name = inferred{i};
-
-    errname = ['sig' name];
-    fs = 26;
-    vals = [outputcomb.(name)];
-    errorvals = 4*[outputcomb.(errname)];
-    bar(vals,'FaceColor',[0.1 0.5 0.1]);
     hold on
-    errorbar(vals, errorvals,...
+    %s = 10^3;
+    s={10^3,1};
+    k=1;
+    for i = 2*j-1:2*j
+        name = inferred{i};
+        errname = ['sig' name];
+        vals{k} = s{j}*[outputcomb.(name)];
+        errorvals{k} = s{j}*2*[outputcomb.(errname)];
+        k = k+1;
+    end
+    hold off
+
+    fs = 26;
+    b = bar(cat(1,vals{2}, vals{1})',0.9);%'FaceColor',[0.1 0.5 0.1]);
+    colors = lines(2);
+    b(1).FaceColor = colors(1,:);
+    b(2).FaceColor = colors(2,:);
+    hold on
+    bins = (1:3);
+    errorbar(bins - 0.15, vals{2}, errorvals{2},...
+                            'k','linestyle','none','linewidth',2);
+    errorbar(bins + 0.15, vals{1}, errorvals{1},...
                             'k','linestyle','none','linewidth',2);
     hold off
     set(gcf,'color','w');
@@ -1166,64 +1321,16 @@ for i = 1:4
     set(gca,'FontSize', fs)
     set(gca,'FontWeight', 'bold')
     box off
-    title(name)
     set(gca,'XTickLabel', {'untreated', 'peak', 'adapt'});
-    
-    saveas(gcf, fullfile(dataDir, [name '_values.png']));
+
+    ylabel(ylabelstr{j});
+    legend(legendstr{j},'Location',legendpos{j});
+    title(titlestr{j})
+    fname = [prefix titlestr{j} '_values.png'];
+
+    ylim(ylimval{j});
+    xlim([0.5 3.5]);
+
+    axis square
+    saveas(gcf, fullfile(dataDir, fname));
 end
-
-%% visualize model fit differently
-
-outputcomb = cat(2,output{:});
-inferred = {'kin','kout','cs','ns'};
-vals = {};
-errorvals = {};
-
-figure,
-hold on
-%s = 10^3;
-s=1;
-k=1;
-for i = 3:4
-    name = inferred{i};
-    errname = ['sig' name];
-    vals{k} = s*2*[outputcomb.(name)];
-    errorvals{k} = s*2*[outputcomb.(errname)];
-    k = k+1;
-end
-hold off
-   
-fs = 26;
-b = bar(cat(1,vals{2}, vals{1})',0.9);%'FaceColor',[0.1 0.5 0.1]);
-colors = lines(2);
-b(1).FaceColor = colors(1,:);
-b(2).FaceColor = colors(2,:);
-hold on
-bins = (1:3);
-errorbar(bins - 0.15, vals{2}, errorvals{2},...
-                        'k','linestyle','none','linewidth',2);
-errorbar(bins + 0.15, vals{1}, errorvals{1},...
-                        'k','linestyle','none','linewidth',2);
-hold off
-set(gcf,'color','w');
-set(gca, 'LineWidth', 2);
-set(gca,'FontSize', fs)
-set(gca,'FontWeight', 'bold')
-box off
-set(gca,'XTickLabel', {'untreated', 'peak', 'adapt'});
-
-%ylabel('10^{-3} sec^{-1}');
-%legend({'k_{out}','k_{in}'});
-%title('nuclear exchange')
-%fname = 'nuclearExchange_values.png';
-
-ylabel('10^{-3} sec^{-1}');
-legend({'nuclear','cytoplasm'});
-title('sequestration')
-fname = 'sequestered_values.png';
-ylim([0 0.5]);
-
-xlim([0.5 3.5]);
-axis square
-saveas(gcf, fullfile(dataDir, fname));
-

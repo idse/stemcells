@@ -284,7 +284,7 @@ for j = 1:numel(subDirs)
 	end
 end
 
-for j = 1:3
+for j = 3
 
 for i = 1:size(allIdx{j},1)
     idx = allIdx{j}(i,:);
