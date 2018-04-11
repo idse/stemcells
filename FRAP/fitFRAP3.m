@@ -113,8 +113,13 @@ function [parameters, frapframe, gof] = fitFRAP3(results)
             % equilibrium (typically I pick the cutoff when I think it is
             % at equilibrium, but for bad traces the fit can occasionally
             % deviate from that so this is a way to enforce it)
-            kcut = -log(0.1)/(tmaxs*results.tres);
-            
+            if isfield(results,'kcutPercent')
+                kcut = -log(results.kcutPercent)/(tmaxs*results.tres);
+            else
+                kcut = -log(0.1)/(tmaxs*results.tres);
+            end
+            disp(['kcut :' num2str(kcut)]);
+
             [outfit{shapeIdx}, gof{shapeIdx}] = fit(tdata',fdata',ft,...
                                 'Lower',kcut,'Upper',Inf,'StartPoint',k0,...
                                 'problem',{A0,B0});

@@ -1,4 +1,4 @@
-function output = fitKineticModelNoLMBFixCsFitAlpha(input, cs)
+function output = fitKineticModelNoLMBFixNsFitAlpha(input, ns)
 % fit Smad4 kinetic model to FRAP data
 % 
 % new, avoid alpha by not using R
@@ -14,7 +14,7 @@ output = {};
 lb = [-1 -1 -1];% 0 0];
 ub = Inf*[1 1 1];% 1 1];
 
-lb = [lb lb lb 0]; 
+lb = [lb lb lb 1]; 
 ub = [ub ub ub Inf];
     
 kap = @(kin, kout) kin/(kin+kout);
@@ -25,18 +25,20 @@ k = @(kin, kout) kin/kap(kin,kout);
 
 % weighed vector of differences 
 % (E ~ sum f.^2, so terms are weighted by the inverse variance)
-f = @(p) [  ( An(p(1),p(2),cs(1),p(3))      - input{1}.A)/input{1}.sigA,...
-            ( Ac(p(1),p(2),cs(1),p(3))      - input{1}.Ac)/input{1}.sigAc,...
-            ( k(p(1),p(2))              - input{1}.k)/input{1}.sigk,...
-            ( R(p(1),p(2),cs(1),p(3))*p(10)  - input{1}.R)/input{1}.sigR,...
-            ( An(p(4),p(5),cs(2),p(6))      - input{2}.A)/input{2}.sigA,...
-            ( Ac(p(4),p(5),cs(2),p(6))      - input{2}.Ac)/input{2}.sigAc,...
-            ( k(p(4),p(5))              - input{2}.k)/input{2}.sigk,...
-            ( R(p(4),p(5),cs(2),p(6))*p(10) - input{2}.R)/input{2}.sigR,...
-            ( An(p(7),p(8),cs(3),p(9))      - input{3}.A)/input{3}.sigA,...
-            ( Ac(p(7),p(8),cs(3),p(9))      - input{3}.Ac)/input{3}.sigAc,...
+f = @(p) [  ( An(p(1),p(2),p(3),ns(1))      - input{1}.A)/input{1}.sigA,...
+            ( Ac(p(1),p(2),p(3),ns(1))      - input{1}.Ac)/input{1}.sigAc,...
+            ( k(p(1),p(2))                  - input{1}.k)/input{1}.sigk,...
+            ( R(p(1),p(2),p(3),ns(1))*p(10) - input{1}.r)/input{1}.sigr,...
+            ...
+            ( An(p(4),p(5),p(6),ns(2))      - input{2}.A)/input{2}.sigA,...
+            ( Ac(p(4),p(5),p(6),ns(2))      - input{2}.Ac)/input{2}.sigAc,...
+            ( k(p(4),p(5))                  - input{2}.k)/input{2}.sigk,...
+            ( R(p(4),p(5),p(6),ns(2))*p(10) - input{2}.r)/input{2}.sigr,...
+            ...
+            ( An(p(7),p(8),p(9),ns(3))      - input{3}.A)/input{3}.sigA,...
+            ( Ac(p(7),p(8),p(9),ns(3))      - input{3}.Ac)/input{3}.sigAc,...
             ( k(p(7),p(8))                  - input{3}.k)/input{3}.sigk,...
-            ( R(p(7),p(8),cs(3),p(9))*p(10) - input{3}.R)/input{3}.sigR];
+            ( R(p(7),p(8),p(9),ns(3))*p(10) - input{3}.r)/input{3}.sigr];
 
 % is everything properly normalized? (i.e. it seems to compare different
 % parameters the coefficient of variation would be better than the variance
@@ -50,7 +52,7 @@ ns0 = 0.5;
 kin0 = 0.001;
 alpha0 = 1;
 
-pinit = [kout0 kin0 ns0];
+pinit = [kout0 kin0 cs0];
 pinit = [pinit pinit pinit alpha0]; 
 
 % actual fitting
@@ -62,8 +64,8 @@ options.Display = 'off';
 for i = 1:3
     output{i}.kin = pfit(3*(i-1)+1);
     output{i}.kout = pfit(3*(i-1)+2);
-    output{i}.cs = cs(i);%pfit(4*(i-1)+3);
-    output{i}.ns = pfit(3*(i-1)+3);
+    output{i}.ns = ns(i);%pfit(4*(i-1)+3);
+    output{i}.cs = pfit(3*(i-1)+3);
     output{i}.alpha = pfit(10);
 end
 
@@ -92,10 +94,9 @@ end
 
 J = full(jacobian);
 Sp = inv(J'*J);
-disp('---------fitKineticModel No LMB, Fix Cs------------');
-disp(['cs = ' num2str(cs(1))]);
+disp('---------fitKineticModel No LMB, Fix Ns------------');
+disp(['ns = ' num2str(ns(1))]);
 disp(['residual norm: ' num2str(resnorm)]);
-
 for i = 1:3
 
     k = 3*(i-1);
@@ -109,8 +110,8 @@ for i = 1:3
     disp('---------------------------');
     disp(['kin:   ' num2str(output{i}.kin,'%.1e') ' (' num2str(output{i}.sigkin,'%.1e') ')']);
     disp(['kout:  ' num2str(output{i}.kout,'%.1e') ' (' num2str(output{i}.sigkout,'%.1e') ')']);
-%    disp(['cs:    ' num2str(output{i}.cs,'%.1e') ' (' num2str(output{i}.sigcs,'%.1e') ')']);
-    disp(['ns:    ' num2str(output{i}.ns,'%.1e') ' (' num2str(output{i}.signs,'%.1e') ')']);
+    disp(['cs:    ' num2str(output{i}.cs,'%.1e') ' (' num2str(output{i}.sigcs,'%.1e') ')']);
+    %disp(['ns:    ' num2str(output{i}.ns,'%.1e') ' (' num2str(output{i}.signs,'%.1e') ')']);
 %    disp(['koutp: ' num2str(output{i}.koutp,'%.1e') ' (' num2str(output{i}.sigkoutp,'%.1e') ')']);
 end
 disp(['alpha:    ' num2str(output{1}.alpha,'%.1e')]);

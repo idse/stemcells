@@ -26,8 +26,12 @@ adaptIdx = [3 4; 9 2; 19 3; 21 4; 22 3; 22 4]; % 19 3
 %untrIdxLMB = [2 3; 9 6; 9 7; 11 3; 16 3];
 %peakIdxLMB = [9 1; 10 2; 11 2; 13 1; 14 1; 19 1; 21 5; 21 6];% 2 1, but that one recoveres very little and too fast
 untrIdxLMB = [2 3; 9 6; 9 7; 11 2; 11 3; 16 3];
-peakIdxLMB = [9 1; 10 2; 11 1; 13 1; 14 1; 19 1; 21 5; 21 6];% 2 1, but that one recoveres very little and too fast
+peakIdxLMB = [9 1; 10 2; 11 1; 14 1; 21 5;];% 2 1, but that one recoveres very little and too fast
+% 13 1; garbage trace: too much movement?
+% 19 1; LMB not long enough, recovery too fast, bad cyto
+%  21 6
 adaptIdxLMB = [9 3; 10 1; 17 1; 21 8; 23 5; 23 6]; %16 2; 
+
 
 
 allIdx = {untrIdx, peakIdx, adaptIdx, untrIdxLMB, peakIdxLMB, adaptIdxLMB};
@@ -43,11 +47,11 @@ for j = 5%1:3%6
 for i = 1%:size(allIdx{j},1)
 % 21 6; 23 4; 1 1; 2 2; 2 3
 %idx = allIdx{j}(i,:);
-idx = [9 1];
+idx = [11 1];
 % k = 24;
 % for i = 6:numel(oibfiles{k})
 %     idx = [k i];
-    
+
 % from metadata
 fi = idx(2);
 frapframe = frapframes(idx(1));
@@ -88,6 +92,39 @@ for ti = 1:tcut
 end
 r.close();
 
+%%
+xrange = 180:220;
+yrange = 310:330;
+trange = 1:100;
+%linidx = sub2ind(size(img),xrange, yrange,yrange*1,1,trange);
+
+% %%
+% figure, plot(squeeze(img(270:272,200,1,1,1:10))')
+
+ma=size(yrange',1);
+mb=size(xrange',1);
+mc=size(trange',1);
+[a,b]=ndgrid(1:ma,1:mb);
+size(a)
+
+%product = [xrange(a(:))',yrange(b(:))'];
+yi = yrange(a(:));
+xi = xrange(b(:));
+linidx = sub2ind([size(img,1) size(img,2)], yi(:), xi(:));
+
+N = size(img,1)*size(img,2)*size(img,3);
+A = [];
+
+for ti = trange
+    A = cat(2, A, img(linidx + (ti-1)*N));
+end
+       
+plot(mean(A))
+ylim([230 350]);
+%plot(A')
+hist(double(A(:,10)))
+
+%%
 clear results
 if exist(fullfile(dataDir,'results171217.mat'),'file')
     disp('loading previous results');
@@ -265,7 +302,7 @@ end
 
 pf = '171217';
 
-for j = 1:3%:6
+for j = 6%4:6%1:3%:6
 
 for i = 1:size(allIdx{j},1)
     % 21 6; 23 4; 1 1; 2 2; 2 3
@@ -287,10 +324,18 @@ for i = 1:size(allIdx{j},1)
     disp(oibfile);
 
     results = allresults{fi};
+
     %results.tres = 10;
     tmalt = zeros([1 size(results.tracesNuc,1)]) + size(results.tracesNuc,2);
     if j == 1
         tmalt = zeros([1 size(results.tracesNuc,1)]) + round(900/results.tres);
+    end
+    if j > 4 % custom cutoff for LMB 
+        tmalt = zeros([1 size(results.tracesNuc,1)]) + round(1800/results.tres);
+        % equilibrium enforcement parameter kcut (3/6/18):
+        % forces temporal cutoff to be kcut from equilibrium 
+        % (e.g. kcutPercent = 0.1 = 10%), kcut = 1 means unconstrained
+        results.kcutPercent = 1;
     end
     if ~isempty(tm)
         tm = min(tm, tmalt);
@@ -377,7 +422,7 @@ for j = 1:numel(subDirs)
     end
 end
 
-for j = 1:3
+for j = 6%4:6
 
 for i = 1:size(allIdx{j},1)
     
