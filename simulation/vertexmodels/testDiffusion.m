@@ -20,8 +20,8 @@ R = 100;
 [X, Y] = meshgrid(-R:R,-R:R);
 mask = X.^2 + Y.^2 < R.^2;
 
-a = 14;
-noise = 0.7*a;
+a = 10;
+noise = 0*a;
 
 [vertices, cc] = randomVoronoiLattice2(a, noise, mask);
 g = GLattConversion2(cc,vertices,false);
@@ -100,7 +100,7 @@ options = struct('cellIndex', false, 'colorTable', states);
 %options = struct();
 cellLayer.visualize(1, options)
 
-%%
+%% ------------------------
 % diffusion between cells: construct dual lattice first
 
 dualCL = cellLayer.dualize;

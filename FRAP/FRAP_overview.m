@@ -3,7 +3,7 @@ clear all; close all;
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
-dataDir = '/Users/idse/data_tmp/0_kinetics/';
+dataDir = '/Users/idse/data_tmp/0_FRAP/';
 
 FRAPmetadata
 
@@ -311,7 +311,7 @@ adaptedLMB_in = allOut{6};
 %     disp(std([allOut{i}.Rrat allOut{i}.RratCorr]))
 % end
 
-% MODEL FIT actual values
+%% MODEL FIT actual values
 
 % measured :
 % recovery amplitudes A
@@ -375,9 +375,16 @@ measuredInput = input;
 input = measuredInput;
 %input{1}.Ac = 0.1;
 
+% adjustments to play with
 s = 1;
-for i = [1 3]
+sklmb = 1;
+sAlmb = 1;
+sAclmb = 1;
+for i = 1:3
     input{i}.Ac = s*input{i}.Ac;
+    input{i}.klmb = sklmb*input{i}.klmb;
+    input{i}.Almb = sAlmb*input{i}.Almb;
+    input{i}.Aclmb = sAclmb*input{i}.Aclmb;
 end
 %input{1}.A = 0.5;
 %input{2}.Ac = s*input{2}.Ac;
@@ -390,7 +397,7 @@ end
 % 
 % input{3}.Almb= 0.3;
 % input{3}.Aclmb = 0.7;
-%input{3}.klmb = 0.001;
+% input{3}.klmb = 0.001;
 % input{3}.A =0.8;
 %input{3}.Ac = 0.3;
 
@@ -398,25 +405,31 @@ end
 % FIT LMB DATA WITH FIXED KOUTP
 
 %[output,res] = fitKineticModelNewFitAlphaFixKoutp(input);
-%[output,res] = fitKineticModelNewFitAlpha(input);
 % [output,res] = fitKineticModelNewFitAlphaFixKin(input);
+
+% 180516 Note: see if assuming different cs for LMB & no LMB can give a
+% good fit to support the conclusion that LMB disturbs equilibrium of cs?
+%[output,res] = fitKineticModelNewFitAlphaCsPrime(input);
+
+[output,res] = fitKineticModelNewFitAlpha(input);
 reduced = false;
 di = 8; % equations per condition
 
-%[output, res] = fitKineticModelFitAlphaReduced(input);
-%di = 6;
+% [output, res] = fitKineticModelFitAlphaReduced(input);
+% di = 6;
 
 %output = fitKineticModelFitAlphaBeta(input);
-%output = fitKineticModelNew(input);
+% output = fitKineticModelNew(input);
 
 % % reduced models
 cs = 0.4*[1 1 1];
 ns = 0.03*[1 1 1];
 kin = [1 1 1]*0.00089;
-[output,res] = fitKineticModelFixKinFitAlpha(input, kin);
-% [output,res] = fitKineticModelFixCsFitAlpha(input, cs);
-reduced = true;
-di = 4; % equations per condition
+%[output,res] = fitKineticModelFixKinFitAlpha(input, kin);
+%[output,res] = fitKineticModelFixCsFitAlpha(input, cs);
+% [output,res] = fitKineticModelFixNsFitAlpha(input, ns);
+% reduced = true;
+% di = 4; % equations per condition
 
 ressq = res.^2;
 
@@ -448,6 +461,7 @@ for i = 1:3
     fprintf(['Ac:\t' num2str([AcFit input{i}.Ac],N) '\t\t' num2str([input{i}.sigAc AcFit-input{i}.Ac ressq(2 + di*(i-1))],N) '\n']);
     fprintf(['k:\t' num2str([kfit input{i}.k],N) '\t\t' num2str([input{i}.sigk kfit-input{i}.k ressq(3 + di*(i-1))],N) '\n']);
     fprintf(['kappa:\t' num2str([kap(output{i}.kin, output{i}.kout)],N) '\n']);
+    %fprintf(['kaplmb:\t' num2str([kap(output{i}.kin, output{i}.koutp)],N) '\n']);
     
     if ~reduced
         AnlmbFit = An(output{i}.kin, output{i}.koutp, output{i}.cs, output{i}.ns);
@@ -521,18 +535,18 @@ t = abs(mu1 - mu2)/sqrt(a+b);
 nu = (a+b)^2/(a^2/(n1-1) + b^2/(n2-1));
 p = 1 - tcdf(t,nu)
 
-%%
-
-[h,p] = ttest2(allOut{i}.Acorr, allOut{j}.Acorr);
-
-mu1 = mean(allOut{j}.Acorr);
-mu2 = mean(allOut{j}.Acorr);
-s1 = std(allOut{i}.Acorr);
-s2 = std(allOut{j}.Acorr);
-n1 = allOut{i}.N;
-n2 = allOut{j}.N;
-t = sqrt(n2)*(mu2-mu1)/s2;
-1-tcdf(t, n2-1)
+% %%
+% 
+% [h,p] = ttest2(allOut{i}.Acorr, allOut{j}.Acorr);
+% 
+% mu1 = mean(allOut{j}.Acorr);
+% mu2 = mean(allOut{j}.Acorr);
+% s1 = std(allOut{i}.Acorr);
+% s2 = std(allOut{j}.Acorr);
+% n1 = allOut{i}.N;
+% n2 = allOut{j}.N;
+% t = sqrt(n2)*(mu2-mu1)/s2;
+% 1-tcdf(t, n2-1)
 
 %%
 disp('-----------------------------');

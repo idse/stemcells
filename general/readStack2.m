@@ -66,4 +66,5 @@ function [img, omeMeta] = readStack2(fullfname, channels, tmax)
     end
     omeMeta = r.getMetadataStore();
     r.close();
+    img = squeeze(img);
 end

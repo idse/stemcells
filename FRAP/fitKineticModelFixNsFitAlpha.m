@@ -1,4 +1,4 @@
-function output = fitKineticModelNoLMBFixNsFitAlpha(input, ns)
+function [output,res] =  fitKineticModelFixNsFitAlpha(input, ns)
 % fit Smad4 kinetic model to FRAP data
 % 
 % new, avoid alpha by not using R
@@ -14,7 +14,7 @@ output = {};
 lb = [-1 -1 -1];% 0 0];
 ub = Inf*[1 1 1];% 1 1];
 
-lb = [lb lb lb 1]; 
+lb = [lb lb lb 0]; 
 ub = [ub ub ub Inf];
     
 kap = @(kin, kout) kin/(kin+kout);
@@ -59,7 +59,7 @@ pinit = [pinit pinit pinit alpha0];
 options.Algorithm = 'trust-region-reflective';
 options.TolFun = 1e-10;
 options.Display = 'off';
-[pfit,resnorm,~,~,~,~,jacobian] = lsqnonlin(f, pinit, lb, ub, options);
+[pfit,resnorm,res,~,~,~,jacobian] = lsqnonlin(f, pinit, lb, ub, options);
 
 for i = 1:3
     output{i}.kin = pfit(3*(i-1)+1);

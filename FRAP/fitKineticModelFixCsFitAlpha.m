@@ -1,4 +1,4 @@
-function [output,res] = fitKineticModelNoLMBFixCsFitAlpha(input, cs)
+function [output,res] = fitKineticModelFixCsFitAlpha(input, cs)
 % fit Smad4 kinetic model to FRAP data
 % 
 % new, avoid alpha by not using R
