@@ -1,7 +1,10 @@
-function upperleft = stitchedPreviews(dataDir, meta, type, wells)
+function upperleft = stitchedPreviews(dataDir, meta, type, wells, margin)
 
 if ~exist('type', 'var')
 	type = 'MIP';
+end
+if ~exist('margin', 'var')
+    margin = 0;
 end
 
 MIPfiles = dir(fullfile(dataDir,'MIP','*MIP_*tif'));
@@ -18,6 +21,7 @@ if meta.xSize <= 1024
 else
     ss = 4;
 end
+margin = round(margin/ss);
 
 if ~exist('wells','var')
     wells = 1:meta.nWells;
@@ -89,12 +93,30 @@ for wellnr = wells
             end
             preview(1:size(small,1), 1:size(small,2), ti) = small;
         end
+        
+        % crop
+        preview = preview(1+margin:end-margin, 1+margin:end-margin,:); 
+            
+        bareprevfname = sprintf('stichedPreview_well%d_w%.4d',wellnr,ci);
 
-        fname = fullfile(dataDir, [sprintf('stichedPreview_w%.4d_well',ci) num2str(wellnr) '.tif']);
-        imwrite(preview(:,:,1), fname);
-        for ti = 2:tmax
-            imwrite(preview(:,:,ti), fname,'WriteMode','Append');
+        % save initial and final frame
+        imwrite(mat2gray(preview(:,:,1)),fullfile(dataDir, [bareprevfname '_initial.jpg']));
+        imwrite(mat2gray(preview(:,:,tmax)),fullfile(dataDir, [bareprevfname '_final.jpg']));
+        
+        % save as compressed video
+        v = VideoWriter(fullfile(dataDir,[bareprevfname '.avi']));%,'Uncompressed AVI');
+        v.FrameRate = 5;
+        open(v)
+        for ti = 1:tmax
+            writeVideo(v,mat2gray(preview(:,:,ti)))
         end
+        close(v);
+
+%         fname = fullfile(dataDir, [bareprevfname '.tif']);
+%         imwrite(preview(:,:,1), fname);
+%         for ti = 2:tmax
+%             imwrite(preview(:,:,ti), fname,'WriteMode','Append');
+%         end
     end
 end
 end
