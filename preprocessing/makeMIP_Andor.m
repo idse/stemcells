@@ -43,7 +43,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
         fileZmax = meta.nZslices;
         zslices = {};
     else
-        fileZmax = 0;
+        fileZmax = 1;
     end
 
     MIP = {};
@@ -75,7 +75,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
                     % this is assuming either split z or t, not both
                     if fileTmax > 0 
                         fname = sprintf(filenameFormat, pi, ti);
-                    elseif fileZmax > 0
+                    elseif fileZmax > 1
                         fname = sprintf(filenameFormat, pi, zi);
                     else
                         fname = sprintf(filenameFormat, pi);
