@@ -1,4 +1,4 @@
-function [upperleft,links] = registerImageGrid(imgs, pixelOverlap)
+function [upperleft, links] = registerImageGridOld(imgs, pixelOverlap)
     % register a grid of overlapping images
     % 
     % [upperleft,links] = registerImageGrid(imgs, pixelOverlap)
@@ -15,6 +15,7 @@ function [upperleft,links] = registerImageGrid(imgs, pixelOverlap)
     %               if left empty, upperleft for a square grid of images
     %               will be returned
     
+
     % note: could be made fancier by combining redundant shift information
     
     % ---------------------
@@ -65,14 +66,14 @@ function [upperleft,links] = registerImageGrid(imgs, pixelOverlap)
                 [shifti,shiftj, cmax, c] = xcorr2fft(below, img);
                 belowshift{i+1,j} = [shifti,shiftj];
                 
-                % crel is a measure for confidence in the displacement
                 crel = cmax/mean(c(:));
                 links(2*i,2*j-1) = crel;
-                %disp([num2str(i+1) ' ' num2str(j) ': ' num2str([shifti shiftj]) '   ' sprintf('%0.2e, %.2f',cmax,crel)]);
+                disp([num2str(i+1) ' ' num2str(j) ': ' num2str([shifti shiftj]) '   ' sprintf('%0.2e, %.2f',cmax,crel)]);
             end
         end
     end
 
+    disp('right');
     rightshift = {};
     for j = 1:size(imgs, 2)-1
         for i = 1:size(imgs, 1)
@@ -86,46 +87,26 @@ function [upperleft,links] = registerImageGrid(imgs, pixelOverlap)
                 
                 crel = cmax/mean(c(:));
                 links(2*i-1,2*j) = crel;
-                %disp([num2str(i) ' ' num2str(j+1) ': ' num2str([shifti shiftj]) '   ' sprintf('%0.2e, %.2f',cmax,crel)]);
+                disp([num2str(i) ' ' num2str(j+1) ': ' num2str([shifti shiftj]) '   ' sprintf('%0.2e, %.2f',cmax,crel)]);
             end
         end
     end
 
-	% registerImageGridOld works well for square grid, 
-    % but not if you leave images out
-    % code below is harder to follow but works when corner images are
-    % missing (are empty for high-res micropattern data)
     upperleft = {};
-    
-    % register rows in each column
-    for j = 1:size(imgs, 2)
-        
-        shift = [0 0];
-        for i = 1:size(imgs, 1)
+    upperleft{1,1} = [1 1];
 
-            % initialize 
-            upperleft{i,j} = [(i-1)*Np + 1, (j-1)*Np + 1];
-
-            % then update
-            if ~isempty(belowshift{i,j})
-                shift = shift + belowshift{i,j};
-                upperleft{i,j} = upperleft{i,j} + shift;
-            end
-        end
+    % register each row in the first column
+    j = 1;
+    for i = 2:size(imgs, 1)
+        shift = belowshift{i,j};
+        upperleft{i,j} = upperleft{i-1,j} + [Np + shift(1), shift(2)];
     end
-    
-    % register the columns
-    shift = [0 0];
-    for j = 2:size(imgs, 2)
 
-        % find the first image in the column that is to the right of
-        % another image, and use that for the shift
-        i = 1;
-        while isempty(rightshift{i,j}) i = i+1; end
-        shift = shift + rightshift{i,j};
-
-        for i = 1:size(imgs,1)
-            upperleft{i,j} = upperleft{i,j} + shift;
+    % for each row, register all the columns relative to the first one
+    for i = 1:size(imgs, 1)
+        for j = 2:size(imgs, 2)
+            shift = rightshift{i,j};
+            upperleft{i,j} = upperleft{i,j-1} + [shift(1), Np + shift(2)];
         end
     end
 end

@@ -1,10 +1,16 @@
-function [nucAvgAllNormalized, r] = plotAveragesNoSegmentation(datadir,colSize,DAPIChannel)
+function [nucAvgAllNormalized, r] = plotAveragesNoSegmentation(...
+                        datadir, colSize, DAPIChannel, vsinr)
 
 if ~exist('DAPIChannel','var')
     DAPIChannel = 1;
 end
+if ~exist('vsinr','var')
+    vsinr = [];
+else
+    vsinr = ['_' num2str(vsinr)];
+end
 
-load(fullfile(datadir,'colonies.mat'));
+load(fullfile(datadir,['colonies' vsinr '.mat']));
 load(fullfile(datadir,'metaData.mat'));
 
 if ~exist('colSize','var')

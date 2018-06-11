@@ -60,6 +60,11 @@ if ~metadatadone
         meta.channelNames = in_struct.channelNames;
         meta.nChannels = length(meta.channelNames);
     end
+    if isfield(in_struct,'cleanScale')
+        s = round(in_struct.cleanScale/meta.xres);
+    else
+        s = round(20/meta.xres);
+    end
     
     meta.colRadiiPixel = meta.colRadiiMicron/meta.xres;
     
@@ -76,7 +81,11 @@ if isfield(in_struct,'DAPIChannel')
 else
     DAPIChannel = find(strcmp(meta.channelNames,'DAPI'));
 end
-colDir = fullfile(dataDir,'colonies');
+
+[~,vsinr] = fileparts(vsifile);
+vsinr = vsinr(end-3:end);
+colDir = fullfile(dataDir,['colonies_' vsinr]);
+
 %% processing loop
 
 % masks for radial averages
@@ -149,6 +158,8 @@ for n = 1:numel(yedge)-1
                 img(:,:,ci) = img_bf{1}{ci,1};
                 preview(yminprev:ymaxprev,xminprev:xmaxprev, ci) = ...
                     imresize(img(:,:,ci),[ymaxprev-yminprev+1, xmaxprev-xminprev+1]);
+                % rescale lookup for easy preview
+                preview(:,:,ci) = imadjust(mat2gray(preview(:,:,ci)));
                 %            toc
             end
         else
@@ -156,6 +167,8 @@ for n = 1:numel(yedge)-1
                 img(:,:,ci) = imread(vsifile,ci);
                 preview(yminprev:ymaxprev,xminprev:xmaxprev, ci) = ...
                     imresize(img(:,:,ci),[ymaxprev-yminprev+1, xmaxprev-xminprev+1]);
+                % rescale lookup for easy preview
+                preview(:,:,ci) = imadjust(mat2gray(preview(:,:,ci)));
             end
         end
         
@@ -195,7 +208,6 @@ for n = 1:numel(yedge)-1
         
         disp('find colonies');
         tic
-        s = round(20/meta.xres);
         range = [xmin, xmax, ymin, ymax];
         [chunkColonies{chunkIdx}, cleanmask, welllabel] = findColonies(mask, range, meta, s);
         toc
@@ -279,7 +291,7 @@ for n = 1:numel(yedge)-1
                     imcbin = imc(colnucbinmask);
                     nucradavg(ri,ci) = mean(imcbin);
                     nucradstd(ri,ci) = std(double(imcbin));
-                    
+
                     imcbin = imc(colcytbinmask);
                     cytradavg(ri,ci) = mean(imcbin);
                     cytradstd(ri,ci) = std(double(imcbin));
@@ -291,14 +303,17 @@ for n = 1:numel(yedge)-1
             colonies(coli).radialProfile.CytStd = cytradstd;
         end
         prevNWells = prevNWells+max(max(welllabel));
-        
+
         fprintf('\n');
         toc
         
     end
 end
-preview = uint16(preview);
-imwrite(squeeze(preview(:,:,1)),fullfile(dataDir,'previewDAPI.tif'));
-imwrite(preview(:,:,2:4),fullfile(dataDir,'previewRGB.tif'));
+%preview = uint16(preview);
+if ~exist(fullfile(dataDir,'preview'),'dir')
+	mkdir(fullfile(dataDir,'preview'));
+end
+imwrite(squeeze(preview(:,:,1)),fullfile(dataDir,'preview',['previewDAPI_' vsinr '.tif']));
+imwrite(preview(:,:,2:4),fullfile(dataDir,'preview',['previewRGB_' vsinr '.tif']));
 
-save(fullfile(dataDir,'colonies'), 'colonies');
+save(fullfile(dataDir,['colonies_' vsinr]), 'colonies');

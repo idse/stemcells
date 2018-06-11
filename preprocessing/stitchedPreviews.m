@@ -1,9 +1,9 @@
-function upperleft = stitchedPreviews(dataDir, meta, type)
+function upperleft = stitchedPreviews(dataDir, meta, type, wells)
 
 if ~exist('type', 'var')
 	type = 'MIP';
 end
-    
+
 MIPfiles = dir(fullfile(dataDir,'MIP','*MIP_*tif'));
 s = strsplit(MIPfiles(1).name,['_' type]);
 barefname = s{1};
@@ -19,9 +19,13 @@ else
     ss = 4;
 end
 
+if ~exist('wells','var')
+    wells = 1:meta.nWells;
+end
+
 upperleft = {};
 
-for wellnr = 13:meta.nWells
+for wellnr = wells
     
     conditionPositions = posPerCondition*(wellnr-1)+1:posPerCondition*wellnr;
     if isempty(gridSize) 
