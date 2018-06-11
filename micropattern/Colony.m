@@ -37,7 +37,8 @@ classdef Colony < Position
     methods
         
         % constructor
-        function this = Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox, well, time)
+        function this = Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox, well, nTime)
+            % Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox, well, nTime)
 
             % matlab sucks
             if nargin == 0
@@ -46,7 +47,7 @@ classdef Colony < Position
             if ~exist('nTime','var')
                 nTime = 1;
             end
-            
+
             this.nTime = nTime;
             this.nChannels = nChannels;
             this.center = center;
@@ -90,30 +91,55 @@ classdef Colony < Position
         % process data
         %---------------------------------
 
-        function makeRadialAvgSeg(this)
+        function makeRadialAvgSeg(this, channels, normChannel, badidx)
             % create radial profile of segmented single cell data 
             % 
-            % makeRadialAvgSeg(edges)
-            %
-            % edges:    edges for radial histogram in pixels
+            % makeRadialAvgSeg(normChannel, badidx)
             %
             % populates this.radialProfile.AvgSeg where rows correspond to
             % radial bins, and columns to channels
             
-            XY = this.cellData.XY;
+            nucLevel = this.cellData.nucLevel;
+            if exist('normChannel','var')
+                if normChannel ~= 0
+                    nucLevel = nucLevel./this.cellData.nucLevel(:,normChannel);
+                else
+                    nucLevel = nucLevel./this.cellData.cytLevel;
+                end
+            end
+            if exist('badidx','var')
+                nucLevel = nucLevel(~badidx,:);
+            end
+            if ~exist('channels','var')
+                channels = 1:numel(this.dataChannels);
+            end
+            
+            XY = this.cellData.XY(~badidx,:);
             XY(:,1) = XY(:,1) - mean(XY(:,1));
             XY(:,2) = XY(:,2) - mean(XY(:,2));
             r = sqrt(sum(XY(:,1:2).^2,2));
-            [n,bini] = histc(r, this.radialProfile.BinEdges);
-
-            nBins = numel(n)-1; % last bin we ignore (see doc histc)
-            N = numel(this.dataChannels);
-            this.radialProfile.NucAvgSeg = zeros([nBins N]);
-            this.radialProfile.NucStdSeg = zeros([nBins N]);
             
-            for cii = 1:N
+            if isfield(this.radialProfile, 'BinEdges')
+                binEdges = this.radialProfile.BinEdges;
+            else
+                binWidthMicron = 10; % about two cell widths
+                N = this.radiusMicron/binWidthMicron;
+                binEdges = sqrt(linspace(0,this.radiusPixel^2,N+1));
+            end
+            
+            [n,bini] = histc(r, binEdges);
+            nBins = numel(n)-1; % last bin we ignore (see doc histc)
+            N = numel(channels);
+            
+            if ~isfield(this.radialProfile, 'NucAvgSeg')
+                this.radialProfile.NucAvgSeg = zeros([nBins N]);
+                this.radialProfile.NucStdSeg = zeros([nBins N]);
+            end
+            this.radialProfile.BinEdges = binEdges;
+            
+            for cii = channels
                 for i = 1:nBins
-                    bindata = this.cellData.nucLevel(bini == i, cii);
+                    bindata = nucLevel(bini == i, cii);
                     this.radialProfile.NucAvgSeg(i,cii) = mean(bindata);
                     this.radialProfile.NucStdSeg(i,cii) = std(bindata);
                 end

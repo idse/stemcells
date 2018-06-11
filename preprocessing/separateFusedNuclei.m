@@ -14,7 +14,7 @@ function [newNuclearMask, fusedMask] = separateFusedNuclei(nuclearMask, options)
     %                   considered fused (default off, 0.95 is good value)
     %                   NOTE: this part is computationally expensive
     %                   set value <= 0 to turn off and speed up
-    % -erodeSize        in units of mean radius, default 1
+    % -erodeSize        in pixels
     %
     % newNucleiMask:    mask with separated nuclei
     % fusedMask:        mask containing potentially fused nuclei
@@ -37,11 +37,6 @@ function [newNuclearMask, fusedMask] = separateFusedNuclei(nuclearMask, options)
     else
         minAreaStd = options.minAreaStd;
     end
-    if ~isfield(options,'erodeSize')
-        erodeSize = 1;
-    else
-        erodeSize = options.erodeSize;
-    end
     
     CC = bwconncomp(nuclearMask);
     if minSolidity > 0
@@ -51,6 +46,12 @@ function [newNuclearMask, fusedMask] = separateFusedNuclei(nuclearMask, options)
         stats = regionprops(CC, 'Area');
     end
     area = [stats.Area];
+    
+    if ~isfield(options,'erodeSize')
+        erodeSize = round(sqrt(mean(area))/pi);
+    else
+        erodeSize = options.erodeSize;
+    end
     
     if minSolidity > 0
         fusedCandidates = area./convexArea < minSolidity & area > mean(area) + minAreaStd*std(area);
@@ -66,8 +67,7 @@ function [newNuclearMask, fusedMask] = separateFusedNuclei(nuclearMask, options)
 %     figure,
 %     imshow(cat(3,nuclearMask,fusedMask,0*fusedMask))
 
-    s = round(erodeSize*sqrt(mean(area))/pi);
-    nucmin = imerode(fusedMask,strel('disk',s));
+    nucmin = imerode(fusedMask,strel('disk',erodeSize));
 
 %     figure,
 %     imshow(cat(3,mat2gray(nuclearMask),fusedMask,nucmin))

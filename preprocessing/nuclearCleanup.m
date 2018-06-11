@@ -14,6 +14,8 @@ function newNuclearMask = nuclearCleanup(nuclearMask, options)
     %
     % -separateFused    boolean
     % -clearBorder      boolean
+    % -clearMinSolidity delete objects that have solidity smaller than this
+    % value
     %
     % options for separateFusedNuclei:
     %
@@ -42,12 +44,29 @@ function newNuclearMask = nuclearCleanup(nuclearMask, options)
     if ~isfield(options,'separateFused')
         options.separateFused = true;
     end
-    if ~isfield(options,'clearBorder')
-        options.clearBorder = true;
+    if ~isfield(options,'clearMinSolidity')
+        options.clearMinSolidity = 0;
     end
     
-    nuclearMask = bwareaopen(nuclearMask, options.minArea/5);    
+    CC = bwconncomp(nuclearMask);
+    if options.clearMinSolidity > 0
+        stats = regionprops(CC, 'ConvexArea', 'Area');
+        convexArea = [stats.ConvexArea];
+    else
+        stats = regionprops(CC, 'Area');
+    end
+    area = [stats.Area];
+
+    if options.clearMinSolidity > 0
+        deletables = area./convexArea < options.clearMinSolidity;
+        sublist = CC.PixelIdxList(deletables);
+        nuclearMask(cat(1,sublist{:})) = false;
+    end
+    
+    nuclearMask = bwareaopen(nuclearMask, options.minArea/5);
     nuclearMask = imopen(nuclearMask, strel('disk',options.openSize));
+    % fill smaller holes that can appear in nuclear segmentation:
+    nuclearMask = ~bwareaopen(~nuclearMask,options.minArea/5); 
     
     if options.separateFused && sum(nuclearMask(:))>0
         nuclearMask = separateFusedNuclei(nuclearMask,options);

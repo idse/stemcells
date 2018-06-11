@@ -1,16 +1,16 @@
 function processVsi(vsifile,dataDir,varargin)
-% Function that takes a vsifile as input and outputs to dataDir. 
+% Function that takes a vsifile as input and outputs to dataDir.
 % will create a colonies.mat file with the colonies array, a metaData.mat
 % file with variable meta and a directory colonies containing images of
-% individual colonies. 
+% individual colonies.
 % varargin allows for overwrite of default metadata options. Must have keyword:value pairs.
 %   -channelLabel (default {'DAPI','Cdx2','Sox2','Bra'})
-%   -colRadiiMicron (default [200 500 800 1000]/2 ) 
+%   -colRadiiMicron (default [200 500 800 1000]/2 )
 %   -colMargin (default 10)
 %   -DAPI channel - nuclear marker channel. By default looks for DAPI in
 %   channel labels
 %   -metaDataFile: can read meta structure from file and skip extracting
-%   from vsi. (Default reads from vsi). 
+%   from vsi. (Default reads from vsi).
 
 %%
 % metadata
@@ -19,53 +19,73 @@ function processVsi(vsifile,dataDir,varargin)
 % read metadata inputs
 in_struct = varargin2parameter(varargin);
 
-
 if isfield(in_struct,'metaDataFile')
     disp('loading previously stored metadata');
-    metaDataFile = fullfile(dataDir,in_struct.metaDataFile);
+    metaDataFile = in_struct.metaDataFile;
     load(metaDataFile);
+    metadatadone = true;
+    meta2 = MetadataMicropattern(vsifile);
+    %make sure image size is correct if importing metadata
+    meta.xSize = meta2.xSize;
+    meta.ySize = meta2.ySize;
 else
     disp('extracting metadata from vsi file');
     meta = MetadataMicropattern(vsifile);
     metaDataFile = fullfile(dataDir,'metaData.mat');
+    metadatadone = false;
 end
 % or pretty much enter it by hand
 
 % manually entered metadata
 %------------------------------
 
-%defaults
-meta.channelLabel = {'DAPI','Cdx2','Sox2','Bra'};
-meta.colRadiiMicron = [200 500 800 1000]/2;
-meta.colMargin = 10; % margin outside colony to process, in pixels
+if ~metadatadone
+    %defaults
+    meta.channelLabel = {'DAPI','Cdx2','Sox2','Bra'};
+    meta.colRadiiMicron = [200 500 800 1000]/2;
+    meta.colMargin = 10; % margin outside colony to process, in pixels
+    
+    %override from inputs
+    if isfield(in_struct,'channelLabel')
+        meta.channelLabel = in_struct.channelLabel;
+    end
+    if isfield(in_struct,'colRadiiMicron')
+        meta.colRadiiMicron = in_struct.colRadiiMicron;
+    end
+    if isfield(in_struct,'colMargin')
+        meta.colMargin = in_struct.colMargin;
+    end
+    
+    if isfield(in_struct,'channelNames')
+        meta.channelNames = in_struct.channelNames;
+        meta.nChannels = length(meta.channelNames);
+    end
+    if isfield(in_struct,'cleanScale')
+        s = round(in_struct.cleanScale/meta.xres);
+    else
+        s = round(20/meta.xres);
+    end
+    
+    meta.colRadiiPixel = meta.colRadiiMicron/meta.xres;
+    
+end
+if ~exist(dataDir)
+    mkdir(dataDir);
+end
+save(fullfile(dataDir,'metaData.mat'),'meta');
+
 maxMemoryGB = 4;
-
-%override from inputs
-if isfield(in_struct,'channelLabel')
-    meta.channelLabel = in_struct.channelLabel;
-end
-if isfield(in_struct,'colRadiiMicron')
-    meta.colRadiiMicron = in_struct.colRadiiMicron;
-end
-if isfield(in_struct,'colMargin')
-    meta.colMargin = in_struct.colMargin;
-end
-
-meta.colRadiiPixel = meta.colRadiiMicron/meta.xres;
 
 if isfield(in_struct,'DAPIChannel')
     DAPIChannel = in_struct.DAPIChannel;
 else
     DAPIChannel = find(strcmp(meta.channelNames,'DAPI'));
 end
-if ~exist(dataDir)
-    mkdir(dataDir);
-end
 
-save(metaDataFile,'meta');
+[~,vsinr] = fileparts(vsifile);
+vsinr = vsinr(end-3:end);
+colDir = fullfile(dataDir,['colonies_' vsinr]);
 
-
-colDir = fullfile(dataDir,'colonies');
 %% processing loop
 
 % masks for radial averages
@@ -127,16 +147,31 @@ for n = 1:numel(yedge)-1
         xminprev = ceil(size(preview,2)*double(xmin)/meta.xSize);
         
         img = zeros([chunkheight, chunkwidth, meta.nChannels],'uint16');
-        img_bf = bfopen_mod(vsifile,xmin,ymin,xmax-xmin+1,ymax-ymin+1,1); %read only the 1st series from the vsi
-        for ci = 1:meta.nChannels
-            %             tic
-            %             disp(['reading channel ' num2str(ci)])
-            %             img(:,:,ci) = imread(btfname,'Index',ci,'PixelRegion',{[ymin,ymax],[xmin, xmax]});
-            img(:,:,ci) = img_bf{1}{ci,1};
-            preview(yminprev:ymaxprev,xminprev:xmaxprev, ci) = ...
-                imresize(img(:,:,ci),[ymaxprev-yminprev+1, xmaxprev-xminprev+1]);
-            %            toc
+        [~, ext] = strtok(vsifile,'.');
+        if strcmp(ext,'.vsi')
+            img_bf = bfopen_mod(vsifile,xmin,ymin,xmax-xmin+1,ymax-ymin+1,1); %read only the 1st series from the vsi
+            
+            for ci = 1:meta.nChannels
+                %             tic
+                %             disp(['reading channel ' num2str(ci)])
+                %             img(:,:,ci) = imread(btfname,'Index',ci,'PixelRegion',{[ymin,ymax],[xmin, xmax]});
+                img(:,:,ci) = img_bf{1}{ci,1};
+                preview(yminprev:ymaxprev,xminprev:xmaxprev, ci) = ...
+                    imresize(img(:,:,ci),[ymaxprev-yminprev+1, xmaxprev-xminprev+1]);
+                % rescale lookup for easy preview
+                preview(:,:,ci) = imadjust(mat2gray(preview(:,:,ci)));
+                %            toc
+            end
+        else
+            for ci = 1:meta.nChannels
+                img(:,:,ci) = imread(vsifile,ci);
+                preview(yminprev:ymaxprev,xminprev:xmaxprev, ci) = ...
+                    imresize(img(:,:,ci),[ymaxprev-yminprev+1, xmaxprev-xminprev+1]);
+                % rescale lookup for easy preview
+                preview(:,:,ci) = imadjust(mat2gray(preview(:,:,ci)));
+            end
         end
+        
         
         % determine background
         % bg = getBackground(bg, img, L);
@@ -147,7 +182,7 @@ for n = 1:numel(yedge)-1
             for ci = DAPIChannel
                 
                 imsize = 2048;
-                        si = size(img);
+                si = size(img);
                 xx = min(si(1),4*imsize); yy = min(si(2),4*imsize);
                 if xx < 2*imsize
                     x0 = 1;
@@ -159,7 +194,7 @@ for n = 1:numel(yedge)-1
                 else
                     y0 = imsize + 1;
                 end
-                    
+                
                 forIlim = img(x0:xx,y0:yy,ci);
                 minI = double(min(forIlim(:)));
                 maxI = double(max(forIlim(:)));
@@ -173,7 +208,6 @@ for n = 1:numel(yedge)-1
         
         disp('find colonies');
         tic
-        s = round(20/meta.xres);
         range = [xmin, xmax, ymin, ymax];
         [chunkColonies{chunkIdx}, cleanmask, welllabel] = findColonies(mask, range, meta, s);
         toc
@@ -257,7 +291,7 @@ for n = 1:numel(yedge)-1
                     imcbin = imc(colnucbinmask);
                     nucradavg(ri,ci) = mean(imcbin);
                     nucradstd(ri,ci) = std(double(imcbin));
-                    
+
                     imcbin = imc(colcytbinmask);
                     cytradavg(ri,ci) = mean(imcbin);
                     cytradstd(ri,ci) = std(double(imcbin));
@@ -269,14 +303,17 @@ for n = 1:numel(yedge)-1
             colonies(coli).radialProfile.CytStd = cytradstd;
         end
         prevNWells = prevNWells+max(max(welllabel));
-        
+
         fprintf('\n');
         toc
         
     end
 end
-preview = uint16(preview);
-imwrite(squeeze(preview(:,:,1)),fullfile(dataDir,'previewDAPI.tif'));
-imwrite(preview(:,:,2:4),fullfile(dataDir,'previewRGB.tif'));
+%preview = uint16(preview);
+if ~exist(fullfile(dataDir,'preview'),'dir')
+	mkdir(fullfile(dataDir,'preview'));
+end
+imwrite(squeeze(preview(:,:,1)),fullfile(dataDir,'preview',['previewDAPI_' vsinr '.tif']));
+imwrite(preview(:,:,2:4),fullfile(dataDir,'preview',['previewRGB_' vsinr '.tif']));
 
-save(fullfile(dataDir,'colonies'), 'colonies');
+save(fullfile(dataDir,['colonies_' vsinr]), 'colonies');

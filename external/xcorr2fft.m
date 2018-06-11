@@ -1,4 +1,4 @@
-function [shiftx,shifty,c] = xcorr2fft(image1,image2)
+function [shiftx,shifty,cmax,c] = xcorr2fft(image1,image2)
     
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -60,6 +60,6 @@ function [shiftx,shifty,c] = xcorr2fft(image1,image2)
         shifty = size(image1,2)-J+1;
     end
     
-    c = c(I,J);
+    cmax = c(I,J);
 
 end

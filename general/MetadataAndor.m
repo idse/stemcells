@@ -232,7 +232,7 @@ classdef MetadataAndor < Metadata
                 pathstr = fileparts(filename);
 
                 % determine the number of files the time series is split up into
-                listing = dir(pathstr);
+                listing = dir(fullfile(pathstr,'*tif'));
                 info = [];
                 fileTmax = 0;
                 for i = 1:numel(listing)

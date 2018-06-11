@@ -66,6 +66,13 @@ classdef Metadata
             this.xres = double(omeMeta.getPixelsPhysicalSizeX(0).value(ome.units.UNITS.MICROM));
             this.yres = double(omeMeta.getPixelsPhysicalSizeY(0).value(ome.units.UNITS.MICROM));
 
+            dt = omeMeta.getPixelsTimeIncrement(0);
+            if ~isempty(dt)
+                this.timeInterval = double(dt.value);
+            else
+                this.timeInterval = [];
+            end
+            
             this.nChannels = r.getSizeC();
             this.channelNames = {};
             for ci = 1:this.nChannels 

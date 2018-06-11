@@ -1,312 +1,474 @@
 clear all; close all;
 
+%addpath(genpath('~/Documents/Stemcells')); 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 
-% dataDir = '/Users/idse/data_tmp/160901_smad2';
+dataDir = '/Users/idse/data_tmp/0_cellfate/170227_3daysManystains';
 
-mainDataDir = '/Users/idse/data_tmp/170207_hESCsmad2series/170207_siS4A/';
-dataDirs = fullfile(mainDataDir, {...
-    'A1','A2','A4','A6','A9','A12','A24','SB','X12','X24',...
-    });
-dataDir = dataDirs{1};
+% mtesr
+filelist = [fullfile('d1_10am', {'Process_1797.vsi','Process_1798.vsi',...
+                                'Process_1799.vsi','Process_1800.vsi'})...
+            fullfile('d1_10pm', {'Process_1801.vsi','Process_1803.vsi',...
+                                 'Process_1804.vsi','Process_1806.vsi'})...
+            fullfile('d2_10am', {'Process_1808.vsi','Process_1810.vsi',...
+                                 'Process_1812.vsi','Process_1814.vsi'})...
+            fullfile('d2_10pm', {'Process_1832.vsi','Process_1834.vsi',...
+                                 'Process_1836.vsi','Process_1838.vsi'})...
+            fullfile('d3_10am', {'Process_1840.vsi','Process_1842.vsi',...
+                                 'Process_1844.vsi','Process_1846.vsi'})...
+            fullfile('d3_10pm', {'Process_1847.vsi','Process_1849.vsi',...
+                                 'Process_1851.vsi','Process_1853.vsi'})...
+            fullfile('d4_10am', {'Process_1875.vsi','Process_1876.vsi',...
+                                 'Process_1877.vsi','Process_1878.vsi'})];
 
-MIPdirs = fullfile(dataDirs,'MIP');
+vsifile = fullfile(dataDir,filelist{1});
+[~,barefname,~] = fileparts(vsifile);
 
-list = dir(fullfile(dataDirs{1},'*vsi'));
-vsifile = fullfile(dataDirs{1},list(1).name);
+resultsDir = fullfile(dataDir,'results');
+if ~exist(resultsDir,'dir')
+    mkdir(resultsDir);
+end
+previewDir = fullfile(dataDir,'preview');
+if ~exist(previewDir,'dir')
+    mkdir(previewDir);
+end
+if ~exist(fullfile(resultsDir,'figs'),'dir')
+    mkdir(fullfile(resultsDir,'figs'));
+end
+
+% TODO : local normalization by DAPI
+
+% metadata
+%----------------
 
 meta = Metadata(vsifile);
-%filenameFormat = meta.filename;
 
-% determine process numbers of vsi files
-processnrs = {};
+% manually entered metadata
+%------------------------------
 
-for di = 1:numel(dataDirs)
-    vsifiles = dir(fullfile(dataDirs{di},'*.vsi'));
-    processNumbers = zeros([numel(vsifiles) 1],'uint16');
-    for i = 1:numel(vsifiles)
-        s = strsplit(vsifiles(i).name,{'_','.'});
-        processNumbers(i) = uint16(str2double(s{2}));
+meta.channelLabel = {   {'Sox17','FoxA2','Oct4','DAPI'},...
+                        {'Bra','Eomes','Nanog','DAPI'}};
+
+meta.conditions = { 'E6+A50 0h','E6+A50+Chir 0h',...
+                    'E6+A50 12h','E6+A50+Chir 12h',...
+                    'E6+A50 24h','E6+A50+Chir 24h',...
+                    'E6+A50 36h','E6+A50+Chir 36h',...
+                    'E6+A50 48h','E6+A50+Chir 48h',...
+                    'E6+A50 60h','E6+A50+Chir 60h',...
+                    'E6+A50 72h','E6+A50+Chir 72h'};
+
+% IMPORTANT: we analyze one set at a time: change here
+antibodyset = 1;
+NA = numel(meta.channelLabel);
+filelist = filelist(antibodyset:NA:end);
+meta.channelLabel = meta.channelLabel{antibodyset};
+
+% subset 
+conditionset = 1;
+filelist = filelist(conditionset:2:end);
+meta.conditions = meta.conditions(conditionset:2:end);
+
+nucChannel = 4;
+dataChannels = [1 2 3 4];
+
+markerChannels = setdiff(dataChannels, nucChannel);
+
+%% load data for parameter check
+
+n = 1;
+m = 2;
+I = ones([1 numel(meta.conditions)]);
+ymin = I*n*2048;
+xmin = I*n*2048;
+ymax = ymin + m*2048;
+xmax = xmin + m*2048;
+preview = {};
+Ilim = {};
+
+series = 1;
+
+% load data and determine intensity limits per file
+for fi = 1:numel(meta.conditions)
+
+    vsifile = fullfile(dataDir,filelist{fi});
+    metatmp = Metadata(vsifile);
+    channelOrder = orderChannels(metatmp)
+    
+    xmax(fi) = min(xmax(fi), metatmp.xSize); 
+    ymax(fi) = min(ymax(fi), metatmp.ySize);
+    W = xmax(fi)-xmin(fi)+1; H = ymax(fi)-ymin(fi)+1;
+    img_bf = bfopen_mod(vsifile,xmin(fi),ymin(fi),W,H,series);
+
+    for ci = 1:numel(dataChannels)
+
+        im = img_bf{1}{channelOrder(dataChannels(ci)),1};
+        preview{ci, fi} = im;
+        maxim = double(max(im(:)));
+        minim = double(min(im(:)));
+        tolerance = 0.04;
+        Ilim{dataChannels(ci), fi} = stretchlim(mat2gray(im), tolerance)*(maxim-minim) + minim;
     end
-    processnrs{di} = processNumbers;
 end
 
-% manual metadata
-%-------------------
+% combined limits
+for ci = 1:numel(dataChannels)  
 
-meta.posPerCondition = 4;
-meta.nWells = 10;
-meta.nPositions = meta.nWells*meta.posPerCondition;
-
-nucChannel = 1;
-S2Channel = 2;
-S4Channel = 3;
-
-meta.channelLabel = {'H2B','Smad2','Smad4'};
-
-%% extract prefixes for different conditions
-
-% convention is conditionName_p0000.tif etc
-% this extracts all the unique condition names in the dataDir
-
-conditions = {};
-for di = 1:numel(MIPdirs)
-    
-    listing = dir(fullfile(MIPdirs{di},'*tif'));
-    
-    for i = 1:numel(listing)
-
-        filename = listing(i).name;
-        [~, barefname] = fileparts(filename);
-        s = strsplit(barefname,'_MIP');
-        conditions = [conditions s{1}];
-    end
+    Imin = min(min([Ilim{dataChannels(ci),:}]));
+    Imax = max(max([Ilim{dataChannels(ci),:}]));
+    allIlim{dataChannels(ci)} = [Imin Imax];
 end
 
-meta.conditions = unique(conditions,'stable');
+save(fullfile(resultsDir,['overviewIlim_' meta.channelLabel{dataChannels}]), 'Ilim', 'allIlim');
 
-% %% previews
-% 
-% for di = 1:meta.nWells
-%     
-%     metatmp = meta;
-%     metatmp.nWells = 1;
-% 
-%     stitchedPreviews(dataDirs{di}, metatmp);
+%% combine lookup tables and save RGB previews
+
+%allIlim{1} = [400 500];
+%allIim{2} = [150 250];
+
+% use Ilim from other set
+%bla = load(fullfile(resultsDir,['overviewIlim_' meta.channelLabel{dataChannels}]));
+%allIlim = bla.Ilim;
+
+preview8bit = {}; 
+for fi = 1:numel(meta.conditions)
+
+    for ci = 1:numel(dataChannels)  
+        
+        preview8bit{ci,fi} = uint8((2^8-1)*mat2gray(preview{ci, fi}, allIlim{dataChannels(ci)}));
+    end
+
+    previewChannels = 1:3;
+    [~,barefname,~] = fileparts(filelist{fi});
+    filename = fullfile(dataDir, 'preview', ['RGBpreview_' barefname '_' [meta.channelLabel{dataChannels}] '.tif']);
+    RGBim = cat(3,preview8bit{previewChannels,fi});
+    imwrite(RGBim, filename);
+end
+
+%% smaller previews to copy to slide
+
+N = numel(meta.conditions);
+n = ceil(N/4);
+%m = ceil(N/n);
+m = min(N,4);
+screensize = get( 0, 'Screensize' );
+margin = 50;
+fs = 20;
+w = screensize(3);
+h = n*(screensize(3)/m + margin/2);
+% if h > (screensize(4)-100)
+%     w = w*(screensize(4)-100)/h;
+%     h = screensize(4);
 % end
+figure('Position', [1, 1, w, h]);
+for i = 1:2
+    for fi = 1:N
 
-%% extract nuclear and cytoplasmic levels
+        subplot_tight(n,m,fi)
+        RGBim = cat(3,preview8bit{previewChannels,fi});
+        RGBnuc = repmat(preview8bit{dataChannels==nucChannel,fi},[1 1 3]);
+        %RGBim = RGBim + 0.5*RGBnuc;
+        ims = {RGBim, RGBnuc};
+        imshow(ims{i});
+        titlestr = [meta.conditions{fi} ' (' filelist{fi}(end-7:end-4) ')'];
+        title(titlestr,'FontSize',fs,'FontWeight','bold','Interpreter','none');
+        labelstr = ['\color{red}'   meta.channelLabel{dataChannels(1)}...
+                    '\color{green}' meta.channelLabel{dataChannels(2)}...
+                    '\color[rgb]{0.1, 0.5, 1}' meta.channelLabel{dataChannels(3)}];
+        text(margin, size(RGBim,1) - 2.5*margin, labelstr,'FontSize',fs,'FontWeight','bold');
+    end
+    if i == 1
+        fname = fullfile(resultsDir,['overview' meta.channelLabel{markerChannels} '.png']);
+    else
+        fname = fullfile(resultsDir,['overview' meta.channelLabel{markerChannels} 'DAPI.png']);
+    end
+    saveas(gcf, fname);
+end
+%close;
+
+%% load segmentation to test parameters
+
+fi = 2;
+vsifile = fullfile(dataDir, filelist{fi});
+
+P = Position(meta.nChannels, vsifile, meta.nTime);
+P.setID(pi);
+dataSubdir = fileparts(vsifile);
+seg = P.loadSegmentation(fullfile(dataSubdir,'MIP'), nucChannel);
+segpart = seg(ymin(fi):ymax(fi), xmin(fi):xmax(fi));
+
+%% finding the right options for extract data
 
 % externally I will have all indices starting at 1
 % the Andor offset to start at 0 will be internal
 
-opts = struct(  'cytoplasmicLevels',    true,... %'tMax', 25,...
+opts = struct(  'cytoplasmicLevels',    false,... 
                     'dataChannels',     1:meta.nChannels,... 
-                    'fgChannel',        S4Channel,...
                     'tMax',             meta.nTime,...
+                    'segmentationDir',  fullfile(dataDir,'MIP'),...
                     'nucShrinkage',     2,...
                     'cytoSize',         5,...
                     'cytoMargin',       5,...
                     'bgMargin',         4);
                 
-opts.cleanupOptions = struct('separateFused', true,'openSize',8,...
-    'clearBorder',true, 'minAreaStd', 1, 'minSolidity',0, 'minArea',800);
-
-%% finding the right options for extract data
-
-di = 1;
-dataDir = dataDirs{di};
-opts.segmentationDir = fullfile(dataDir,'MIP');
-
-pi = 1;
-vsifile = fullfile(dataDir,['Process_' num2str(processnrs{di}(pi)) '.vsi']);
-P = Position(meta.nChannels, vsifile, meta.nTime);
-P.setID(pi);
-seg = P.loadSegmentation(fullfile(dataDir,'MIP'), nucChannel);
+opts.cleanupOptions = struct('separateFused', true,'openSize',4,...
+    'clearBorder',true,'minAreaStd', 1, 'erodeSize',1.1,'minSolidity',0.9,...
+    'minArea',400);
 
 % try out the nuclear cleanup settings on some frame:
-time = 1;
-bla = nuclearCleanup(seg(:,:,time), opts.cleanupOptions);
-figure, imshow(cat(3,mat2gray(bla),seg(:,:,time),seg(:,:,time)))
+segpartclean = nuclearCleanup(segpart, opts.cleanupOptions);
 
-%%
+% visualize
+s = 0.2;
+nucim = mat2gray(preview8bit{dataChannels==nucChannel,fi});
 
-debugInfo = P.extractData(dataDir, nucChannel, opts);
+RGBsegCheck = cat(3,   nucim + s*mat2gray(segpartclean),...
+                        nucim,...
+                        nucim + s*segpart);
+figure, imshow(RGBsegCheck)
 
-%bgmask = debugInfo.bgmask;
-nucmask = debugInfo.nucmask;
-cytmask = false(size(nucmask));
-cytmask(cat(1,debugInfo.cytCC.PixelIdxList{:}))=true;
+filename = fullfile(resultsDir, [barefname 'cleansegCheck.tif']);
+imwrite(RGBsegCheck, filename);
 
-bg = P.cellData(time).background;
-nucl = P.cellData(time).nucLevelAvg;
-cytl = P.cellData(time).cytLevelAvg;
-(nucl-bg)/(cytl - bg)
+%% if not good, try dirty segmentation
 
-im = P.loadImage(dataDir, S4Channel, time);
-%im2 = P.loadImage(dataDir, nucChannel, time);
+dirtyopts = struct();
+% 3.5 microns is a good scale for the filters
+dirtyopts.s = round(5/meta.xres);
+dirtyopts.areacutoff = round(dirtyopts.s^2);
+dirtyopts.mask = segpart; %dirtyopts.absolutethresh = 200;
+dirtyopts.toobigNstd = 3;
+nucseg = dirtyNuclearSegmentation(preview{dataChannels==nucChannel,fi}, dirtyopts);
 
-MIP = max(im,[],3);
-A = imadjust(mat2gray(MIP));
-s = 0.4;
-imshow(cat(3, A + seg(:,:,time), A + s*nucmask, A + s*cytmask));
+% visualize nuclear mask
+newmaskedge = nucseg - imerode(nucseg,strel('disk',1));
+impp = imadjust(mat2gray(nucim));
+overlay = cat(3, impp, impp+newmaskedge, impp+segpartclean);
+imshow(overlay)
 
-%%
-tic
-positions(meta.nPositions) = Position();
-pi = 1;
-for di = 1:meta.nWells
-    for wpi = 1:meta.posPerCondition
+filename = fullfile(resultsDir, [barefname 'dirtysegCheck.tif']);
+imwrite(overlay, filename);
+
+opts.dirtyOptions = dirtyopts;
+
+%% process the images
+
+for fi = 1:numel(filelist)
     
-        opts.segmentationDir = fullfile(dataDirs{di},'MIP');
-        vsifile = fullfile(dataDirs{di},['Process_' num2str(processnrs{di}(wpi)) '.vsi']);
+    fi 
+    vsifile = fullfile(dataDir, filelist{fi});
+    [dataSubdir, barefname,~] = fileparts(vsifile);
+    metatmp = Metadata(vsifile);
+    channelOrder = orderChannels(metatmp);
+    opts.dataChannels = intersect(channelOrder, dataChannels,'stable');
 
-        positions(pi) = Position(meta.nChannels, vsifile, meta.nTime);
-        positions(pi).setID(wpi);
-        positions(pi).extractData(dataDirs{di}, nucChannel, opts);
-        
-        pi = pi + 1;
-        
-        save(fullfile(dataDir,'positions'), 'positions');
-    end
-end
-toc
-
-%%
-load(fullfile(dataDir,'positions'));
-
-%% plot smad2 vs time
-
-figure,
-
-ratioWellMeans = {};
-ratioWell = {};
-
-channels = 2:3;
-normalize = false;
-tocyt = false;
-
-if tocyt
-    ylabelstr = 'nuclear : cytoplasmic intensity';
-else
-    ylabelstr = 'nuclear intensity';
-end    
-if normalize
-    ylabelstr = ['normalized ' ylabelstr];
-end
-
-for ci = channels
+    P = Position(meta.nChannels, vsifile, meta.nTime);
+    P.setID(fi);
     
-    pi = 1;
-    ratioWellMeans{ci} = zeros([1 meta.nWells]);
+    opts.segmentationDir = fullfile(dataSubdir,'MIP');
+    
+    debugInfo = P.extractData(dataSubdir, channelOrder(nucChannel), opts);
 
-    for wi = 1:meta.nWells
+    % save segcheck im
+    %im = mat2gray(preview8bit{dataChannels==nucChannel,fi});
+    im = cat(3,preview8bit{previewChannels,fi});
+    mask = debugInfo.nucmask(ymin(fi):ymax(fi),xmin(fi):xmax(fi));
+    mask = imdilate(mask,strel('disk',3)) - mask > 0;
+    im(repmat(mask,[1 1 3])) = 255;
+    filename = fullfile(resultsDir, [barefname 'segCheck.tif']);
+    imwrite(im, filename);
 
-        ratioWell{ci,wi} = zeros([1 meta.posPerCondition]);
-
-        for wpi = 1:meta.posPerCondition
-
-            nucl = positions(pi).cellData.nucLevelAvg(ci);
-            cytl = positions(pi).cellData.cytLevelAvg(ci);
-            bg = positions(pi).cellData.background(ci);
-            ratio = (nucl-bg);%/(cytl - bg);
-            if tocyt
-                ratio = ratio/(cytl - bg);
-            end
-
-            ratioWell{ci,wi}(wpi) = ratio;
-
-            pi = pi + 1;
-        end
-
-        ratioWellMeans{ci}(wi) = mean(ratioWell{ci,wi});
-    end
+    save(fullfile(resultsDir, [barefname '_positions.mat']),'P');
 end
 
-clf
+%% scatter cell locations on top of part of preview to check result
+
+XY = P.cellData.XY;
+
+inpreview =     XY(:,1) < xmax(fi) & XY(:,1) > xmin(fi)...
+                & XY(:,2) < ymax(fi) & XY(:,2) > ymin(fi);
+XY = XY(inpreview,:);
+
+nucim = mat2gray(preview8bit{dataChannels==nucChannel,fi});
+imshow(nucim,[])
 hold on
-colors = {'b','r'};
-lw = 2;
-labels = meta.channelLabel(opts.dataChannels);
-times = [1 2 4 6 9 12 24 -1 -0.5 0];
-
-for ci = 1:numel(channels)
-    [~,order] = sort(times);
-    ordertimes = times(order);
-    
-    rwm = ratioWellMeans{channels(ci)}(order);
-    
-    baseline = ratioWellMeans{channels(ci)}(times == -1);
-    amplitude = max(rwm) - baseline;
-    
-    if normalize
-        rwm = (rwm - baseline)./amplitude;
-    end
-    plot(ordertimes(2:end), rwm(2:end), '-', 'Color',colors{ci}, 'LineWidth',lw);
-end
-
-legend(labels(channels));
-
-for ci = 1:numel(channels)
-    for wi = 1:meta.nWells
-        for wpi = 1:meta.posPerCondition
-            rw = ratioWell{channels(ci),wi};
-            
-            baseline = ratioWellMeans{channels(ci)}(times == -1);
-            amplitude = max(ratioWellMeans{channels(ci)}) - baseline;
-            
-            if normalize
-                rw = (rw - baseline)./amplitude;
-            end
-            plot(times(wi), rw, '.', 'MarkerSize',10,...
-                'Color',colors{ci}, 'LineWidth',lw);
-        end
-    end
-end
-
-fs = 15;
-xlabel('time (hours)', 'FontSize',fs,'FontWeight','Bold');
-ylabel(ylabelstr, 'FontSize',fs, 'FontWeight','Bold');
-set(gcf,'color','w');
-set(gca, 'LineWidth', 2);
-set(gca,'FontSize', fs)
-set(gca,'FontWeight', 'bold')
-    
+scatter(XY(:,1) - xmin(fi), XY(:,2) - ymin(fi), 200, '.r');
 hold off
 
-%export_fig(fullfile(dataDir,[ylabelstr '.pdf']),'-native -m2');
-saveas(gcf, fullfile(dataDir,[ylabelstr '.png']));
-saveas(gcf, fullfile(dataDir,[ylabelstr '.fig']));
+%% make distributions
 
-%% distributions at each time
+distChannels = 1:4;
 
-channels = 1:2;
+% load all data  
+allData = {};
+for fi = 1:numel(filelist)
 
-for ci = channels
+    vsifile = fullfile(dataDir, filelist{fi});
+    [~,barefname,~] = fileparts(vsifile);
+    load(fullfile(dataDir,'results', [barefname '_positions.mat']));
+    allData{fi} = P;
+end
+
+% make distributions out of processed data
+stats = cellStats(allData, meta, distChannels);
+tolerance = 0.01;
+nbins = 50;
+stats.makeHistograms(nbins, tolerance);
+
+%% plot distributions
+
+N = numel(distChannels);
+n = ceil(N/4); m = min(N,4);
+margin = 10;
+screensize = get( 0, 'Screensize' );
+h1 = figure;
+h2 = figure('Position', [1, 1, screensize(3), n*(screensize(3)/m + margin/2)]);
+
+% overlay of the distribution of different conditions
+for channelIndex = distChannels
+
+    figure(h1)
+    clf
+    stats.plotDistributionComparison(channelIndex)
+    ylim([0 0.1]);
+
+    filename = ['distOverlay_' meta.channelLabel{channelIndex}];
+    saveas(gcf, fullfile(resultsDir, 'figs', filename));
+    saveas(gcf, fullfile(resultsDir, [filename '.png']));
+
+    clf
+    cumulative = true;
+    stats.plotDistributionComparison(channelIndex, cumulative)
+
+    filename = ['cumdistOverlay_' meta.channelLabel{channelIndex}];
+    saveas(gcf, fullfile(resultsDir, 'figs', filename));
+    saveas(gcf, fullfile(resultsDir, [filename '.png']));
     
-    pi = 1;
+    figure(h2)
+    subplot_tight(n,m, channelIndex, [3 1]*0.05)
+    stats.plotDistributionComparison(channelIndex)
+    ylim([0 0.1]);
+end
 
-    for wi = 1:meta.nWells
+filename = ['distoverlayAll_' stats.channelLabel{distChannels}];
+saveas(figure(h2),fullfile(resultsDir,'figs', filename));
+saveas(figure(h2),fullfile(resultsDir, [filename '.png']));
 
-        ratioWell{ci,wi} = [];
+%% try clustering in 2D
 
-        for wpi = 1:meta.posPerCondition
+k = 2;
+regularizationValue = 10^(-3);
+cutoff = 0.8;
+[y, x] = stats.makeClusters(k, regularizationValue, cutoff);
+% ci1 = 1; ci2 = 2;
+% scatter(x(:,ci1),x(:,ci2),1,y)
 
-            nucl = positions(pi).cellData.nucLevel(:,ci);
-            cytl = positions(pi).cellData.cytLevel(:,ci);
-            bg = positions(pi).cellData.background(ci);
-            ratio = (nucl-bg)./(cytl - bg);
+%% 
 
-            ratioWell{ci,wi} = cat(1,ratioWell{ci,wi}, ratio);
+for ci1 = 1:numel(distChannels)
+    for ci2 = ci1+1:numel(distChannels)
 
-            pi = pi + 1;
+        figure,
+        c1 = distChannels(ci1);
+        c2 = distChannels(ci2);
+        showClusters = true;
+        for conditionIdx = 1:numel(stats.conditions)
+            stats.makeScatterPlot(conditionIdx, [c1 c2], showClusters)
         end
+        title('all data clustered');
+
+        [~,barefname,~] = fileparts(filelist{conditionIdx});
+        filename = ['cluster_' meta.channelLabel{c1} '_' meta.channelLabel{c2}];
+        saveas(gcf, fullfile(resultsDir, 'figs', filename));
+        saveas(gcf, fullfile(resultsDir, [filename '.png']));
+    end
+end
+
+%% if bad manual cluster definition
+
+k = 2;
+ci1 = 2; ci2 = 3;
+stats.makeClustersManual(k, ci1, ci2)
+
+%%
+
+load(fullfile(resultsDir,'stats'),'stats');
+
+%% if good visualize clusters for each condition
+
+N = numel(meta.conditions);
+n = ceil(N/4); m = min(N,4);
+margin = 10;
+screensize = get( 0, 'Screensize' );
+h1 = figure;
+h2 = figure('Position', [1, 1, screensize(3), n*(screensize(3)/m + margin/2)]);
+
+for ci1 = 1:numel(distChannels)
+    for ci2 = ci1+1:numel(distChannels)
+        
+        channelIdx = distChannels([ci1 ci2]);
+        showClusters = false; % SET TO TRUE IF CLUSTERS
+        
+        figure(h2)
+        clf
+        
+        for conditionIdx = 1:numel(stats.conditions)
+
+            figure(h1)
+            clf
+            stats.makeScatterPlot(conditionIdx, channelIdx, showClusters)
+            
+            [~,barefname,~] = fileparts(filelist{conditionIdx});
+            filename = ['cluster_' stats.channelLabel{channelIdx(1)} '_'...
+                        stats.channelLabel{channelIdx(2)} '_' barefname];
+            saveas(gcf, fullfile(resultsDir, 'figs', filename));
+            saveas(gcf, fullfile(resultsDir, [filename '.png']));
+            
+            figure(h2)
+            subplot_tight(n,m, conditionIdx, [2 1]*0.05)
+            stats.makeScatterPlot(conditionIdx, channelIdx, showClusters)
+        end
+        
+        filename = ['clusterAll_' stats.channelLabel{channelIdx(1)} '_'...
+                        stats.channelLabel{channelIdx(2)}];
+        saveas(figure(h2),fullfile(resultsDir,'figs', filename));
+        saveas(figure(h2),fullfile(resultsDir, [filename '.png']));
     end
 end
 
 %%
-ci = 2;
-%x = 0.2:0.1:2.5;   % Smad4
-x = 0.2:0.2:8;      % Smad2
-colors = jet(meta.nWells);
-lw = 2;
-clf 
-hold on
-for wi = 1:meta.nWells
-    n = hist(ratioWell{ci,order(wi)}, x);
-    n = n./sum(n);
-    plot(x,n,'Color',colors(wi,:),'LineWidth',lw)   
+% plot distributions per cluster
+stats.makeClusterHistograms();
+
+for clusterLabel = 1:stats.nClusters
+    for channelIndex = distChannels
+
+        cumulative = false;
+        stats.plotDistributionComparison(channelIndex, cumulative, clusterLabel)
+
+        filename = ['distOverlay_' meta.channelLabel{channelIndex} '_cluster' num2str(clusterLabel)];
+        saveas(gcf, fullfile(resultsDir, 'figs', filename));
+        saveas(gcf, fullfile(resultsDir, [filename '.png']));
+        close;
+
+        cumulative = true;
+        stats.plotDistributionComparison(channelIndex, cumulative, clusterLabel)
+
+        filename = ['cumdistOverlay_' meta.channelLabel{channelIndex} '_cluster' num2str(clusterLabel)];
+        saveas(gcf, fullfile(resultsDir, 'figs', filename));
+        saveas(gcf, fullfile(resultsDir, [filename '.png']));
+        close;
+    end
 end
-hold on
-legend(meta.conditions(order))
-xlim([x(1) x(end)]);
 
-fs = 15;
-xlabel(['nuclear : cytoplasmic ' labels{ci}], 'FontSize',fs,'FontWeight','Bold');
-ylabel('frequency', 'FontSize',fs, 'FontWeight','Bold');
-set(gcf,'color','w');
-set(gca, 'LineWidth', 2);
-set(gca,'FontSize', fs)
-set(gca,'FontWeight', 'bold')
+% summary 
+txtfile = fullfile(resultsDir, ['statsSummary_' meta.channelLabel{dataChannels} '.txt']);
+if exist(txtfile,'file')
+    delete(txtfile);
+end
+diary(txtfile);
+diary on
+stats.printSummary();
+diary off
 
-export_fig(fullfile(dataDir,'Smad2distributions.pdf'),'-native -m2');
+% save stats object
+save(fullfile(resultsDir,['stats_' meta.channelLabel{dataChannels}]),'stats');

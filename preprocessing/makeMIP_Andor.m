@@ -11,7 +11,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
         s = strsplit(meta.filename,'_p');
     end
     barefname = s{1};
-    
+
     % some input checking
     if ~exist('saveidx','var')
         saveidx = false;
@@ -37,15 +37,24 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
     if ~exist('tmax','var')
         tmax = Inf;
     end
+    
+    % deal with the case where z is separated
+    if ~isempty(strfind(filenameFormat,'_z'))
+        fileZmax = meta.nZslices;
+        zslices = {};
+    else
+        fileZmax = 0;
+    end
 
     MIP = {};
     MIPidx = {};
 
     fileTmax = ceil(meta.nTime/meta.tPerFile) - 1;
+    
     for ti = 0:fileTmax
 
         if ti*meta.tPerFile < tmax
-            
+
             if (ti + 1)*meta.tPerFile > tmax
                 tmaxinfile = tmax - ti*meta.tPerFile;
             else
@@ -54,36 +63,44 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
 
             % read the data 
             % (if all time points are in one file there is no _t part)
-            if ~isempty(strfind(filenameFormat,'_w'))
-                if fileTmax > 0 
-                    fname = sprintf(filenameFormat, pi, ti, ci);
+            for zi = 0:fileZmax-1
+
+                if ~isempty(strfind(filenameFormat,'_w'))
+                    if fileTmax > 0 
+                        fname = sprintf(filenameFormat, pi, ti, ci);
+                    else
+                        fname = sprintf(filenameFormat, pi, ci);
+                    end
                 else
-                    fname = sprintf(filenameFormat, pi, ci);
+                    % this is assuming either split z or t, not both
+                    if fileTmax > 0 
+                        fname = sprintf(filenameFormat, pi, ti);
+                    elseif fileZmax > 0
+                        fname = sprintf(filenameFormat, pi, zi);
+                    else
+                        fname = sprintf(filenameFormat, pi);
+                    end
                 end
-            else
-                if fileTmax > 0 
-                    fname = sprintf(filenameFormat, pi, ti);
-                else
-                    fname = sprintf(filenameFormat, pi);
-                end
+
+                tic
+                zslices{zi+1} = readStack(fullfile(inputdir,fname));
+                toc
             end
-            tic
-            stack = readStack(fullfile(inputdir,fname));
-            toc
+            stack = cat(3, zslices{:});
 
             % make MIP
             if strcmp(type,'MIP')
-                
+
                 if ~isempty(strfind(filenameFormat,'_w'))
                     [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,1,1:tmaxinfile),[],3);
                 else
                     [MIP{ti+1},MIPidx{ti+1}] = max(stack(:,:,:,channel+1,1:tmaxinfile),[],3);
                 end
                 MIPidx{ti+1} = uint16(MIPidx{ti+1});
-                
+
             % or SIP
             elseif strcmp(type,'SIP')
-                
+
                 if ~isempty(strfind(filenameFormat,'_w'))
                     MIP{ti+1} = uint16(sum(stack(:,:,:,1,1:tmaxinfile),3));
                 else
@@ -94,7 +111,7 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
             clear stack; 
         end
     end
-
+    
     % combine time series from different files
     MIPtot = cat(5,MIP{:});
     MIPidxtot = cat(5,MIPidx{:});

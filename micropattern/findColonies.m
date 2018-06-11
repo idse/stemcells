@@ -53,8 +53,6 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     end
     
     % determine colony size
-    
- 
     bb = cat(1,stats.BoundingBox);
     bb = bb(goodColIdx,:);
     linsize = max(bb(:,3:4),[],2);
@@ -78,21 +76,20 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     % shift to absolute position
     CM(:,1) = CM(:,1) + double(range(1) - 1);
     CM(:,2) = CM(:,2) + double(range(3) - 1);
-
     
     % note: colRadii here is the radii of individual colonies
     % meta.colRadii contains the small number of possible radii
     
-    colRadii = zeros(size(colType));
+    colRadii = zeros(size(colType)); colRadiiMicron=colRadii;
     colRadii(colType > 0) = colRadiusPixel(colType(colType>0));
+    colRadiiMicron(colType>0) = meta.colRadiiMicron(colType(colType>0))
     % sort by radius
     [colRadii, idx] = sort(cat(1,colRadii),'descend');
     CM = CM(idx,:);
-    % convert to micron
-    colRadiiMicron = colRadii*meta.xres;
+    colRadiiMicron = colRadiiMicron(idx);
     
     % colony ranges (improved bounding box of identical size)
-    colMargin = 10;
+    colMargin = meta.colMargin;
     Rmax = ceil(colRadii) + colMargin;
     colxmin = floor(CM(:,1)) - Rmax;
     colxmax = ceil(colxmin) + 2*Rmax;
