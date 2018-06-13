@@ -1,10 +1,13 @@
-function makeStitchedStack(dataDir, meta, upperleft, wells, margin)
+function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
 
     if ~exist('wells','var')
         wells = 1:meta.nWells;
     end
     if ~exist('margin','var')
         margin = 0;
+    end
+    if ~exist('separatez','var')
+        separatez = false;
     end
     if strfind(meta.filename, '_z')
         zsplit = true;
@@ -19,6 +22,12 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin)
     
     gridSize = meta.montageGridSize;
     
+    if ~separatez
+        fnameformat = 'col_id%d_c%d.tif';
+    else
+        fnameformat = 'col_id%d_c%d_z%.4d.tif';
+    end
+    
     % order to save should be xyczt
     % so it should be possible to not fill up the memory by only reading
     % the required timepoints
@@ -26,16 +35,15 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin)
     if zsplit && ~channelsplit
         
         for ti = 1:meta.nTime
-        
+            
             imgs = {};
             
             for wellnr = wells
 
                 if ti == 1
                     disp(['processing well/colony: ' num2str(wellnr)]);
-                else
-                    fprintf('.');
                 end
+                fprintf('.');
             
                 a = (wellnr-1)*meta.posPerCondition;
                 conditionPositions = a:a+meta.posPerCondition-1;
@@ -44,7 +52,11 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin)
                     
                     for ci = 1:meta.nChannels
                         
-                        outfname = sprintf('col_id%d_c%d.tif', wellnr, ci);
+                        if separatez
+                            outfname = sprintf(fnameformat, wellnr, ci,zi);
+                        else
+                            outfname = sprintf(fnameformat, wellnr, ci);
+                        end
                         
                         for pi = conditionPositions
 
@@ -73,7 +85,9 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin)
                         stitchedp = zeros(stitchedSize-2*margin, 'uint16');
                         stitchedp(1:ymax-margin,1:xmax-margin) = stitched(ymin:ymax,xmin:xmax);
 
-                        if ti==1 && zi==0
+                        if ~separatez && ti==1 && zi==0
+                            imwrite(stitchedp, fullfile(dataDir,outfname));
+                        elseif separatez && ti==1
                             imwrite(stitchedp, fullfile(dataDir,outfname));
                         else
                             imwrite(stitchedp, fullfile(dataDir,outfname), 'WriteMode','Append');
@@ -82,6 +96,7 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin)
                 end
             end
         end
+        fprintf('\n');
         
     else
         

@@ -1,4 +1,4 @@
-function upperleft = stitchedPreviews(dataDir, meta, type, wells, margin)
+function upperleft = stitchedPreviews(dataDir, meta, type, wells, margin, ss)
 
 if ~exist('type', 'var')
 	type = 'MIP';
@@ -16,10 +16,12 @@ pixelOverlap = round(meta.xSize*meta.montageOverlap/100);
 posPerCondition = meta.posPerCondition;
 
 % subsampling factor
-if meta.xSize <= 1024
-    ss = 2;
-else
-    ss = 4;
+if ~exist('ss', 'var')
+    if meta.xSize <= 1024
+        ss = 2;
+    else
+        ss = 4;
+    end
 end
 margin = round(margin/ss);
 
@@ -81,18 +83,19 @@ for wellnr = wells
             small = imfilter(stitched,ones(ss)/ss^2);
             small = small(1:ss:end,1:ss:end);
             if ti == 1
-                Ilim = stretchlim(small);
-                Imin = double(min(small(small>0)));
-                Imax = round(Ilim(2)*(2^16-1));
-            end
-            small = mat2gray(small, [Imin Imax]);
-            small = uint16((2^16-1)*small);
-
-            if ti == 1
                 preview = zeros([size(small) tmax],'uint16');
             end
             preview(1:size(small,1), 1:size(small,2), ti) = small;
         end
+        
+        % set lookup table
+        MIPinTime = max(preview,[],3);              
+        Ilim = stretchlim(MIPinTime);
+        % scale lim back to 16 bit range
+        Imin = double(min(MIPinTime(MIPinTime>0))); 
+        Imax = round(Ilim(2)*(2^16-1));
+        preview = mat2gray(preview, [Imin Imax]);
+        preview = uint16((2^16-1)*preview);
         
         % crop
         preview = preview(1+margin:end-margin, 1+margin:end-margin,:); 
