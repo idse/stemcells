@@ -1,47 +1,17 @@
-function [nucAvgAllNormalized, r] = plotAveragesNoSegmentation(...
-                        datadir, colSize, DAPIChannel, vsinr)
+function [radialAvgNuc, r] = plotAveragesNoSegmentation(...
+                        datadir, colSize, DAPIChannel, filenr, doubleNormalize)
 
-if ~exist('DAPIChannel','var')
-    DAPIChannel = 1;
-end
-if ~exist('vsinr','var')
-    vsinr = [];
-else
-    vsinr = ['_' num2str(vsinr)];
-end
+% doubleNormalize: boolean
+% first normalize by DAPI, then scale all profiles from 0 to 1
 
-load(fullfile(datadir,['colonies' vsinr '.mat']));
+[radialAvgNuc, r] = makeAveragesNoSegmentation(...
+                datadir, colSize, DAPIChannel, filenr, doubleNormalize);
+            
 load(fullfile(datadir,'metaData.mat'));
-
-if ~exist('colSize','var')
-    colSize = colonies(1).radiusMicron;
-end
-
-%restrict to colonies of the correct size
-inds = [colonies.radiusMicron] == colSize;
-colonies = colonies(inds);
-
+            
 chans = 1:length(meta.channelLabel);
 chansToPlot = setdiff(chans,DAPIChannel);
 
-r = imfilter(colonies(1).radialProfile.BinEdges,[1 1]/2)*meta.xres;
-r(1) = colonies(1).radialProfile.BinEdges(1)*meta.xres;
-r = r(1:end-1);
-colCat = cat(3,colonies(:).radialProfile);
-
-nucAvgAll = mean(cat(3,colCat.NucAvg),3);
-
-nucAvgAllNormalized = bsxfun(@rdivide, nucAvgAll, nucAvgAll(:,DAPIChannel));
-
-plot(r, nucAvgAllNormalized(:,chansToPlot),'.-','LineWidth',3)
+plot(r, radialAvgNuc(:,chansToPlot),'.-','LineWidth',3)
+axis([min(r) max(r) 0 max(max(radialAvgNuc(:,chansToPlot)))]);
 legend(meta.channelLabel(chansToPlot));
-axis([min(r) max(r) 0 max(max(nucAvgAllNormalized(:,chansToPlot)))]);
-
-% how normalize cytoplasmic levels?%cytAvgAll = mean(cat(3,colCat.CytAvg),3);
-
-%cytAvgAllNormalized = bsxfun(@rdivide, cytAvgAll, nucAvgAll(:,DAPIChannel));
-
-
-% hold on
-% %plot(r, cytAvgAllNormalized(:,2:4),'--')
-% hold off

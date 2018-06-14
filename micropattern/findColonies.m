@@ -24,6 +24,12 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     maxArea = ceil(2*pi*max(colRadiusPixel).^2);
 
     % try to make solid objects out of colonies
+    if isempty(range)
+        range(1) = 1;
+        range(2) = size(mask,2);
+        range(3) = 1;
+        range(4) = size(mask,1);
+    end
     cleanmask = mask(range(3):range(4),range(1):range(2));
     
     cleanmask = imclose(cleanmask,strel('disk',s));
@@ -70,19 +76,18 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     CM = CM([stats.Eccentricity] < 0.5,:);
     
     %get wells
-     well = welllabel(sub2ind(size(welllabel),floor(CM(:,2)),floor(CM(:,1))));
+    well = welllabel(sub2ind(size(welllabel),floor(CM(:,2)),floor(CM(:,1))));
 
-    
     % shift to absolute position
     CM(:,1) = CM(:,1) + double(range(1) - 1);
     CM(:,2) = CM(:,2) + double(range(3) - 1);
     
     % note: colRadii here is the radii of individual colonies
     % meta.colRadii contains the small number of possible radii
-    
-    colRadii = zeros(size(colType)); colRadiiMicron=colRadii;
+    colRadii = zeros(size(colType)); 
+    colRadiiMicron=colRadii;
     colRadii(colType > 0) = colRadiusPixel(colType(colType>0));
-    colRadiiMicron(colType>0) = meta.colRadiiMicron(colType(colType>0))
+    colRadiiMicron(colType>0) = meta.colRadiiMicron(colType(colType>0));
     % sort by radius
     [colRadii, idx] = sort(cat(1,colRadii),'descend');
     CM = CM(idx,:);
@@ -105,10 +110,10 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     colrange = colrange(contained,:);
     colRadiiMicron = colRadiiMicron(contained);
     nColonies = sum(contained);
-                           
+        
     % array of colony objects
     colonies(nColonies) = Colony;
-    for i = 1:nColonies;
+    for i = 1:nColonies
         % Colony(nChannels, center, radiusPixel, radiusMicron, boundingBox)
         colonies(i) = Colony(meta.nChannels, CM(i,:), colRadii(i),...
                                         colRadiiMicron(i), colrange(i,:),well(i)); 

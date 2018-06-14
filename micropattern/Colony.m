@@ -8,7 +8,8 @@ classdef Colony < Position
     properties
 
         center          % x-y pixel coordinates of center (relative to btf)
-        well % well located in
+        well            % well located in
+        
         % different from cellTracker: 
         %------------------------------
         
@@ -144,6 +145,56 @@ classdef Colony < Position
                     this.radialProfile.NucStdSeg(i,cii) = std(bindata);
                 end
             end
+        end
+        
+        function makeRadialAvgNoSeg(this, colimg, colnucmask, colmargin)
+            
+            % masks for radial averages
+            [radialMaskStack, edges] = makeRadialBinningMasks(...
+                this.radiusPixel, this.radiusMicron, colmargin);
+            % colType is used when multiple size colonies are processed
+            % together, not here
+            colType = 1; 
+            
+            xres = this.radiusMicron / this.radiusPixel;
+            colcytmask = imdilate(colnucmask,strel('disk',round(5/xres)))-colnucmask;
+            
+            % do radial binning
+            N = size(radialMaskStack{colType},3);
+            nucradavg = zeros([N this.nChannels]);
+            nucradstd = zeros([N this.nChannels]);
+            cytradavg = zeros([N this.nChannels]);
+            cytradstd = zeros([N this.nChannels]);
+            
+            % store bin edges, to be reused by segmented profiles later
+            this.radialProfile.BinEdges = edges{colType};
+
+            for ri = 1:N
+                % for some reason linear indexing is faster than binary
+                colnucbinmask = find(radialMaskStack{colType}(:,:,ri) & colnucmask);
+                colcytbinmask = find(radialMaskStack{colType}(:,:,ri) & colcytmask);
+
+                for ci = 1:this.nChannels
+                    
+                    imc = colimg(:,:,ci);
+                    % most primitive background subtraction: minimal value
+                    % within the colony
+                    % min(imc(colmaskClean)) doubles the computatation time
+                    imc = imc - min(imc(:));
+
+                    imcbin = imc(colnucbinmask);
+                    nucradavg(ri,ci) = mean(imcbin);
+                    nucradstd(ri,ci) = std(double(imcbin));
+
+                    imcbin = imc(colcytbinmask);
+                    cytradavg(ri,ci) = mean(imcbin);
+                    cytradstd(ri,ci) = std(double(imcbin));
+                end
+            end
+            this.radialProfile.NucAvg = nucradavg;
+            this.radialProfile.NucStd = nucradstd;
+            this.radialProfile.CytAvg = cytradavg;
+            this.radialProfile.CytStd = cytradstd;
         end
 
         % getter for dependent properties

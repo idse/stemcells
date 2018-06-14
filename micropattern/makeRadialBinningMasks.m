@@ -1,9 +1,13 @@
-function [radialMaskStack, edges] = makeRadialBinningMasks(meta)
+function [radialMaskStack, edges] = makeRadialBinningMasks(...
+                        colRadiiPixel, colRadiiMicron, colMargin)
     % returns a stack of radial masks for radial averaging w/o segmenting
     %
-    % [radialMaskStack, edges] = makeRadialBinningMasks(meta)
+    % [radialMaskStack, edges] = makeRadialBinningMasks(colRadiiPixel, colRadiiMicron, colMargin)
     %
-    % meta:     metadata object
+    % colRadiiPixel, colRadiiMicron, colMargin: properties of meta, passed
+    % so they can also be passed internally in Colony methods (doesn't have
+    % the meta object)
+    %
     % edges:    cell array of bin edges (5 micron apart) for different size
     %           colonies
     % radialMaskStack:  cell array of stacks of radial mask
@@ -15,7 +19,7 @@ function [radialMaskStack, edges] = makeRadialBinningMasks(meta)
     radialMaskStack ={};
     edges = {};
     
-    Rpixel = ceil(meta.colRadiiPixel);
+    Rpixel = ceil(colRadiiPixel);
     
     % I want 5 micron wide bins (~1/2 cell diameter)
     binWidthMicron = 5;
@@ -23,9 +27,9 @@ function [radialMaskStack, edges] = makeRadialBinningMasks(meta)
     for i = 1:numel(Rpixel)
 
         Rcol = Rpixel(i);
-        Rmax = Rcol + meta.colMargin;
+        Rmax = Rcol + colMargin;
 
-        N = meta.colRadiiMicron(i)/binWidthMicron;
+        N = colRadiiMicron(i)/binWidthMicron;
         
         [x,y] = meshgrid(-Rmax:Rmax,-Rmax:Rmax);
         r = sqrt(x.^2 + y.^2);
