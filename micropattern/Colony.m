@@ -63,7 +63,7 @@ classdef Colony < Position
         % saving and loading
         %---------------------------------
 
-        function saveImage(this, img, dataDir, channels)
+        function saveImage(this, img, dataDir, channels, MIP)
             % save image of colony
             %
             % img = saveImage(img, dataDir, channels)
@@ -75,16 +75,31 @@ classdef Colony < Position
             %           will be made for each, if leaving empty a single
             %           stack will be saved with all channels
 
-            if exist('channels', 'var')
+            if ~exist('MIP', 'var')
+                MIP = true;
+            end
+            if MIP
+                img = max(img,[],4);
+            end
+
+            if exist('channels', 'var') || isempty(channels)
                 fname = fullfile(dataDir, [this.bareFilename '_c%d.tif']);
                 for ci = channels
-                    imwrite(img(:,:,ci), sprintf(fname, ci));
+                    imwrite(img(:,:,ci,1), sprintf(fname, ci));
+                    if ~MIP
+                        for zi = 2:size(img, 4)
+                            imwrite(img(:,:,ci,zi), sprintf(fname, ci),'WriteMode','Append');
+                        end
+                    end
                 end
             else
                 fname = fullfile(dataDir, [this.bareFilename '.tif']);
                 imwrite(img(:,:,1), fname);
-                for ci = 2:this.nChannels
-                    imwrite(img(:,:,ci), fname,'WriteMode','Append');
+                for ci = 2:size(img, 3)
+                    imwrite(img(:,:,ci),fname,'WriteMode','Append');
+                    if ~MIP
+                        error('all colors and no MIP is useless?');
+                    end
                 end
             end
         end
@@ -94,6 +109,7 @@ classdef Colony < Position
 
         function makeRadialAvgSeg(this, channels, normChannel, badidx)
             % create radial profile of segmented single cell data 
+            % also calculate moment of inertia as measure of asymmetry
             % 
             % makeRadialAvgSeg()
             %
@@ -126,6 +142,7 @@ classdef Colony < Position
                 XY = this.cellData(ti).XY;
                 XY(:,1) = XY(:,1) - mean(XY(:,1));
                 XY(:,2) = XY(:,2) - mean(XY(:,2));
+                
                 r = sqrt(sum(XY(:,1:2).^2,2));
                 [n,bini] = histc(r, radialProf.BinEdges);
                 nBins = numel(n)-1; % last bin we ignore (see doc histc)
@@ -140,6 +157,7 @@ classdef Colony < Position
                 cyt = ~isempty(this.cellData(ti).cytLevel);
                 
                 for cii = channels
+                    
                     for i = 1:nBins
                         
                         idx = bini == i & ~badidxti;
@@ -185,8 +203,17 @@ classdef Colony < Position
                 this.timeTraces.radAvgNuc{cii} = zeros([this.nTime nBins]);
                 this.timeTraces.radAvgCyt{cii} = zeros([this.nTime nBins]);
                 this.timeTraces.radAvgRatio{cii} = zeros([this.nTime nBins]);
+
+                this.timeTraces.moment{cii} = zeros([this.nTime 2]);
                 
                 for ti = 1:numel(this.cellData)
+                    
+                    % moment
+                    XY = this.cellData(ti).XY - mean(this.cellData(ti).XY);
+                    nucdata = this.cellData(ti).nucLevel(:,cii);
+                    this.timeTraces.moment{cii}(ti,:) = sum(XY.*nucdata)/sum(nucdata);
+
+                    % radial averages
                     this.timeTraces.radAvgNuc{cii}(ti,:) = this.radialProfile(ti).NucAvgSeg(:,cii);
                     this.timeTraces.radAvgCyt{cii}(ti,:) = this.radialProfile(ti).CytAvgSeg(:,cii);
                     this.timeTraces.radAvgRatio{cii}(ti,:) = this.radialProfile(ti).NucCytRatio(:,cii);
@@ -249,31 +276,6 @@ classdef Colony < Position
 %                 end
 %             end
 %         end
-        
-        function calculateMoment(this, channels, normChannel, badidx)
-            % calculate the moment as a measure of asymmetry
-            
-            nucLevel = this.cellData.nucLevel;
-            if exist('normChannel','var')
-                if normChannel ~= 0
-                    nucLevel = nucLevel./this.cellData.nucLevel(:,normChannel);
-                else
-                    nucLevel = nucLevel./this.cellData.cytLevel;
-                end
-            end
-            if exist('badidx','var')
-                nucLevel = nucLevel(~badidx,:);
-            end
-            if ~exist('channels','var')
-                channels = 1:numel(this.dataChannels);
-            end
-            
-            XY = this.cellData.XY(~badidx,:);
-            XY(:,1) = XY(:,1) - mean(XY(:,1));
-            XY(:,2) = XY(:,2) - mean(XY(:,2));
-            
-            XY.*this.cellData.nucLevel(:,1);
-        end
         
         function makeRadialAvgNoSeg(this, colimg, colnucmask, colmargin)
             
