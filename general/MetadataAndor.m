@@ -30,13 +30,27 @@ classdef MetadataAndor < Metadata
         function this = read(this, dataDir)
             
             rawMeta = struct();
+            
+            % get metadata filename
+            listing = dir(fullfile(dataDir,'*.txt'));
+            if isempty(listing)
+               error(['no metadata file found in ' dataDir]);
+            else
+                metafilename = fullfile(dataDir, listing(1).name);
+                % exclude notes.txt file
+                if strfind(metafilename,'notes')
+                    metafilename = fullfile(dataDir, listing(2).name);
+                end
+                disp(['metadata file: ' metafilename]);
+            end 
 
             % get the image filename format
             if ~exist(dataDir, 'dir')
                 error(['data dir does not exist ' dataDir]);
             end
             
-            listing = dir(fullfile(dataDir,'*.tif'));
+            [~,baremetafilename,~] = fileparts(metafilename);
+            listing = dir(fullfile(dataDir,[baremetafilename '*.tif']));
             i = 1;
             
             if ~isempty(listing)
@@ -61,20 +75,8 @@ classdef MetadataAndor < Metadata
                 warning('Could not find image files');
             end
 
-            % open the meta data file
-            listing = dir(fullfile(dataDir,'*.txt'));
-            if isempty(listing)
-               error(['no metadata file found in ' dataDir]);
-            else
-                filename = fullfile(dataDir, listing(1).name);
-                % exclude notes.txt file
-                if strfind(filename,'notes')
-                    filename = fullfile(dataDir, listing(2).name);
-                end
-                disp(['metadata file: ' filename]);
-            end            
-            
-            fid = fopen(filename);
+            % open the meta data file           
+            fid = fopen(metafilename);
 
             if fid == -1
                 error('file not found');

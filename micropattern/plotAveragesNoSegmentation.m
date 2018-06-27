@@ -4,6 +4,10 @@ function [radialAvgNuc, r] = plotAveragesNoSegmentation(...
 % doubleNormalize: boolean
 % first normalize by DAPI, then scale all profiles from 0 to 1
 
+if ~exist('doubleNormalize','var')
+    doubleNormalize = false;
+end
+
 [radialAvgNuc, r] = makeAveragesNoSegmentation(...
                 datadir, colSize, DAPIChannel, filenr, doubleNormalize);
             
