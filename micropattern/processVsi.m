@@ -39,7 +39,6 @@ end
 % manually entered metadata
 %------------------------------
 
-
 if ~metadatadone
     %defaults
     meta.channelLabel = {'DAPI','Cdx2','Sox2','Bra'};

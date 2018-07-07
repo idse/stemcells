@@ -13,7 +13,7 @@ DAPIChannel = 1;
 
 param = {   'colRadiiMicron', colRadius, 'colMargin', 50,...
             'cleanScale', 30, 'adjustmentFactor', 0.15,...
-            'channelLabel',{'DAPI','ISL1','SOX9','PAX6'}};
+            'channelLabel',{'DAPI','ISL1','SOX9','PAX6'} };
 
 for i = 1%:numel(filenrs)
 
@@ -33,11 +33,18 @@ figure,
 doubleNormalize = true;
 [nucAvgAllNormalized, r] = plotAveragesNoSegmentation(meta,...
                             colRadius, DAPIChannel, colonies, doubleNormalize);
+saveas(gcf,fullfile(dataDir,['Process_' num2str(filenrs(i)) '_radialProfiles.png']));
 
 %% look at variability between colonies
 
 plotInterColonyRadialVariability(meta, colonies)
 saveas(gcf,fullfile(dataDir,['Process_' num2str(filenrs(i)) '_variability.png']));
+
+%%
+normalized = true;
+plotInterColonyRadialVariability(meta, colonies, [], normalized)
+saveas(gcf,fullfile(dataDir,['Process_' num2str(filenrs(i)) '_DAPInormalized_variability.png']));
+
 
 %% load colonies and show
 

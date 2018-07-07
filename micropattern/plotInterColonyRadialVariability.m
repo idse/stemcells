@@ -1,16 +1,26 @@
-function plotInterColonyRadialVariability(meta, colonies, permutation)
+function plotInterColonyRadialVariability(meta, colonies, permutation, normalized)
 
 radProfiles = cat(1,colonies.radialProfile);
 radNucProfiles = cat(3, radProfiles.NucAvg);
 r= radProfiles(1).BinEdges(1:end-1);
 
-figure('Position',[0 0 1600 300]);
-m = 1;
-n = 4;
-
-if ~exist('permutation','var')
+if ~exist('normalized','var') 
+    normalized = false;
+    n = 4;
+    labels = meta.channelLabel;
+end
+if normalized
+    n = 3;
+    % make this general when DAPI is not the first channel
+    radNucProfiles = radNucProfiles(:,2:4,:)./radNucProfiles(:,1,:);
+    labels = meta.channelLabel(2:4);
+end
+if ~exist('permutation','var') || isempty(permutation)
     permutation = 1:n;
 end
+
+figure('Position',[0 0 1600 300]);
+m = 1;
 
 for i = 1:n
     subplot(m,n,i);
@@ -19,7 +29,7 @@ for i = 1:n
     plot(r, mean(squeeze(radNucProfiles(:,permutation(i),:)),2),'k','LineWidth',2)
     %plot(r, radialAvgLSM.nucAvg(:,i),'r','LineWidth',2)
     hold off
-    title(meta.channelLabel(i));
+    title(labels(i));
     axis square
 end
 
