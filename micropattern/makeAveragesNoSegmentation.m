@@ -1,5 +1,5 @@
-function [radialAvg, r] = makeAveragesNoSegmentation(...
-                datadir, colSize, DAPIChannel, filenr, doubleNormalize)
+function output = makeAveragesNoSegmentation(...
+                meta, colSize, DAPIChannel, colonies)
 
 % doubleNormalize: boolean
 % first normalize by DAPI, then scale all profiles from 0 to 1
@@ -7,17 +7,6 @@ function [radialAvg, r] = makeAveragesNoSegmentation(...
 if ~exist('DAPIChannel','var')
     DAPIChannel = 1;
 end
-if ~exist('doubleNormalize','var')
-    doubleNormalize = false;
-end
-if ~exist('filenr','var')
-    filenr = [];
-else
-    filenr = ['_' num2str(filenr)];
-end
-
-load(fullfile(datadir,['colonies' filenr '.mat']));
-load(fullfile(datadir,'metaData.mat'));
 
 if ~exist('colSize','var')
     colSize = colonies(1).radiusMicron;
@@ -34,17 +23,16 @@ colCat = cat(3,colonies(:).radialProfile);
 
 nucAvgAll = mean(cat(3,colCat.NucAvg),3);
 nucAvgAllNormalized = bsxfun(@rdivide, nucAvgAll, nucAvgAll(:,DAPIChannel));
-
-if doubleNormalize
     
-    % make a version scaled from 0 to 1
-    norm = max(nucAvgAllNormalized) - min(nucAvgAllNormalized);
-    nucAvgDoubleNormalized = bsxfun(@minus, nucAvgAllNormalized, min(nucAvgAllNormalized));
-    nucAvgDoubleNormalized = bsxfun(@rdivide, nucAvgDoubleNormalized', norm')';
-    
-    radialAvg = nucAvgDoubleNormalized;    
-else
-    radialAvg = nucAvgAllNormalized;
-end
+% make a version scaled from 0 to 1
+norm = max(nucAvgAllNormalized) - min(nucAvgAllNormalized);
+nucAvgDoubleNormalized = bsxfun(@minus, nucAvgAllNormalized, min(nucAvgAllNormalized));
+nucAvgDoubleNormalized = bsxfun(@rdivide, nucAvgDoubleNormalized', norm')';
 
+output = struct('nucAvg', nucAvgAll,...
+                'nucAvgDAPINormalized', nucAvgAllNormalized,...
+                'nucAvgDAPImaxNormalized', nucAvgDoubleNormalized,...
+                'r',r,...
+                'colSize',colSize);
+            
 

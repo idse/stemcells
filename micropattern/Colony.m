@@ -82,7 +82,16 @@ classdef Colony < Position
                 img = max(img,[],4);
             end
 
-            if exist('channels', 'var') || isempty(channels)
+            if ~exist('channels', 'var') || isempty(channels)
+                fname = fullfile(dataDir, [this.bareFilename '.tif']);
+                imwrite(img(:,:,1), fname);
+                for ci = 2:size(img, 3)
+                    imwrite(img(:,:,ci),fname,'WriteMode','Append');
+                    if ~MIP
+                        error('all colors and no MIP is useless?');
+                    end
+                end
+            else
                 fname = fullfile(dataDir, [this.bareFilename '_c%d.tif']);
                 for ci = channels
                     imwrite(img(:,:,ci,1), sprintf(fname, ci));
@@ -90,15 +99,6 @@ classdef Colony < Position
                         for zi = 2:size(img, 4)
                             imwrite(img(:,:,ci,zi), sprintf(fname, ci),'WriteMode','Append');
                         end
-                    end
-                end
-            else
-                fname = fullfile(dataDir, [this.bareFilename '.tif']);
-                imwrite(img(:,:,1), fname);
-                for ci = 2:size(img, 3)
-                    imwrite(img(:,:,ci),fname,'WriteMode','Append');
-                    if ~MIP
-                        error('all colors and no MIP is useless?');
                     end
                 end
             end

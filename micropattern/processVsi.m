@@ -1,4 +1,4 @@
-function processVsi(vsifile,dataDir,varargin)
+function colonies = processVsi(vsifile,dataDir,varargin)
 % Function that takes a vsifile as input and outputs to dataDir.
 % will create a colonies.mat file with the colonies array, a metaData.mat
 % file with variable meta and a directory colonies containing images of
@@ -7,7 +7,7 @@ function processVsi(vsifile,dataDir,varargin)
 %   -channelLabel (default {'DAPI','Cdx2','Sox2','Bra'})
 %   -colRadiiMicron (default [200 500 800 1000]/2 )
 %   -colMargin (default 10)
-%   -DAPI channel - nuclear marker channel. By default looks for DAPI in
+%   -DAPIChannel - nuclear marker channel. By default looks for DAPI in
 %   channel labels
 %   -metaDataFile: can read meta structure from file and skip extracting
 %   from vsi. (Default reads from vsi).
@@ -46,6 +46,7 @@ if ~metadatadone
     meta.colRadiiMicron = [200 500 800 1000]/2;
     meta.colMargin = 10; % margin outside colony to process, in pixels
     s = round(20/meta.xres);
+    adjustmentFactor = [];
     
     %override from inputs
     if isfield(in_struct,'channelLabel')
@@ -63,6 +64,9 @@ if ~metadatadone
     end
     if isfield(in_struct,'cleanScale')
         s = round(in_struct.cleanScale/meta.xres);
+    end
+    if isfield(in_struct,'adjustmentFactor')
+        adjustmentFactor = in_struct.adjustmentFactor;
     end
     
     meta.colRadiiPixel = meta.colRadiiMicron/meta.xres;
@@ -194,7 +198,7 @@ for n = 1:numel(yedge)-1
                 end
                 
                 forIlim = img(x0:xx,y0:yy,ci);
-                t = thresholdMP(forIlim);
+                t = thresholdMP(forIlim, adjustmentFactor);
             end
         end
         mask(ymin:ymax,xmin:xmax) = img(:,:,DAPIChannel) > t;
@@ -202,7 +206,9 @@ for n = 1:numel(yedge)-1
         disp('find colonies');
         tic
         range = [xmin, xmax, ymin, ymax];
+        
         [chunkColonies{chunkIdx}, cleanmask, welllabel] = findColonies(mask, range, meta, s);
+
         toc
         
         disp('merge colonies')
@@ -266,6 +272,26 @@ end
 if ~exist(fullfile(dataDir,'preview'),'dir')
 	mkdir(fullfile(dataDir,'preview'));
 end
+
+maskPreview = imresize(mask, [size(preview,1) size(preview,2)]);
+cleanmaskPreview = imresize(cleanmask, [size(preview,1) size(preview,2)]);
+maskPreviewRGB = cat(3,maskPreview,cleanmaskPreview,0*maskPreview);
+scale = mean(size(mask)./[size(preview,1) size(preview,2)]);
+
+figure,
+imshow(maskPreviewRGB)
+imwrite(maskPreviewRGB, fullfile(dataDir,'preview',['previewMask_' vsinr '.tif']));
+hold on
+for i = 1:numel(colonies)
+    bbox = colonies(i).boundingBox/scale;
+    rec = [bbox(1), bbox(3), bbox(2)-bbox(1), bbox(4)-bbox(3)];
+    rectangle('Position',rec,'LineWidth',2,'EdgeColor','g')
+    text(bbox(1),bbox(3)-25, ['col ' num2str(colonies(i).ID)],'Color','g','FontSize',15);
+end
+hold off
+saveas(gcf, fullfile(dataDir,'preview',['previewSeg_' vsinr '.tif']));
+close;
+
 imwrite(squeeze(preview(:,:,1)),fullfile(dataDir,'preview',['previewDAPI_' vsinr '.tif']));
 imwrite(preview(:,:,2:4),fullfile(dataDir,'preview',['previewRGB_' vsinr '.tif']));
 
