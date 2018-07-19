@@ -259,6 +259,9 @@ for n = 1:numel(yedge)-1
             
             % make radial average
             colonies(coli).makeRadialAvgNoSeg(colimg, colnucmask, meta.colMargin)
+            
+            % calculate moments
+            colonies(coli).calculateMoments(colimg);
         end
         prevNWells = prevNWells+max(max(welllabel));
 
@@ -272,6 +275,17 @@ if ~exist(fullfile(dataDir,'preview'),'dir')
 	mkdir(fullfile(dataDir,'preview'));
 end
 
+% exclude some bad colonies based on moments
+goodcolidx = false([1 numel(colonies)]);
+for coli = 1:numel(colonies)
+	CM = colonies(coli).CM{in_struct.momentChannel};
+    if norm(CM) < in_struct.CMcutoff
+        goodcolidx(coli) = true;
+    end
+end
+colonies = colonies(goodcolidx);
+
+% make overview image of results of this function
 maskPreview = imresize(mask, [size(preview,1) size(preview,2)]);
 cleanmaskPreview = imresize(cleanmask, [size(preview,1) size(preview,2)]);
 maskPreviewRGB = cat(3,maskPreview,cleanmaskPreview,0*maskPreview);

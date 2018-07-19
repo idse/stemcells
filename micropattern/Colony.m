@@ -29,6 +29,9 @@ classdef Colony < Position
                         % assumed to be the same for segmented and
                         % unsegmented
         boundingBox     % [xmin xmax ymin ymax] into btf
+        
+        CM              % center of mass
+        I               % second moments (inertia tensor)
     end
     
     properties (Dependent)
@@ -276,7 +279,7 @@ classdef Colony < Position
 %                 end
 %             end
 %         end
-        
+
         function makeRadialAvgNoSeg(this, colimg, colnucmask, colmargin)
             
             % masks for radial averages
@@ -327,6 +330,44 @@ classdef Colony < Position
             this.radialProfile.CytStd = cytradstd;
         end
 
+        function calculateMoments(this, colimg)%, colnucmask)
+            
+            siz = size(colimg);
+            C = round(siz(1:2)/2);
+            [X,Y] = meshgrid(1:siz(1),1:siz(2));
+            X = X - C(1); Y = Y - C(2);
+
+            this.CM = {};
+            this.I = {};
+            
+            for ci = 1:this.nChannels
+                
+                % for testing
+                %X0 = 200; Y0 = 300; R0 = 20;
+                %M = (X-X0).^2 + (X-X0).*(Y-Y0) + (Y-Y0).^2 < R0^2;
+
+                % background intensity outside colony
+                R = round(this.radiusPixel);
+                mask = X.^2 + Y.^2 < R.^2;
+                
+                M = colimg(:,:,ci);
+                bg = mean(M(~mask));
+                M = double(M).*mask;
+
+                % weight for center of mass
+                Mp = M - bg;
+                W = double(Mp)./sum(Mp(:));
+                this.CM{ci} = [sum(sum(W.*X)) sum(sum(W.*Y))];
+
+                % inertia tensor
+                Xp = X - this.CM{ci}(1);
+                Yp = Y - this.CM{ci}(2);
+                this.I{ci} = [   sum(sum(W.*Xp.*Xp)) sum(sum(W.*Yp.*Xp));
+                        sum(sum(W.*Yp.*Xp)) sum(sum(W.*Yp.*Yp))];
+                %[V,D] = eig(I);
+            end
+        end
+        
         % getter for dependent properties
         %---------------------------------
         

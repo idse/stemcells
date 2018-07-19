@@ -88,6 +88,7 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     colRadiiMicron=colRadii;
     colRadii(colType > 0) = colRadiusPixel(colType(colType>0));
     colRadiiMicron(colType>0) = meta.colRadiiMicron(colType(colType>0));
+    
     % sort by radius
     [colRadii, idx] = sort(cat(1,colRadii),'descend');
     CM = CM(idx,:);

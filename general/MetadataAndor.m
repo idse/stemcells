@@ -229,7 +229,7 @@ classdef MetadataAndor < Metadata
 
             % number of time points per file
             %---------------------------------
-            if isfield(rawMeta,'Time')
+            if isfield(rawMeta,'Time') && exist('filename','var')
 
                 pathstr = fileparts(filename);
 
