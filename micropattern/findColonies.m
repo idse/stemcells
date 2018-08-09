@@ -37,6 +37,9 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     cleanmask = imopen(cleanmask,strel('disk',s));
     cleanmask = bwareaopen(cleanmask,minArea);
     
+    % 180808: get rid of large stuff stuck to colony
+    cleanmask = imopen(cleanmask,strel('disk',4*s));
+    
     %remove the colonies to get the mask of the wells
     wellmask = ~bwareaopen(cleanmask,maxArea);
     

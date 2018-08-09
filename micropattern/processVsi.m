@@ -257,6 +257,10 @@ for n = 1:numel(yedge)-1
             % write DAPI separately for Ilastik
             colonies(coli).saveImage(colimg, colDir, DAPIChannel);
             
+            % subtract background
+            bg = imopen(colimg, strel('disk',15));
+            colimg = colimg - bg;
+            
             % make radial average
             colonies(coli).makeRadialAvgNoSeg(colimg, colnucmask, meta.colMargin)
             

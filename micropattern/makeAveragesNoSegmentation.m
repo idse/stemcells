@@ -22,15 +22,20 @@ r = r(1:end-1);
 colCat = cat(3,colonies(:).radialProfile);
 
 nucAvgAll = mean(cat(3,colCat.NucAvg),3);
-nucAvgAllNormalized = bsxfun(@rdivide, nucAvgAll, nucAvgAll(:,DAPIChannel));
-    
-% make a version scaled from 0 to 1
-norm = max(nucAvgAllNormalized) - min(nucAvgAllNormalized);
-nucAvgDoubleNormalized = bsxfun(@minus, nucAvgAllNormalized, min(nucAvgAllNormalized));
-nucAvgDoubleNormalized = bsxfun(@rdivide, nucAvgDoubleNormalized', norm')';
+if ~isempty(DAPIChannel)
+    nucAvgAllDAPINormalized = bsxfun(@rdivide, nucAvgAll, nucAvgAll(:,DAPIChannel));
+
+    % make a version scaled from 0 to 1
+    norm = max(nucAvgAllDAPINormalized) - min(nucAvgAllDAPINormalized);
+    nucAvgDoubleNormalized = bsxfun(@minus, nucAvgAllDAPINormalized, min(nucAvgAllDAPINormalized));
+    nucAvgDoubleNormalized = bsxfun(@rdivide, nucAvgDoubleNormalized', norm')';
+else
+    nucAvgAllDAPINormalized = [];
+    nucAvgDoubleNormalized = [];
+end
 
 output = struct('nucAvg', nucAvgAll,...
-                'nucAvgDAPINormalized', nucAvgAllNormalized,...
+                'nucAvgDAPINormalized', nucAvgAllDAPINormalized,...
                 'nucAvgDAPImaxNormalized', nucAvgDoubleNormalized,...
                 'r',r,...
                 'colSize',colSize);

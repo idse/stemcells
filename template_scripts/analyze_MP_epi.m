@@ -3,9 +3,11 @@ clear all; close all;
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 warning('off', 'MATLAB:imagesci:tiffmexutils:libtiffWarning');
 
-dataDir = '/Users/idse/data_tmp/0_George/07022018 IWP2 Quants';
-
+dataDir = '/Users/idse/data_tmp/0_George/180702_IWP2 Quants';
 filenrs = [4716 4719 4722 4725 4728 4731];
+
+conditions = strcat({'72','66','60','48','36','24'},'h IWP2');
+
 colRadius = 350;  % in micron
 DAPIChannel = 1;
  
@@ -26,13 +28,13 @@ end
 %% make radial profiles
 
 load(fullfile(dataDir,'metaData.mat'),'meta');
+doubleNormalize = true;
 
 for i = 1:numel(filenrs)
     load(fullfile(dataDir,['colonies_' num2str(filenrs(i))]), 'colonies');
 
     % make mean radial profiles
     figure,
-    doubleNormalize = true;
     [nucAvgAllNormalized, r] = plotAveragesNoSegmentation(meta,...
                                 colRadius, DAPIChannel, colonies, doubleNormalize);
     saveas(gcf,fullfile(dataDir,['Process_' num2str(filenrs(i)) '_radialProfiles.png']));
@@ -48,7 +50,8 @@ end
 
 %% combine means in single plot
 
-conditions = strcat({'72','66','60','48','36','24'},'h IWP2');
+load(fullfile(dataDir,'metaData.mat'),'meta');
+doubleNormalize = true;
 
 for i = 1:numel(filenrs)    
     load(fullfile(dataDir,['colonies_' num2str(filenrs(i))]), 'colonies');
@@ -60,15 +63,66 @@ plotMultipleAveragesNoSegmentation(meta, colRadius, DAPIChannel,...
                                 coloniesCombined, conditions, doubleNormalize)
 saveas(gcf,fullfile(dataDir,'radialProfilesCombined.png'));
 
-%% load colonies and show
+%% load colonies and show side by side
 
-i = filenrs(1);
-load(fullfile(dataDir,['colonies_' num2str(i) '.mat'])); 
+load(fullfile(dataDir,'metaData.mat'),'meta');
 
-coli = 1;
-colDir = fullfile(dataDir,['colonies_' num2str(i)]);
-DAPI = colonies(coli).loadImage(colDir, DAPIChannel);
-imshow(DAPI,[]);
+% representative colonies for each condition
+repcols = [7 4 6 6 7 7; 1 1 1 1 1 1; 12 12 12 12 12 12]'; 
+ci = 1;
+
+figure('Position',[0 0 1600 1000]),
+m = 3;
+n = numel(filenrs);
+
+for j = 1:m
+    for i = 1:n
+
+        ii = (j-1)*n + i;
+
+        load(fullfile(dataDir,['colonies_' num2str(filenrs(i)) '.mat'])); 
+        colDir = fullfile(dataDir,['colonies_' num2str(filenrs(i))]);
+
+        coli = repcols(ii);
+        img = colonies(coli).loadImage(colDir, ci);
+        bg = imopen(img, strel('disk',15));
+        img = img - bg;
+        if j==1 && i == 1
+            Ilim = round(stretchlim(img)*(2^16-1));
+        end
+        subplot_tight(m,n,ii)
+        imshow(img,Ilim);
+        title(conditions{i})
+    end
+end
+saveas(gcf,fullfile(dataDir,['compareColoniesImopenbg_' meta.channelLabel{ci} '.png']));
+
+%% try background subtraction
+
+i = 1;
+load(fullfile(dataDir,['colonies_' num2str(filenrs(i)) '.mat'])); 
+
+coli = 7;
+colDir = fullfile(dataDir,['colonies_' num2str(filenrs(i))]);
+figure,
+im = colonies(coli).loadImage(colDir, 3);
+im = mat2gray(im);
+
+bg = imopen(im,strel('disk',15));
+imshow(im-bg,[])
+
+% sigma = 10;
+% bg = imfilter(im,fspecial('gauss',3*sigma, sigma));
+% bgsub = im-bg;
+% %bgsub(bgsub < 0) = 0;
+% imshow(bgsub,[])
+
+% sigma = 3;
+% bg = imfilter(im,fspecial('log',3*sigma, sigma));
+% imshow(imadjust(mat2gray(im - 100*bg)),[]);
+
+%imshow(imadjust(mat2gray(pixelNorm)),[])
+
 
 %% visualize moments for excluding asymmetric ones
 

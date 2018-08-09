@@ -100,6 +100,9 @@ classdef Position < handle
             if ~exist('channels','var')
                 channels = 1:this.nChannels;
             end
+            if ~exist('time','var')
+                time = 1;
+            end
             
             [~,~,ext] = fileparts(this.filename);
             

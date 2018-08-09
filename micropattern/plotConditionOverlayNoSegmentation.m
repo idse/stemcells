@@ -1,22 +1,25 @@
-function [radialAvgNuc, r] = plotMultipleAveragesNoSegmentation(...
+function [radialAvgNuc, r] = plotConditionOverlayNoSegmentation(...
                         meta, colSize, DAPIChannel, colonies, conditions, doubleNormalize)
 
 % doubleNormalize: boolean
 % first normalize by DAPI, then scale all profiles from 0 to 1 on the same
 % scale
 
+% PAY ATTENTION
+% colonies here is a cell array of arrays, with the cells corresponding to
+% conditions
+
 if ~exist('doubleNormalize','var')
     doubleNormalize = false;
 end
 
-m = 1;
-n = numel(colonies);
+nConditions = numel(colonies);
 radialAvgNuc = {};
 r = {};
 minI = Inf*(1:meta.nChannels);
 maxI = 0*(1:meta.nChannels);
 
-for i = 1:n
+for i = 1:nConditions
     
     radialAvg = makeAveragesNoSegmentation(...
                     meta, colSize, DAPIChannel, colonies{i});
@@ -40,25 +43,32 @@ for i = 1:n
 end
 
 if doubleNormalize
-    for i = 1:n
+    for i = 1:nConditions
         for ci = 1:meta.nChannels
             radialAvgNuc{i}(:,ci) = (radialAvgNuc{i}(:,ci) - minI(ci))/(maxI(ci)-minI(ci));
         end
     end
 end
-            
-for i = 1:n
+
+colors = winter(nConditions);
+
+m = 1;
+for i = 1:meta.nChannels
     
-    subplot_tight(m,n,i,0.02)
-    plot(r{i}, radialAvgNuc{i}(:,chansToPlot),'.-','LineWidth',3)
-    axis([min(r{i}) max(r{i}) 0 1]);
-    legend(meta.channelLabel(chansToPlot));
-    title(conditions{i})
+    subplot_tight(m,meta.nChannels,i,0.02)
+    hold on
+    for j = 1:nConditions
+        plot(r{j}, radialAvgNuc{j}(:,i),'.-','LineWidth',3,'Color',colors(j,:))
+    end
+    hold off
+    axis([min(r{j}) max(r{j}) 0 1]);
+    legend(conditions,'location','southwest');
+    title(meta.channelLabel(i))
     
     axis square
-    if i > 1
-        legend off;
-    end
+%     if i > 1
+%         legend off;
+%     end
 end
 
 end

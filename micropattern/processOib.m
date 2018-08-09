@@ -73,13 +73,20 @@ function colony = processOib(filename, dataDir, varargin)
     mask = nuclei > t;
     
     disp('find colonies');
-    colony = findColonies(mask, [], meta, s);
+    [colony, cleanmask, welllabel] = findColonies(mask, [], meta, s);
     
     disp('process individual colonies')
     b = colony.boundingBox;
     colnucmask = mask(b(3):b(4),b(1):b(2));
     colimg = IP(b(3):b(4),b(1):b(2),:);
     colony.makeRadialAvgNoSeg(colimg, colnucmask, meta.colMargin)
+    
+    disp('save mask');
+    imshow(cat(3,mask,cleanmask,0*mask))
+    bbox = b;
+    rec = [bbox(1), bbox(3), bbox(2)-bbox(1), bbox(4)-bbox(3)];
+    rectangle('Position',rec,'LineWidth',2,'EdgeColor','b')
+    saveas(gcf, fullfile(previewDir,['col_id' num2str(colID) '_mask.tif']));
     
     disp('save preview');
     preview = double(colimg(:,:,setdiff(1:meta.nChannels,DAPIChannel)));
