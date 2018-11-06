@@ -1,5 +1,7 @@
 function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
 
+    % separatez: write different stitched z slices to separate files
+
     if ~exist('wells','var')
         wells = 1:meta.nWells;
     end
@@ -97,7 +99,6 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
             end
         end
         fprintf('\n');
-        
     else
         
         error('implement this case');

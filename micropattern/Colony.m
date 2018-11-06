@@ -30,7 +30,7 @@ classdef Colony < Position
                         % unsegmented
         boundingBox     % [xmin xmax ymin ymax] into btf
         
-        CM              % center of mass
+        %CM              % center of mass -> should use '.center'
         I               % second moments (inertia tensor)
     end
     
@@ -280,7 +280,11 @@ classdef Colony < Position
 %             end
 %         end
 
-        function makeRadialAvgNoSeg(this, colimg, colnucmask, colmargin)
+        function makeRadialAvgNoSeg(this, colimg, colnucmask, colmargin, ti)
+            
+            if ~exist('ti','var')
+                ti = 1;
+            end
             
             % masks for radial averages
             [radialMaskStack, edges] = makeRadialBinningMasks(...
@@ -300,14 +304,21 @@ classdef Colony < Position
             cytradstd = zeros([N this.nChannels]);
             
             % store bin edges, to be reused by segmented profiles later
-            this.radialProfile.BinEdges = edges{colType};
+            this.radialProfile(ti).BinEdges = edges{colType};
+
+            if this.nChannels > size(colimg,3)
+                nChannels = size(colimg,3);
+                warning('img is missing channel');
+            else
+                nChannels = this.nChannels;
+            end
 
             for ri = 1:N
                 % for some reason linear indexing is faster than binary
                 colnucbinmask = find(radialMaskStack{colType}(:,:,ri) & colnucmask);
                 colcytbinmask = find(radialMaskStack{colType}(:,:,ri) & colcytmask);
 
-                for ci = 1:this.nChannels
+                for ci = 1:nChannels
                     
                     imc = colimg(:,:,ci);
                     % most primitive background subtraction: minimal value
@@ -324,10 +335,11 @@ classdef Colony < Position
                     cytradstd(ri,ci) = std(double(imcbin));
                 end
             end
-            this.radialProfile.NucAvg = nucradavg;
-            this.radialProfile.NucStd = nucradstd;
-            this.radialProfile.CytAvg = cytradavg;
-            this.radialProfile.CytStd = cytradstd;
+            
+            this.radialProfile(ti).NucAvg = nucradavg;
+            this.radialProfile(ti).NucStd = nucradstd;
+            this.radialProfile(ti).CytAvg = cytradavg;
+            this.radialProfile(ti).CytStd = cytradstd;
         end
 
         function calculateMoments(this, colimg)%, colnucmask)

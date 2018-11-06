@@ -1,5 +1,8 @@
-function upperleft = stitchedPreviews(dataDir, meta, type, wells, margin, ss)
+function upperleft = stitchedPreviews(dataDir, meta, type, wells, margin, ss, saveStitchFullSize)
 
+if ~exist('saveStitchFullSize','var')
+    saveStitchFullSize = false;
+end
 if ~exist('type', 'var')
 	type = 'MIP';
 end
@@ -7,7 +10,7 @@ if ~exist('margin', 'var')
     margin = 0;
 end
 
-MIPfiles = dir(fullfile(dataDir,'MIP','*MIP_*tif'));
+MIPfiles = dir(fullfile(dataDir,'MIP',['*' type '_*tif']));
 s = strsplit(MIPfiles(1).name,['_' type]);
 barefname = s{1};
 
@@ -23,6 +26,7 @@ if ~exist('ss', 'var')
         ss = 4;
     end
 end
+fullmargin = margin;
 margin = round(margin/ss);
 
 if ~exist('wells','var')
@@ -86,6 +90,24 @@ for wellnr = wells
                 preview = zeros([size(small) tmax],'uint16');
             end
             preview(1:size(small,1), 1:size(small,2), ti) = small;
+            
+            % save fullsize
+            if saveStitchFullSize
+                if ti==1 
+                    fullsize = size(stitched);
+                end
+                fname = sprintf('stitched_well%d_w%.4d.tif',wellnr,ci);
+                
+                tmp = zeros(fullsize,'uint16');
+                idx = min(fullsize, size(stitched));
+                tmp(1:idx(1),1:idx(2)) = stitched(1:idx(1),1:idx(2));
+                tmp = tmp(1+fullmargin:end-fullmargin, 1+fullmargin:end-fullmargin);
+                if ti > 1
+                    imwrite(tmp, fullfile(dataDir, fname),'WriteMode','Append');
+                else
+                    imwrite(tmp, fullfile(dataDir, fname));
+                end
+            end
         end
         
         % set lookup table
