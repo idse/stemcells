@@ -1,4 +1,4 @@
-function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
+function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s, checkcontained)
     % find colonies in binary mask
     %
     % [colonies, cleanmask] = findColonies(mask, range, meta, s)
@@ -14,6 +14,10 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     % ---------------------
     % Idse Heemskerk, 2016
     % ---------------------
+
+    if ~exist('checkcontained','var')
+        checkcontained = true;
+    end
     
     colRadiusPixel = meta.colRadiiPixel;
     
@@ -91,7 +95,7 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     colRadiiMicron=colRadii;
     colRadii(colType > 0) = colRadiusPixel(colType(colType>0));
     colRadiiMicron(colType>0) = meta.colRadiiMicron(colType(colType>0));
-    
+
     % sort by radius
     [colRadii, idx] = sort(cat(1,colRadii),'descend');
     CM = CM(idx,:);
@@ -104,11 +108,18 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s)
     colxmax = ceil(colxmin) + 2*Rmax;
     colymin = floor(CM(:,2)) - Rmax;
     colymax = ceil(colymin) + 2*Rmax;
-    colrange = [colxmin colxmax colymin colymax];
-
+    
     % make that the colonies are completely within range
+    % edit on 1801109: added colMargin back to prevent complet colonies 
+    % close to the image boundary from being thrown out
     contained = (colxmin > range(1)) & (colxmax < range(2)) &...
                                (colymin > range(3)) & (colymax < range(4));
+	if ~checkcontained
+        contained = true;
+    end
+    %colrange = [max(colxmin,range(1)) min(colxmax,range(2)) max(colymin,range(3)) min(colymax,range(4))];
+    colrange = [colxmin colxmax colymin colymax];
+    
     CM = CM(contained,:);
     colRadii = colRadii(contained);
     colrange = colrange(contained,:);

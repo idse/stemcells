@@ -293,6 +293,12 @@ classdef Colony < Position
             % together, not here
             colType = 1; 
             
+            b = this.boundingBox(ti,:);
+            % crop the maskstack if the colony is clipped 
+            % right now only clipped left and top
+            crop = [max(2-b(1),1) b(2) max(-b(3),1) b(4)];
+            radialMaskStack{colType} = radialMaskStack{colType}(crop(3):end,crop(1):end,:);
+            
             xres = this.radiusMicron / this.radiusPixel;
             colcytmask = imdilate(colnucmask,strel('disk',round(5/xres)))-colnucmask;
             
@@ -306,9 +312,11 @@ classdef Colony < Position
             % store bin edges, to be reused by segmented profiles later
             this.radialProfile(ti).BinEdges = edges{colType};
 
-            if this.nChannels > size(colimg,3)
+            if this.nChannels > size(colimg,3) 
                 nChannels = size(colimg,3);
-                warning('img is missing channel');
+                if ti == 1
+                    warning('img is missing channel');
+                end
             else
                 nChannels = this.nChannels;
             end

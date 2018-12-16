@@ -83,7 +83,12 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
                 end
 
                 tic
-                zslices{zi+1} = readStack(fullfile(inputdir,fname));
+                if exist(fullfile(inputdir,fname))
+                    zslices{zi+1} = readStack(fullfile(inputdir,fname));
+                else
+                    warning(['missing' fullfile(inputdir,fname)]);
+                    return;
+                end
                 toc
             end
             stack = cat(3, zslices{:});
@@ -107,43 +112,63 @@ function [MIPtot, MIPidxtot] = makeMIP_Andor(inputdir, position, channel, output
                     MIP{ti+1} = uint16(sum(stack(:,:,:,channel+1,1:tmaxinfile),3));
                 end
                 warning('SIP cast to uint16 bc imwrite doesnt take uint32, should fix this'); 
+            
+            % or zsplit
+            elseif strcmp(type,'zsplit')
+                
+                for zi = 1:size(stack,3)
+                    if ~isempty(strfind(filenameFormat,'_w'))
+                        MIP{ti+1, zi} = stack(:,:,zi,1,1:tmaxinfile);
+                    else
+                        MIP{ti+1, zi} = stack(:,:,zi,channel+1,1:tmaxinfile);
+                    end
+                end
             end
             clear stack; 
         end
     end
     
     % combine time series from different files
-    MIPtot = cat(5,MIP{:});
+    for zi = 1:size(MIP,2) % unless type==zsplit this does nothing
+        MIPtot{zi} = cat(5,MIP{:,zi});
+    end
     MIPidxtot = cat(5,MIPidx{:});
     clear MIP MIPidx;
 
     % save result
     %-------------
 
-    % MIP/SIP
-    fname = fullfile(outputdir, sprintf([barefname '_' type '_p%.4d_w%.4d.tif'],pi,ci));
-    if exist(fname,'file')
-        delete(fname);
-    end
-    % I HAD PROBLEMS WITH BFSAVE
-    %bfsave(MIPtot,fname, 'dimensionOrder', 'XYZCT');
-    MIPtot = squeeze(MIPtot);
-    imwrite(MIPtot(:,:,1), fname);
-    for i = 2:size(MIPtot,3)
-        imwrite(MIPtot(:,:,i), fname,'WriteMode','Append');
-    end
-
-    % MIP index
-    if saveidx
-        fname = fullfile(outputdir, sprintf([barefname '_MIPidx_p%.4d_w%.4d.tif'],pi,ci));
+    for zi = 1:numel(MIPtot) % unless type==zsplit this does nothing
+        
+        % file name
+        if strcmp(type,'zsplit')
+            fname = fullfile(outputdir, sprintf([barefname '_p%.4d_z%.4d_w%.4d.tif'],pi,zi,ci));
+        else
+            fname = fullfile(outputdir, sprintf([barefname '_' type '_p%.4d_w%.4d.tif'],pi,ci));
+        end
         if exist(fname,'file')
             delete(fname);
         end
-        %bfsave(MIPidxtot,fname, 'dimensionOrder', 'XYZCT');
-        MIPidxtot = squeeze(MIPidxtot);
-        imwrite(MIPidxtot(:,:,1), fname);
-        for i = 2:size(MIPidxtot,3)
-            imwrite(MIPidxtot(:,:,i), fname, 'WriteMode','Append');
+        % I HAD PROBLEMS WITH BFSAVE
+        %bfsave(MIPtot,fname, 'dimensionOrder', 'XYZCT');
+        MIPtotFlat = squeeze(MIPtot{zi});
+        imwrite(MIPtotFlat(:,:,1), fname);
+        for i = 2:size(MIPtotFlat,3) % loop over time now
+            imwrite(MIPtotFlat(:,:,i), fname,'WriteMode','Append');
+        end
+
+        % MIP index
+        if saveidx
+            fname = fullfile(outputdir, sprintf([barefname '_MIPidx_p%.4d_w%.4d.tif'],pi,ci));
+            if exist(fname,'file')
+                delete(fname);
+            end
+            %bfsave(MIPidxtot,fname, 'dimensionOrder', 'XYZCT');
+            MIPidxtot = squeeze(MIPidxtot);
+            imwrite(MIPidxtot(:,:,1), fname);
+            for i = 2:size(MIPidxtot,3)
+                imwrite(MIPidxtot(:,:,i), fname, 'WriteMode','Append');
+            end
         end
     end
     

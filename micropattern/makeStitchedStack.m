@@ -34,7 +34,7 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
     % so it should be possible to not fill up the memory by only reading
     % the required timepoints
     
-    if zsplit && ~channelsplit
+    if zsplit && ~channelsplit % this refers to the input files
         
         for ti = 1:meta.nTime
             
@@ -101,6 +101,68 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
         fprintf('\n');
     else
         
+        for ti = 1:meta.nTime
+            
+            imgs = {};
+            
+            for wellnr = wells
+
+                if ti == 1
+                    disp(['processing well/colony: ' num2str(wellnr)]);
+                end
+                fprintf('.');
+            
+                a = (wellnr-1)*meta.posPerCondition;
+                conditionPositions = a:a+meta.posPerCondition-1;
+
+                for zi = 0:meta.nZslices-1
+                    
+                    for ci = 1:meta.nChannels
+                        
+                        if separatez
+                            outfname = sprintf(fnameformat, wellnr, ci,zi);
+                        else
+                            outfname = sprintf(fnameformat, wellnr, ci);
+                        end
+                        
+                        for pi = conditionPositions
+
+                            [i,j] = ind2sub(gridSize,pi - conditionPositions(1) + 1);
+                            fname = fullfile(dataDir, sprintf(meta.filename, pi, zi));
+
+                            % xyct
+                            frameidx = meta.nChannels*(ti - 1) + ci;
+                            imgs{j,i,ci} = imread(fname, frameidx);
+                        end
+                        
+                        %disp(['ti ' num2str(ti) ', zi ' num2str(zi) ', ci ' num2str(ci)]);
+                        stitched = stitchImageGrid(upperleft{wellnr}{ti}, imgs(:,:, ci));
+
+                        % this only works if each frame is the same size
+                        if ti==1 && zi==0 && ci == 1
+                            stitchedSize = size(stitched);
+                        end
+                        
+                        ymin = margin + 1;
+                        ymax = min(size(stitched,1),stitchedSize(1)-margin);
+                        
+                        xmin = margin + 1;
+                        xmax = min(size(stitched,2),stitchedSize(2)-margin);
+                        
+                        stitchedp = zeros(stitchedSize-2*margin, 'uint16');
+                        stitchedp(1:ymax-margin,1:xmax-margin) = stitched(ymin:ymax,xmin:xmax);
+
+                        if ~separatez && ti==1 && zi==0
+                            imwrite(stitchedp, fullfile(dataDir,outfname));
+                        elseif separatez && ti==1
+                            imwrite(stitchedp, fullfile(dataDir,outfname));
+                        else
+                            imwrite(stitchedp, fullfile(dataDir,outfname), 'WriteMode','Append');
+                        end
+                    end
+                end
+            end
+        end
         error('implement this case');
     end
 end
