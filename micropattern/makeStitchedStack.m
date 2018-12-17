@@ -99,7 +99,8 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
             end
         end
         fprintf('\n');
-    else
+    
+    elseif channelsplit && ~ zsplit % WORK IN PROGRESS
         
         for ti = 1:meta.nTime
             
@@ -115,9 +116,9 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
                 a = (wellnr-1)*meta.posPerCondition;
                 conditionPositions = a:a+meta.posPerCondition-1;
 
-                for zi = 0:meta.nZslices-1
+                for ci = 1:meta.nChannels
                     
-                    for ci = 1:meta.nChannels
+                    for zi = 1:meta.nZslices
                         
                         if separatez
                             outfname = sprintf(fnameformat, wellnr, ci,zi);
@@ -128,18 +129,18 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
                         for pi = conditionPositions
 
                             [i,j] = ind2sub(gridSize,pi - conditionPositions(1) + 1);
-                            fname = fullfile(dataDir, sprintf(meta.filename, pi, zi));
+                            fname = fullfile(dataDir, sprintf(meta.filename, pi, ci-1));
 
                             % xyct
-                            frameidx = meta.nChannels*(ti - 1) + ci;
-                            imgs{j,i,ci} = imread(fname, frameidx);
+                            frameidx = meta.nZslices*(ti - 1) + zi;
+                            imgs{j,i,zi} = imread(fname, frameidx);
                         end
                         
                         %disp(['ti ' num2str(ti) ', zi ' num2str(zi) ', ci ' num2str(ci)]);
-                        stitched = stitchImageGrid(upperleft{wellnr}{ti}, imgs(:,:, ci));
+                        stitched = stitchImageGrid(upperleft{wellnr}{ti}, imgs(:,:,zi));
 
                         % this only works if each frame is the same size
-                        if ti==1 && zi==0 && ci == 1
+                        if ti==1 && zi==1 && ci == 1
                             stitchedSize = size(stitched);
                         end
                         
@@ -152,17 +153,20 @@ function makeStitchedStack(dataDir, meta, upperleft, wells, margin, separatez)
                         stitchedp = zeros(stitchedSize-2*margin, 'uint16');
                         stitchedp(1:ymax-margin,1:xmax-margin) = stitched(ymin:ymax,xmin:xmax);
 
-                        if ~separatez && ti==1 && zi==0
-                            imwrite(stitchedp, fullfile(dataDir,outfname));
-                        elseif separatez && ti==1
-                            imwrite(stitchedp, fullfile(dataDir,outfname));
+                        if ~separatez 
+                            warning('implement this case');
                         else
-                            imwrite(stitchedp, fullfile(dataDir,outfname), 'WriteMode','Append');
+                            if ti==1
+                                imwrite(stitchedp, fullfile(dataDir,outfname));
+                            else 
+                                imwrite(stitchedp, fullfile(dataDir,outfname), 'WriteMode','Append');
+                            end
                         end
                     end
                 end
             end
         end
+    else
         error('implement this case');
     end
 end
