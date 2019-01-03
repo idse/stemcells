@@ -63,7 +63,11 @@ for wellnr = wells
                 [i,j] = ind2sub(gridSize, pi - conditionPositions(1) + 1);
 
                 fname = fullfile(dataDir,'MIP',[barefname sprintf(['_' type '_p%.4d_w%.4d.tif'],pi-1,ci-1)]);
-                imgs{j,i} = imread(fname,ti);
+                if exist(fname,'file') % to deal with missing files, just add black image
+                    imgs{j,i} = imread(fname,ti);
+                else
+                    imgs{j,i} = zeros([1024 1024],'uint16'); 
+                end
             end
 
             % stitch together

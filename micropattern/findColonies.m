@@ -1,4 +1,4 @@
-function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s, checkcontained)
+function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, clparameters)
     % find colonies in binary mask
     %
     % [colonies, cleanmask] = findColonies(mask, range, meta, s)
@@ -6,7 +6,10 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s, c
     % mask:         binary image (thresholded DAPI)
     % range:        [xmin xmax ymin ymax] into mask
     % meta:         meta data object
-    % s:            radius of strel for cleaning up, in micron
+    % clparameters: parameter struct for cleaning up mask
+    %               in order of operations:
+    %               sclose: radius of strel for close, in pixel
+    %               sopen: radius of strel for close, in pixel
     %
     % colonies:     array of colony objects
     % cleanmask:    cleaned up binary mask
@@ -15,17 +18,22 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s, c
     % Idse Heemskerk, 2016
     % ---------------------
 
-    if ~exist('checkcontained','var')
-        checkcontained = true;
+    if ~isfield(clparameters,'checkcontained')
+        clparameters.checkcontained = true;
+    end
+    if ~isfield(clparameters,'convhull')
+        clparameters.convhull = false;
     end
     
     colRadiusPixel = meta.colRadiiPixel;
     
+    if ~isfield(clparameters,'minArea') || isempty(clparameters.minArea)
+        clparameters.minArea = floor(pi*min(colRadiusPixel).^2/2);
+    end
+    maxArea = ceil(2*pi*max(colRadiusPixel).^2);
+    
     % clean up mask
     %-----------------------
-
-    minArea = floor(pi*min(colRadiusPixel).^2/2);
-    maxArea = ceil(2*pi*max(colRadiusPixel).^2);
 
     % try to make solid objects out of colonies
     if isempty(range)
@@ -36,13 +44,15 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s, c
     end
     cleanmask = mask(range(3):range(4),range(1):range(2));
     
-    cleanmask = imclose(cleanmask,strel('disk',s));
+    cleanmask = imclose(cleanmask,strel('disk',clparameters.sclose));
     cleanmask = imfill(cleanmask,'holes');
-    cleanmask = imopen(cleanmask,strel('disk',s));
-    cleanmask = bwareaopen(cleanmask,minArea);
-    
-    % 180808: get rid of large stuff stuck to colony
-    cleanmask = imopen(cleanmask,strel('disk',4*s));
+    cleanmask = bwareaopen(cleanmask,clparameters.minArea);
+    cleanmask = imopen(cleanmask,strel('disk',clparameters.sopen));
+    cleanmask = bwareaopen(cleanmask,clparameters.minArea);
+
+    if clparameters.convhull
+        cleanmask = bwconvhull(cleanmask);
+    end
     
     %remove the colonies to get the mask of the wells
     wellmask = ~bwareaopen(cleanmask,maxArea);
@@ -55,14 +65,16 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s, c
     %labelled well image
     welllabel = bwlabel(wellmask);
     
-    
     % find colonies
     %-----------------------
     
     goodColIdx = [stats.Eccentricity] < 0.5;
     nColonies = sum(goodColIdx);
     if nColonies == 0
-        error('no complete colonies found');
+        warning('no complete colonies found');
+        colonies = Colony(meta.nChannels, [NaN NaN], [],...
+                                [], [1 1 1 1]*NaN, []);
+        return;
     end
     
     % determine colony size
@@ -114,7 +126,7 @@ function [colonies, cleanmask, welllabel] = findColonies(mask, range, meta, s, c
     % close to the image boundary from being thrown out
     contained = (colxmin > range(1)) & (colxmax < range(2)) &...
                                (colymin > range(3)) & (colymax < range(4));
-	if ~checkcontained
+	if ~clparameters.checkcontained
         contained = true;
     end
     %colrange = [max(colxmin,range(1)) min(colxmax,range(2)) max(colymin,range(3)) min(colymax,range(4))];

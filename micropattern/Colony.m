@@ -280,7 +280,10 @@ classdef Colony < Position
 %             end
 %         end
 
-        function makeRadialAvgNoSeg(this, colimg, colnucmask, colmargin, ti)
+        function makeRadialAvgNoSeg(this, colimg, colnucmask, colcytmask, colmargin, ti)
+            
+            % makeRadialAvgNoSeg(this, colimg, colnucmask, colcytmask, colmargin, ti)
+            % colcytmask can be left empty
             
             if ~exist('ti','var')
                 ti = 1;
@@ -296,11 +299,22 @@ classdef Colony < Position
             b = this.boundingBox(ti,:);
             % crop the maskstack if the colony is clipped 
             % right now only clipped left and top
-            crop = [max(2-b(1),1) b(2) max(-b(3),1) b(4)];
-            radialMaskStack{colType} = radialMaskStack{colType}(crop(3):end,crop(1):end,:);
             
+            xmin = max(2-b(1),1);
+            xmax = min(b(2), size(colimg,2)) + xmin - 1;
+
+            ymin = max(2-b(3),1);
+            ymax = min(b(4), size(colimg,1)) + ymin - 1;
+
+            radialMaskStack{colType} = radialMaskStack{colType}(ymin:ymax,xmin:xmax,:);
+%             crop = [max(2-b(1),1), min(b(2)-b(1)+1,size(radialMaskStack{colType},2)),...
+%                     max(2-b(3),1), min(b(4)-b(3)+1,size(radialMaskStack{colType},1))];
+%             radialMaskStack{colType} = radialMaskStack{colType}(crop(3):crop(4),crop(1):crop(2),:);
+%             
             xres = this.radiusMicron / this.radiusPixel;
-            colcytmask = imdilate(colnucmask,strel('disk',round(5/xres)))-colnucmask;
+            if isempty(colcytmask)
+                colcytmask = imdilate(colnucmask,strel('disk',round(5/xres)))-colnucmask;
+            end
             
             % do radial binning
             N = size(radialMaskStack{colType},3);
@@ -325,22 +339,31 @@ classdef Colony < Position
                 % for some reason linear indexing is faster than binary
                 colnucbinmask = find(radialMaskStack{colType}(:,:,ri) & colnucmask);
                 colcytbinmask = find(radialMaskStack{colType}(:,:,ri) & colcytmask);
+                
+                % we only want to measure if there is something there
+                npix = sum(sum((colnucmask | colcytmask) & radialMaskStack{colType}(:,:,ri)));
+                npixTot = sum(sum(radialMaskStack{colType}(:,:,ri)));
+                
+                if npix/npixTot > 0.1
 
-                for ci = 1:nChannels
-                    
-                    imc = colimg(:,:,ci);
-                    % most primitive background subtraction: minimal value
-                    % within the colony
-                    % min(imc(colmaskClean)) doubles the computatation time
-                    imc = imc - min(imc(:));
+                    for ci = 1:nChannels
 
-                    imcbin = imc(colnucbinmask);
-                    nucradavg(ri,ci) = mean(imcbin);
-                    nucradstd(ri,ci) = std(double(imcbin));
+                        imc = colimg(:,:,ci);
+                        % most primitive background subtraction: minimal value
+                        % within the colony
+                        % min(imc(colmaskClean)) doubles the computatation time
+                        imc = imc - min(imc(:));
 
-                    imcbin = imc(colcytbinmask);
-                    cytradavg(ri,ci) = mean(imcbin);
-                    cytradstd(ri,ci) = std(double(imcbin));
+                        imcbin = imc(colnucbinmask);
+                        nucradavg(ri,ci) = mean(imcbin);
+                        nucradstd(ri,ci) = std(double(imcbin));
+
+                        imcbin = imc(colcytbinmask);
+                        cytradavg(ri,ci) = mean(imcbin);
+                        cytradstd(ri,ci) = std(double(imcbin));
+                    end
+%                 else
+%                     fprintf('x');
                 end
             end
             
