@@ -8,7 +8,7 @@ function [kymograph, ybins] = makeKymograph(colonies, param)
 
         Ninterp = 100;
         Ntime = numel(colonies(coli).radialProfile);
-        kymograph = zeros([Ntime Ninterp]);
+        kymograph = NaN([Ntime Ninterp]);
         ci = 1;
 
         for ti = 1:Ntime
@@ -33,8 +33,8 @@ function [kymograph, ybins] = makeKymograph(colonies, param)
         end
     end
 
-	kymograph = mean(cat(3,kymographs{:}),3);
-      
+	kymograph = nanmean(cat(3,kymographs{:}),3);
+
     tframe = 1:size(kymograph,1);
     thr = tframe*param.tres/60;
     ybins = linbins;

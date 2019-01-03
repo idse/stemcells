@@ -53,7 +53,7 @@ for coli = dataParam.colonies
             % make masks
             if strcmp(dataParam.dataType, 'SMAD4')                
                 [N, D] = dirtySegMasksSMAD4(cleanmask, mask, segMaskParam);
-            elseif strcmp(dataType, 'BCAT') 
+            elseif strcmp(dataParam.dataType, 'BCAT') 
                 [N, D] = dirtySegMasksBCAT(cleanmask, mask, segMaskParam);
             else
                 error('unknown data type');
@@ -68,11 +68,11 @@ for coli = dataParam.colonies
             colimg = img(b(3):b(4),b(1):b(2),:,:,ti);
 
             % save diagnostic image
-            if ti == 1 || ti == tmax
+            if ti == 1 || ti == dataParam.tmax
                 I = imadjust(mat2gray(colimg));
                 s = 0.2;
                 RGB = cat(3, I + s*N, I + s*D ,I);
-                imwrite(RGB, sprintf(fullfile(dataParam.dataDir,'segmentation_col%d_t%d.tif'),coli,ti),'Compression','none','WriteMode','append');
+                imwrite(RGB, sprintf(fullfile(dataParam.dataDir,'segmentation_col%d_t%d.tif'),coli,ti),'Compression','none');
             end
             
             % make radial profile
@@ -86,7 +86,6 @@ for coli = dataParam.colonies
             end
         end
     end
-toc
 end
 
 end
