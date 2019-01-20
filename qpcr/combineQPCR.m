@@ -1,5 +1,6 @@
 function dataCombined = combineQPCR(dataDir, filenames, tolerance)
     % combineQPCR(dataDir, filenames, tolerance)
+    % tolerance: max std
     
     % SOP : StepOne Plus
     data = {};

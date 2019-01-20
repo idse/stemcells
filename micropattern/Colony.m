@@ -224,61 +224,62 @@ classdef Colony < Position
             end
         end
 
-% old version that was only for static data and no cytoplasmic levels
-%         function makeRadialAvgSeg(this, channels, normChannel, badidx)
-%             % create radial profile of segmented single cell data 
-%             % 
-%             % makeRadialAvgSeg(normChannel, badidx)
-%             %
-%             % populates this.radialProfile.AvgSeg where rows correspond to
-%             % radial bins, and columns to channels
-%             
-%             nucLevel = this.cellData.nucLevel;
-%             if exist('normChannel','var')
-%                 if normChannel ~= 0
-%                     nucLevel = nucLevel./this.cellData.nucLevel(:,normChannel);
-%                 else
-%                     nucLevel = nucLevel./this.cellData.cytLevel;
-%                 end
-%             end
-%             if exist('badidx','var')
-%                 nucLevel = nucLevel(~badidx,:);
-%             end
-%             if ~exist('channels','var')
-%                 channels = 1:numel(this.dataChannels);
-%             end
-%             
-%             XY = this.cellData.XY(~badidx,:);
-%             XY(:,1) = XY(:,1) - mean(XY(:,1));
-%             XY(:,2) = XY(:,2) - mean(XY(:,2));
-%             r = sqrt(sum(XY(:,1:2).^2,2));
-%             
-%             if isfield(this.radialProfile, 'BinEdges')
-%                 binEdges = this.radialProfile.BinEdges;
-%             else
-%                 binWidthMicron = 10; % about two cell widths
-%                 N = this.radiusMicron/binWidthMicron;
-%                 binEdges = sqrt(linspace(0,this.radiusPixel^2,N+1));
-%             end
-%             
-%             [n,bini] = histc(r, binEdges);
-%             nBins = numel(n)-1; % last bin we ignore (see doc histc)
-%             N = numel(channels);
-%             
-%             if ~isfield(this.radialProfile, 'NucAvgSeg')
-%                 this.radialProfile.NucAvgSeg = zeros([nBins N]);
-%                 this.radialProfile.NucStdSeg = zeros([nBins N]);
-%             end
-%             this.radialProfile.BinEdges = binEdges;
-%             
-%             for cii = channels
-%                 for i = 1:nBins
-%                     bindata = nucLevel(bini == i, cii);
-%                     this.radialProfile.NucAvgSeg(i,cii) = mean(bindata);
-%                     this.radialProfile.NucStdSeg(i,cii) = std(bindata);
-%                 end
-%             end
-%         end
+%old version that was only for static data and no cytoplasmic levels
+% USED FOR PAPER SMAD2 ANALYSIS
+        function makeRadialAvgSegOld(this, channels, normChannel, badidx)
+            % create radial profile of segmented single cell data 
+            % 
+            % makeRadialAvgSeg(normChannel, badidx)
+            %
+            % populates this.radialProfile.AvgSeg where rows correspond to
+            % radial bins, and columns to channels
+            
+            nucLevel = this.cellData.nucLevel;
+            if exist('normChannel','var')
+                if normChannel ~= 0
+                    nucLevel = nucLevel./this.cellData.nucLevel(:,normChannel);
+                else
+                    nucLevel = nucLevel./this.cellData.cytLevel;
+                end
+            end
+            if exist('badidx','var')
+                nucLevel = nucLevel(~badidx,:);
+            end
+            if ~exist('channels','var')
+                channels = 1:numel(this.dataChannels);
+            end
+            
+            XY = this.cellData.XY(~badidx,:);
+            XY(:,1) = XY(:,1) - mean(XY(:,1));
+            XY(:,2) = XY(:,2) - mean(XY(:,2));
+            r = sqrt(sum(XY(:,1:2).^2,2));
+            
+            if isfield(this.radialProfile, 'BinEdges')
+                binEdges = this.radialProfile.BinEdges;
+            else
+                binWidthMicron = 10; % about two cell widths
+                N = this.radiusMicron/binWidthMicron;
+                binEdges = sqrt(linspace(0,this.radiusPixel^2,N+1));
+            end
+            
+            [n,bini] = histc(r, binEdges);
+            nBins = numel(n)-1; % last bin we ignore (see doc histc)
+            N = numel(channels);
+            
+            if ~isfield(this.radialProfile, 'NucAvgSeg')
+                this.radialProfile.NucAvgSeg = zeros([nBins N]);
+                this.radialProfile.NucStdSeg = zeros([nBins N]);
+            end
+            this.radialProfile.BinEdges = binEdges;
+            
+            for cii = channels
+                for i = 1:nBins
+                    bindata = nucLevel(bini == i, cii);
+                    this.radialProfile.NucAvgSeg(i,cii) = mean(bindata);
+                    this.radialProfile.NucStdSeg(i,cii) = std(bindata);
+                end
+            end
+        end
 
         function makeRadialAvgNoSeg(this, colimg, colnucmask, colcytmask, colmargin, ti)
             

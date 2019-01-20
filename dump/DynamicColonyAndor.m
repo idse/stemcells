@@ -12,13 +12,13 @@ classdef DynamicColonyAndor < DynamicPositionAndor
         
         radialProfile   % struct with fields
                         % NucAvg    : radial average 
-                        % NucAvgSeg : radial average based on segmentation
+                        % NucAvg : radial average based on segmentation
                         % NucStd    : radial standard deviation
-                        % NucStdSeg  
+                        % NucStd  
                         % CytAvg    : cytoplasmic
-                        % CytAvgSeg 
+                        % CytAvg 
                         % CytStd
-                        % CytStdSeg 
+                        % CytStd 
                         % BinEdges  : radial bin edges in pixels
                         % assumed to be the same for segmented and
                         % unsegmented
@@ -56,8 +56,8 @@ classdef DynamicColonyAndor < DynamicPositionAndor
             % populates this.radialProfile.AvgSeg where rows correspond to
             % radial bins, and columns to channels
             
-            this.radialProfile = struct('BinEdges',[],'NucAvgSeg',[],...
-                'NucStdSeg',[],'CytAvgSeg',[],'CytStdSeg',[],'NucCytRatio',[]);
+            this.radialProfile = struct('BinEdges',[],'NucAvg',[],...
+                'NucStd',[],'CytAvg',[],'CytStd',[],'NucCytRatio',[]);
             
             binWidthMicron = 10; % about two cell widths
             N = this.radiusMicron/binWidthMicron;
@@ -77,10 +77,10 @@ classdef DynamicColonyAndor < DynamicPositionAndor
 
                 nBins = numel(n)-1; % last bin we ignore (see doc histc)
                 N = numel(this.dataChannels);
-                radialProf.NucAvgSeg = zeros([nBins N]);
-                radialProf.NucStdSeg = zeros([nBins N]);
-                radialProf.CytAvgSeg = zeros([nBins N]);
-                radialProf.CytStdSeg = zeros([nBins N]);
+                radialProf.NucAvg = zeros([nBins N]);
+                radialProf.NucStd = zeros([nBins N]);
+                radialProf.CytAvg = zeros([nBins N]);
+                radialProf.CytStd = zeros([nBins N]);
                 radialProf.NucCytRatio = zeros([nBins N]);
 
                 cyt = ~isempty(this.cellData(ti).cytLevel);
@@ -91,14 +91,14 @@ classdef DynamicColonyAndor < DynamicPositionAndor
                         idx = bini == i;
                         nucbindata = this.cellData(ti).nucLevel(idx, cii)...
                                             - this.cellData(ti).background(cii);
-                        radialProf.NucAvgSeg(i,cii) = mean(nucbindata);
-                        radialProf.NucStdSeg(i,cii) = std(nucbindata);
+                        radialProf.NucAvg(i,cii) = mean(nucbindata);
+                        radialProf.NucStd(i,cii) = std(nucbindata);
                         
                         if cyt 
                             cytbindata = this.cellData(ti).cytLevel(idx, cii)...
                                                 - this.cellData(ti).background(cii);
-                            radialProf.CytAvgSeg(i,cii) = mean(cytbindata);
-                            radialProf.CytStdSeg(i,cii) = std(cytbindata);
+                            radialProf.CytAvg(i,cii) = mean(cytbindata);
+                            radialProf.CytStd(i,cii) = std(cytbindata);
                             
                             R = nucbindata./cytbindata;
                             %R(R < 0.3) = [];
@@ -119,8 +119,8 @@ classdef DynamicColonyAndor < DynamicPositionAndor
                 this.timeTraces.radAvgRatio{cii} = zeros([this.nTime nBins]);
                 
                 for ti = 1:numel(this.cellData)
-                    this.timeTraces.radAvgNuc{cii}(ti,:) = this.radialProfile(ti).NucAvgSeg(:,cii);
-                    this.timeTraces.radAvgCyt{cii}(ti,:) = this.radialProfile(ti).CytAvgSeg(:,cii);
+                    this.timeTraces.radAvgNuc{cii}(ti,:) = this.radialProfile(ti).NucAvg(:,cii);
+                    this.timeTraces.radAvgCyt{cii}(ti,:) = this.radialProfile(ti).CytAvg(:,cii);
                     this.timeTraces.radAvgRatio{cii}(ti,:) = this.radialProfile(ti).NucCytRatio(:,cii);
                 end
             end

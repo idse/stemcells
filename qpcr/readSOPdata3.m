@@ -1,4 +1,5 @@
 function data = readSOPdata3(filename, tolerance)
+    % tolerance: max std
 
     fid = fopen(filename,'r','n','UTF-8');
 

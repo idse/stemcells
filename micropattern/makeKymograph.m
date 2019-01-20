@@ -1,17 +1,31 @@
 function [kymograph, ybins] = makeKymograph(colonies, param)
+    %
+    % param : parameter structure with fields
+    %   - xres    : xy resolution
+    %   - tres    : time resolution
+    %   - Irange  : intensity range
+    %   - revbins : reverse bins boolean
+    %   - rescale : rescale Irange from 0 to 1
+    %   - label   : x-axis label
+    %   - trange  : time range
     
     kymographs = {};
 
+    Ninterp = 100;
+    Ntime = numel(colonies(1).radialProfile);
+    ci = 1;
+    
+    if ~isfield(param,'trange')
+        param.trange = [1 Ntime];
+    end
+        
     for coli = 1:numel(colonies)
 
         if ~isempty(colonies(coli).radiusPixel)
 
-        Ninterp = 100;
-        Ntime = numel(colonies(coli).radialProfile);
         kymograph = NaN([Ntime Ninterp]);
-        ci = 1;
 
-        for ti = 1:Ntime
+        for ti = param.trange(1):param.trange(2)
 
             if ~isempty(colonies(coli).radialProfile(ti).NucAvg)
 
@@ -34,6 +48,13 @@ function [kymograph, ybins] = makeKymograph(colonies, param)
     end
 
 	kymograph = nanmean(cat(3,kymographs{:}),3);
+    
+    if param.rescale
+        kymograph(kymograph < param.Irange(1)) = param.Irange(1);
+        kymograph(kymograph > param.Irange(2)) = param.Irange(2);
+        kymograph = (kymograph - min(kymograph(:)))./(max(kymograph(:)) - min(kymograph(:)));
+        param.Irange = [0 1];
+    end
 
     tframe = 1:size(kymograph,1);
     thr = tframe*param.tres/60;
@@ -60,7 +81,7 @@ function [kymograph, ybins] = makeKymograph(colonies, param)
     set(gca,'FontWeight', 'bold')
     set(gca,'Ydir','Normal')
 
-    h = colorbar('Ticks',[0 1]);
+    h = colorbar('Ticks',param.Irange);
     %xticks([0 5 10 15 20]);
     xlabel(h, param.label,'LineWidth', 2, 'FontSize', fs,'FontWeight', 'bold')
     %title('beta-catenin');
