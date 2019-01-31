@@ -4,6 +4,7 @@ addpath(genpath('/Users/idse/repos/Warmflash/stemcells'));
 
 addpath(genpath('/Users/idse/repos/Warmflash/stemcells')); 
 dataDir = '/Users/idse/data_tmp/0_FRAP/';
+dataDir = '/Volumes/IdseData4/0_FRAP/';
 
 FRAPmetadata
 
@@ -96,7 +97,7 @@ results{22}{4}.good = [1 1 1]; % adapted
 results{23}{5}.good = [1 1 1 0]; % LMB adapted
 results{23}{6}.good = [1 1 1]; % LMB adapted
 
-save(fullfile(dataDir, ['FRAPresults' pf '.mat']), 'results');
+%save(fullfile(dataDir, ['FRAPresults' pf '.mat']), 'results');
 
 
 % for i = 1:numel(FRAPdirs)
@@ -200,6 +201,7 @@ end
 
 %% combine nuclear bleach measurements for same condition  
 
+disp('------------');
 pf = '171217c';
 load(fullfile(dataDir, ['FRAPresults' pf '.mat']));
 
@@ -220,9 +222,9 @@ adaptIdx = [3 4; 9 2; 19 3; 21 4; 22 3; 22 4]; % 19 3
 % readout bad right away
 
 %untrIdxLMB = [2 3; 9 6; 9 7; 11 3; 16 3];
-%peakIdxLMB = [9 1; 10 2; 11 2; 13 1; 14 1; 19 1; 21 5; 21 6];% 2 1, but that one recoveres very little and too fast
+%peakIdxLMB = [9 1; 10 2; 11 2; 13 1; 14 1; 19 1; 21 5; 21 6];
 untrIdxLMB = [2 3; 9 6; 9 7; 11 2; 11 3; 16 3];
-peakIdxLMB = [9 1; 10 2; 11 1; 14 1; 21 5;];% 2 1, but that one recoveres very little and too fast
+peakIdxLMB = [9 1; 10 2; 11 1; 14 1; 21 5;];
 % 13 1; garbage trace: too much movement?
 % 19 1; LMB not long enough, recovery too fast, bad cyto
 %  21 6
@@ -242,7 +244,8 @@ ACm = @(Ci, Cb, Cf, B) (Cb - Cf)./(Ci - B);
 BCm = @(Ci, Cb, Cf, B) (Cf - B)./(Ci - B);
 bc  = @(Ci, Cb, Cf, B) (Cb - B)./(Ci - B);
 
-% transformations accounting for microscope
+% optional transformations accounting for microscope
+% not used in the end for the sake of simplicity
 Bcam = 110;
 Bm = 40;
 a = 1; b = (1-a); % a = 0.45 = optimal

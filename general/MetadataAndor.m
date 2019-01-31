@@ -52,7 +52,7 @@ classdef MetadataAndor < Metadata
             [~,baremetafilename,~] = fileparts(metafilename);
             listing = dir(fullfile(dataDir,[baremetafilename '*.tif']));
             i = 1;
-            
+
             if ~isempty(listing)
                 filename = listing(i).name;
                 while ( strcmp(filename(1),'.') || ~isempty(strfind(filename,'Preview')) )...

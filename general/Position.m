@@ -163,7 +163,7 @@ classdef Position < handle
             %
             % by convention use green for foreground in Ilastik
             
-            % for any normal filename this just takes of the extension
+            % for any normal filename this just takes off the extension
             % for a filename format i.e. bla_something_x%.4d_whatever.tif, 
             % it keeps bla_something
 
