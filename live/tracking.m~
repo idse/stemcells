@@ -45,15 +45,9 @@ fprintf('\n');
 
 %% chain together the moves
 
-tracks = {};
-
-for ti = 2
-    
-    for j = 1:size(moves{ti},2)
-        idx = moves{ti+1}(1,:) == moves{ti}(2,j);
-        moves{ti+1}(2,idx);
-    end
-end
+moves{2}
+moves{3}
+%moves{3}(moves{2}(2,:))
 
 %% visualize
 
